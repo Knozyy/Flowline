@@ -16,6 +16,7 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -185,7 +186,11 @@ public class PipeBlockEntity extends BlockEntity {
                     cfg.sleepVersion = version;
                     continue;
                 }
-                moved = type().transfer(level, worldPosition.relative(dir), dir.getOpposite(), cfg, targets);
+                if (cfg.sourceCache == null) {
+                    cfg.sourceCache = BlockCapabilityCache.create(type().capability(), level,
+                            worldPosition.relative(dir), dir.getOpposite());
+                }
+                moved = type().transfer(level, worldPosition.relative(dir), cfg.sourceCache, cfg, targets);
             }
             cfg.interval = moved > 0
                     ? Pacing.afterWork(cfg.interval, cfg.speedCount)

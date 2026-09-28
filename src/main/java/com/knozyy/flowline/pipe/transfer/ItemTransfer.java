@@ -7,7 +7,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 
@@ -18,23 +18,21 @@ public final class ItemTransfer {
     private ItemTransfer() {}
 
     /** @return number of items moved. */
-    public static int run(Level level, BlockPos sourcePos, Direction sourceAccess, SideConfig cfg,
-                          List<Target> targets, int budget) {
-        IItemHandler source = level.getCapability(Capabilities.ItemHandler.BLOCK, sourcePos, sourceAccess);
-        if (source == null) return 0;
+    public static int run(Level level, BlockPos sourcePos, BlockCapabilityCache<?, Direction> sourceCache,
+                          SideConfig cfg, List<Target> targets, int budget) {
+        if (!(sourceCache.getCapability() instanceof IItemHandler source)) return 0;
         int total = 0;
 
         List<IItemHandler> destinations = new ArrayList<>();
         for (Target t : targets) {
-            IItemHandler h = level.getCapability(Capabilities.ItemHandler.BLOCK, t.endpointPos(), t.access());
-            if (h != null && h != source) destinations.add(h);
+            if (t.cache().getCapability() instanceof IItemHandler h && h != source) destinations.add(h);
         }
         if (destinations.isEmpty()) return 0;
 
         for (int slot = 0; slot < source.getSlots() && budget > 0; slot++) {
             ItemStack offered = source.extractItem(slot, budget, true);
             if (offered.isEmpty()) continue;
-            if (!cfg.allowsItem(offered)) continue;
+            if (!cfg.allowsItem(offered, level.registryAccess())) continue;
 
             for (IItemHandler dest : destinations) {
                 ItemStack leftover = ItemHandlerHelper.insertItemStacked(dest, offered, true);

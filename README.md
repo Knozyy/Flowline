@@ -13,8 +13,9 @@ modes, filters, distribution modes and speed upgrades.
 | Speed / Stack / Filter / Knozy Upgrade | Six upgrade slots per Extract side (GUI, or right-click the side). **Speed** lowers the starting interval, **Stack** multiplies the amount per operation, **Filter** adds filter entries, **Knozy** counts as all three. Returned when the side goes back to Insert, dropped when the pipe is broken. |
 
 Every side defaults to **Insert**; sneak-click the side facing your source chest/tank/generator with the wrench to make it **Extract**.
-Extracting sides send to the Insert sides of their pipe network (target lists are cached and rebuilt only when
-the network changes).
+Extracting sides send to the Insert sides of their pipe network. Target lists are cached and rebuilt only when
+the network changes, and every source/target keeps a NeoForge `BlockCapabilityCache`, so an operation does not look
+block entities up again.
 
 ### Pacing (TPS friendly)
 
@@ -22,20 +23,32 @@ Each Extract side runs on an adaptive interval, similar to AE2's tick rate modul
 
 - it starts at **30 ticks** (each Speed upgrade removes 4, never below the minimum),
 - every operation that moves something makes it **2 ticks faster**, down to **5 ticks**,
-- every operation that moves nothing makes it **5 ticks slower**, up to **100 ticks**,
+- every operation that moves nothing **doubles** it (exponential backoff), up to **100 ticks**,
 - a side with **no target at all sleeps** and costs nothing until the pipe network changes,
 - a neighbouring block change (e.g. items arriving in the source chest) wakes it back to its starting interval,
 - sides are staggered so pipes placed together do not all run on the same tick.
 
 The badge in the GUI header shows the amount multiplier and the current interval (hover for details).
 
-The filter (not on energy pipes) holds **9 entries** by default and **9 more per Filter upgrade** (Knozy counts):
-click a slot with an item (or a filled bucket/tank for fluid pipes) to add it, click with an empty hand to clear it.
-With more than 9 entries the grid gets pages (arrows in the panel header, or the mouse wheel). Entries past the
-capacity are kept but ignored until the upgrade is back. **NBT: match** also compares data components.
+### Filter (Pipez style)
+
+Each side (not on energy pipes) has **9 rules** by default and **9 more per Filter upgrade** (Knozy counts). A rule has:
+
+- a **target**: an id (`minecraft:stone`), a **tag** (`#minecraft:logs`, `#c:ores`), or nothing (any item),
+- optional **NBT**: the stack's data components in SNBT, e.g. `{"minecraft:damage":5}` or
+  `{"minecraft:enchantments":{levels:{"minecraft:sharpness":5}}}`; matched as **Contains** (default) or **Exact**,
+- **Allow** or **Block**.
+
+A stack matching any Block rule never passes; if there are Allow rules it must match one of them; with only Block
+rules everything else passes. Fluid pipes use fluid ids and fluid tags.
+
+In the GUI: click a rule slot with an item (or a filled bucket) to add it as a rule, click a rule to open the editor
+(type the target / NBT, toggle Contains/Exact and Allow/Block, or click an inventory item to copy it), right-click
+to remove it. Slots show `#` for tags, a purple corner for NBT and a red bar for Block rules. With more than 9 rules
+the grid gets pages (arrows, page dots, mouse wheel); rules past the capacity are kept but ignored.
 
 Config (`config/flowline-common.toml`): per-operation amounts, Stack multipliers, filter entries
-(`baseFilterSlots` = 9, `filterSlotsPerUpgrade` = 9)
+(`baseFilterSlots` = 9, `filterSlotsPerUpgrade` = 9), `idleBackoffFactor` (2)
 (`[1, 8, 16, 32, 64, 96, 128]` by number of Stack upgrades), every pacing value above, and the max network size.
 
 ## Building

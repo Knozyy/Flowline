@@ -1,6 +1,7 @@
 package com.knozyy.flowline.test;
 
 import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.filter.FilterEntry;
 import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.pipe.Pacing;
 import com.knozyy.flowline.pipe.PipeBlock;
@@ -12,8 +13,10 @@ import com.knozyy.flowline.registry.ModBlocks;
 import com.knozyy.flowline.registry.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -23,6 +26,7 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * In-world tests, run headless by {@code ./gradlew runGameTestServer} (and in CI). They assume the default config.
@@ -57,6 +61,14 @@ public class PipeGameTests {
         for (UpgradeType type : types) pipe.installUpgrade(Direction.WEST, upgrade(type));
     }
 
+    private static FilterEntry allow(String target) {
+        return new FilterEntry(target, Optional.empty(), false, false);
+    }
+
+    private static FilterEntry block(String target) {
+        return new FilterEntry(target, Optional.empty(), false, true);
+    }
+
     private static ChestBlockEntity chest(GameTestHelper helper, BlockPos pos) {
         return helper.getBlockEntity(pos);
     }
@@ -83,8 +95,7 @@ public class PipeGameTests {
         PipeBlockEntity pipe = line(helper, 1);
         install(pipe, UpgradeType.STACK);
         SideConfig cfg = pipe.side(Direction.WEST);
-        cfg.whitelist = true;
-        cfg.filter.add(new ItemStack(Items.DIAMOND));
+        cfg.setEntry(0, allow("minecraft:diamond"));
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 8));
         chest(helper, SOURCE).setItem(1, new ItemStack(Items.DIAMOND, 8));
 
@@ -103,8 +114,7 @@ public class PipeGameTests {
         PipeBlockEntity pipe = line(helper, 1);
         install(pipe, UpgradeType.STACK);
         SideConfig cfg = pipe.side(Direction.WEST);
-        cfg.whitelist = false;
-        cfg.filter.add(new ItemStack(Items.DIRT));
+        cfg.setEntry(0, block("minecraft:dirt"));
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 8));
         chest(helper, SOURCE).setItem(1, new ItemStack(Items.DIAMOND, 8));
 
@@ -120,8 +130,7 @@ public class PipeGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 200)
     public static void filterWorksWithoutUpgrades(GameTestHelper helper) {
         SideConfig cfg = line(helper, 1).side(Direction.WEST);
-        cfg.whitelist = true;
-        cfg.filter.add(new ItemStack(Items.DIAMOND));
+        cfg.setEntry(0, allow("minecraft:diamond"));
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 4));
         chest(helper, SOURCE).setItem(1, new ItemStack(Items.DIAMOND, 1));
 
@@ -130,6 +139,46 @@ public class PipeGameTests {
                 .thenExecute(() -> {
                     helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 1, "the diamond should be moved");
                     helper.assertTrue(count(helper, target(1), Items.DIRT) == 0, "dirt must not be moved");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 200)
+    public static void tagRuleMatchesTagMembers(GameTestHelper helper) {
+        PipeBlockEntity pipe = line(helper, 1);
+        install(pipe, UpgradeType.STACK);
+        pipe.side(Direction.WEST).setEntry(0, allow("#minecraft:logs"));
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 4));
+        chest(helper, SOURCE).setItem(1, new ItemStack(Items.OAK_LOG, 4));
+        chest(helper, SOURCE).setItem(2, new ItemStack(Items.BIRCH_LOG, 4));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(count(helper, target(1), Items.OAK_LOG) == 4
+                        && count(helper, target(1), Items.BIRCH_LOG) == 4, "every log should move"))
+                .thenExecute(() -> helper.assertTrue(count(helper, target(1), Items.DIRT) == 0,
+                        "dirt is not in #minecraft:logs"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void nbtRuleMatchesComponents(GameTestHelper helper) {
+        SideConfig cfg = line(helper, 1).side(Direction.WEST);
+        CompoundTag damaged = new CompoundTag();
+        damaged.putInt("minecraft:damage", 5);
+        cfg.setEntry(0, new FilterEntry("minecraft:diamond_sword", Optional.of(damaged), false, false));
+        ItemStack worn = new ItemStack(Items.DIAMOND_SWORD);
+        worn.set(DataComponents.DAMAGE, 5);
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND_SWORD));
+        chest(helper, SOURCE).setItem(1, worn);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(count(helper, target(1), Items.DIAMOND_SWORD) == 1,
+                        "the damaged sword should move"))
+                .thenIdle(80)
+                .thenExecute(() -> {
+                    helper.assertTrue(count(helper, target(1), Items.DIAMOND_SWORD) == 1, "the new sword must stay");
+                    helper.assertTrue(chest(helper, target(1)).getItem(0).getDamageValue() == 5,
+                            "the moved sword is the damaged one");
                 })
                 .thenSucceed();
     }
@@ -220,8 +269,7 @@ public class PipeGameTests {
         PipeBlockEntity pipe = line(helper, 1);
         install(pipe, UpgradeType.STACK);
         SideConfig cfg = pipe.side(Direction.WEST);
-        cfg.whitelist = true;
-        cfg.setSample(9, new ItemStack(Items.DIAMOND));   // the 10th entry: only usable with a Filter upgrade
+        cfg.setEntry(9, allow("minecraft:diamond"));   // the 10th entry: only usable with a Filter upgrade
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 4));
         chest(helper, SOURCE).setItem(1, new ItemStack(Items.DIAMOND, 4));
 

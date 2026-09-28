@@ -32,8 +32,8 @@ public final class FlowlineConfig {
     static {
         BUILDER.pop();
         BUILDER.comment("Adaptive operation interval (ticks). A side starts at startInterval, speeds up by",
-                "accelerationStep after each operation that moved something (down to minInterval) and slows",
-                "down by slowdownStep after each one that moved nothing (up to maxIdleInterval).",
+                "accelerationStep after each operation that moved something (down to minInterval) and backs off",
+                "exponentially (x idleBackoffFactor) after each one that moved nothing (up to maxIdleInterval).",
                 "Sides without any target sleep until the pipe network changes.").push("pacing");
     }
 
@@ -53,8 +53,9 @@ public final class FlowlineConfig {
     public static final ModConfigSpec.IntValue ACCELERATION_STEP = BUILDER
             .defineInRange("accelerationStep", 2, 0, 1200);
 
-    public static final ModConfigSpec.IntValue SLOWDOWN_STEP = BUILDER
-            .defineInRange("slowdownStep", 5, 0, 1200);
+    public static final ModConfigSpec.DoubleValue IDLE_BACKOFF_FACTOR = BUILDER
+            .comment("Multiplier on the interval after an operation that moved nothing (2 = double it).")
+            .defineInRange("idleBackoffFactor", 2.0, 1.0, 16.0);
 
     static {
         BUILDER.pop();

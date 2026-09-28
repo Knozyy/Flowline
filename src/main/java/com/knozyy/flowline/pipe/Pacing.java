@@ -7,8 +7,8 @@ import java.util.List;
 /**
  * Adaptive operation interval of an extracting side, in the spirit of AE2's tick rate modulation: a side starts at
  * {@link #start}, gets faster by {@code accelerationStep} after every operation that moved something (down to
- * {@link #min}), and slower by {@code slowdownStep} after every operation that moved nothing (up to
- * {@code maxIdleInterval}). All values come from the config and are read on every call.
+ * {@link #min}), and backs off exponentially after every operation that moved nothing (x {@code idleBackoffFactor},
+ * up to {@code maxIdleInterval}). All values come from the config and are read on every call.
  */
 public final class Pacing {
     private Pacing() {}
@@ -34,9 +34,10 @@ public final class Pacing {
         return Math.max(min(), interval - FlowlineConfig.ACCELERATION_STEP.get());
     }
 
-    /** Next interval after an operation that moved nothing. */
+    /** Next interval after an operation that moved nothing: exponential backoff, at least one tick longer. */
     public static int afterIdle(int interval, int speedCount) {
-        return Math.min(maxIdle(speedCount), interval + FlowlineConfig.SLOWDOWN_STEP.get());
+        int next = (int) Math.ceil(interval * FlowlineConfig.IDLE_BACKOFF_FACTOR.get());
+        return Math.min(maxIdle(speedCount), Math.max(interval + 1, next));
     }
 
     /** Multiplier on the per-operation amount for {@code stackCount} Stack upgrades. */

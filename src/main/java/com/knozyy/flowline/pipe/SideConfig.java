@@ -1,13 +1,18 @@
 package com.knozyy.flowline.pipe;
 
 import com.knozyy.flowline.FlowlineConfig;
+import com.knozyy.flowline.filter.CompiledFilter;
+import com.knozyy.flowline.filter.FilterEntry;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
+import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidUtil;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,15 +27,14 @@ public class SideConfig {
     public SideMode mode = SideMode.INSERT;
     public Distribution distribution = Distribution.NEAREST;
     public RedstoneMode redstone = RedstoneMode.IGNORED;
-    public boolean whitelist = false;
-    /** Also compare data components (NBT): enchantments, damage, custom names, fluid data... */
-    public boolean matchComponents = false;
     /**
-     * Filter samples by position, one item each; empty stacks are holes. Item pipes compare the item itself; fluid
-     * pipes compare the fluid contained in the sample (a bucket or any other fluid container). Only the first
-     * {@link #filterCapacity()} positions are active, so entries past it survive removing a Filter upgrade.
+     * Filter rules by position; null entries are holes. Only the first {@link #filterCapacity()} positions are
+     * active, so rules past it survive removing a Filter upgrade. Change them through {@link #setEntry}.
      */
-    public final List<ItemStack> filter = new ArrayList<>();
+    private final List<FilterEntry> filter = new ArrayList<>();
+    /** Resolved form of the active rules; rebuilt lazily after edits or capacity changes. */
+    private CompiledFilter compiled = null;
+    private int compiledCapacity = -1;
     /** Rotating cursor for {@link Distribution#ROUND_ROBIN}. Not persisted. */
     public int roundRobin = 0;
 
@@ -50,6 +54,8 @@ public class SideConfig {
     /** Insert sides reachable from this side, in base order; rebuilt when the network version changes. */
     public List<PipeNetwork.Target> cachedTargets = null;
     public long cachedVersion = -1;
+    /** Capability cache of the block this side extracts from; NeoForge invalidates it when that block changes. */
+    public BlockCapabilityCache<?, Direction> sourceCache = null;
 
     /** Forget pacing and cached targets, e.g. when the side stops extracting. */
     public void resetRuntime() {
@@ -57,6 +63,7 @@ public class SideConfig {
         cooldown = 0;
         sleeping = false;
         cachedTargets = null;
+        sourceCache = null;
     }
 
     /** Leave sleep and run again soon, at the starting interval at the latest. */
@@ -79,67 +86,37 @@ public class SideConfig {
         return filterCapacity(filterCount);
     }
 
-    public ItemStack getSample(int index) {
-        return index < filter.size() ? filter.get(index) : ItemStack.EMPTY;
+    @Nullable
+    public FilterEntry getEntry(int index) {
+        return index < filter.size() ? filter.get(index) : null;
     }
 
-    public void setSample(int index, ItemStack sample) {
-        while (filter.size() <= index) filter.add(ItemStack.EMPTY);
-        filter.set(index, sample);
+    public void setEntry(int index, @Nullable FilterEntry entry) {
+        while (filter.size() <= index) filter.add(null);
+        filter.set(index, entry);
+        compiled = null;
     }
 
-    /** The non-empty samples within the current capacity. */
-    private List<ItemStack> activeSamples() {
-        List<ItemStack> active = new ArrayList<>();
-        int end = Math.min(filter.size(), filterCapacity());
-        for (int i = 0; i < end; i++) {
-            if (!filter.get(i).isEmpty()) active.add(filter.get(i));
+    public void clearFilter() {
+        filter.clear();
+        compiled = null;
+    }
+
+    private CompiledFilter compiled() {
+        int capacity = filterCapacity();
+        if (compiled == null || compiledCapacity != capacity) {
+            compiled = CompiledFilter.compile(filter.subList(0, Math.min(filter.size(), capacity)));
+            compiledCapacity = capacity;
         }
-        return active;
+        return compiled;
     }
 
-    /** Filters without active entries allow everything, in both whitelist and blacklist mode. */
-    public boolean allowsItem(ItemStack stack) {
-        List<ItemStack> samples = activeSamples();
-        if (samples.isEmpty()) return true;
-        boolean listed = false;
-        for (ItemStack sample : samples) {
-            if (matchComponents ? ItemStack.isSameItemSameComponents(sample, stack) : ItemStack.isSameItem(sample, stack)) {
-                listed = true;
-                break;
-            }
-        }
-        return whitelist == listed;
+    public boolean allowsItem(ItemStack stack, HolderLookup.Provider registries) {
+        return compiled().allowsItem(stack, registries);
     }
 
-    public boolean allowsFluid(FluidStack fluid) {
-        List<ItemStack> samples = activeSamples();
-        if (samples.isEmpty()) return true;
-        boolean listed = false;
-        for (ItemStack sample : samples) {
-            FluidStack sampleFluid = fluidOf(sample);
-            if (sampleFluid.isEmpty()) continue;
-            if (matchComponents ? FluidStack.isSameFluidSameComponents(sampleFluid, fluid)
-                    : FluidStack.isSameFluid(sampleFluid, fluid)) {
-                listed = true;
-                break;
-            }
-        }
-        return whitelist == listed;
-    }
-
-    public static FluidStack fluidOf(ItemStack container) {
-        return FluidUtil.getFluidContained(container).orElse(FluidStack.EMPTY);
-    }
-
-    /** Whether {@code stack} can be used as a filter sample for pipes of {@code type}. */
-    public static boolean isValidSample(PipeType type, ItemStack stack) {
-        if (stack.isEmpty()) return false;
-        return switch (type) {
-            case ITEM -> true;
-            case FLUID -> !fluidOf(stack).isEmpty();
-            case ENERGY -> false;
-        };
+    public boolean allowsFluid(FluidStack fluid, HolderLookup.Provider registries) {
+        return compiled().allowsFluid(fluid, registries);
     }
 
     // ---- persistence --------------------------------------------------------------------------------------
@@ -149,15 +126,17 @@ public class SideConfig {
         tag.putString("mode", mode.name());
         tag.putString("distribution", distribution.name());
         tag.putString("redstone", redstone.name());
-        tag.putBoolean("whitelist", whitelist);
-        tag.putBoolean("match_components", matchComponents);
         ListTag list = new ListTag();
         for (int i = 0; i < filter.size(); i++) {
-            if (filter.get(i).isEmpty()) continue;
-            CompoundTag entry = new CompoundTag();
-            entry.putInt("slot", i);
-            entry.put("item", filter.get(i).save(registries));
-            list.add(entry);
+            FilterEntry rule = filter.get(i);
+            if (rule == null) continue;
+            int slot = i;
+            FilterEntry.CODEC.encodeStart(NbtOps.INSTANCE, rule).result().ifPresent(encoded -> {
+                CompoundTag entry = new CompoundTag();
+                entry.putInt("slot", slot);
+                entry.put("rule", encoded);
+                list.add(entry);
+            });
         }
         tag.put("filter", list);
         return tag;
@@ -167,15 +146,12 @@ public class SideConfig {
         mode = SideMode.byName(tag.getString("mode"));
         distribution = Distribution.byName(tag.getString("distribution"));
         redstone = RedstoneMode.byName(tag.getString("redstone"));
-        whitelist = tag.getBoolean("whitelist");
-        matchComponents = tag.getBoolean("match_components");
-        filter.clear();
+        clearFilter();
         for (Tag t : tag.getList("filter", Tag.TAG_COMPOUND)) {
             CompoundTag entry = (CompoundTag) t;
             int slot = entry.getInt("slot");
-            ItemStack.parse(registries, entry.getCompound("item"))
-                    .filter(stack -> !stack.isEmpty())
-                    .ifPresent(stack -> setSample(slot, stack));
+            FilterEntry.CODEC.parse(NbtOps.INSTANCE, entry.get("rule")).result()
+                    .ifPresent(rule -> setEntry(slot, rule));
         }
     }
 }
