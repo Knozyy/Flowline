@@ -1,5 +1,6 @@
 package com.knozyy.flowline.pipe;
 
+import com.knozyy.flowline.FlowlineConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -16,9 +17,6 @@ import java.util.Set;
 
 /** Stateless graph search over connected pipes. Networks are recomputed on every transfer. */
 public final class PipeNetwork {
-    /** Hard cap so a huge network cannot stall the server thread. */
-    public static final int MAX_PIPES = 512;
-
     private static final Random RANDOM = new Random();
 
     private PipeNetwork() {}
@@ -41,11 +39,12 @@ public final class PipeNetwork {
         Set<BlockPos> visited = new HashSet<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
         ArrayDeque<Integer> depth = new ArrayDeque<>();
+        int maxPipes = FlowlineConfig.MAX_NETWORK_SIZE.get();
         queue.add(origin);
         depth.add(0);
         visited.add(origin);
 
-        while (!queue.isEmpty() && visited.size() <= MAX_PIPES) {
+        while (!queue.isEmpty() && visited.size() <= maxPipes) {
             BlockPos pos = queue.poll();
             int dist = depth.poll();
             BlockState state = level.getBlockState(pos);

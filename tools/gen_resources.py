@@ -46,36 +46,114 @@ def shade(c, f):
 
 
 # ---------------------------------------------------------------- textures
-for name, base in TYPES.items():
+def noise(x, y, seed):
+    h = (x * 73856093) ^ (y * 19349663) ^ (seed * 83492791)
+    h = (h ^ (h >> 13)) * 1274126177
+    return ((h ^ (h >> 16)) & 0xFF) / 255.0
+
+
+for idx, (name, base) in enumerate(TYPES.items()):
     rows = []
     for y in range(16):
         row = []
         for x in range(16):
-            edge = x in (0, 15) or y in (0, 15)
-            stripe = (x + y) % 8 == 0
-            row.append(shade(base, 0.6 if edge else (1.15 if stripe else 1.0)))
+            f = 0.92 + 0.16 * noise(x, y, idx + 1)
+            if x in (0, 15) or y in (0, 15):
+                f = 0.62
+            elif x in (1, 14) or y in (1, 14):
+                f *= 1.12
+            if (x, y) in ((5, 5), (10, 5), (5, 10), (10, 10)):
+                f = 0.55          # rivets
+            elif (x, y) in ((4, 4), (9, 4), (4, 9), (9, 9)):
+                f = 1.3           # rivet highlights
+            row.append(shade(base, f))
         rows.append(row)
     write_png(f"assets/{MODID}/textures/block/{name}_pipe.png", rows)
 
-
-def icon(fn):
-    return [[fn(x, y) for x in range(16)] for y in range(16)]
+GREY = (0xB4, 0xB4, 0xBC)
 
 
-T = (0, 0, 0, 0)
-GREY = (0x9A, 0x9A, 0xA0, 255)
-DARK = (0x55, 0x55, 0x5C, 255)
-BROWN = (0x7A, 0x52, 0x2E, 255)
+def ascii_icon(art, palette):
+    """art: 16 strings; '.' is transparent. A dark outline is added around opaque pixels."""
+    grid = [[palette[ch] if ch != "." else None for ch in row.ljust(16, ".")[:16]] for row in art]
+    out = [[(0, 0, 0, 0)] * 16 for _ in range(16)]
+    for y in range(16):
+        for x in range(16):
+            c = grid[y][x]
+            if c is not None:
+                # light from the top-left: brighten pixels whose upper/left neighbour is empty
+                up = grid[y - 1][x] if y > 0 else None
+                left = grid[y][x - 1] if x > 0 else None
+                f = 1.2 if (up is None or left is None) else 1.0
+                out[y][x] = shade(c, f)
+                continue
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < 16 and 0 <= ny < 16 and grid[ny][nx] is not None:
+                    out[y][x] = (0x22, 0x22, 0x26, 255)
+                    break
+    return out
 
-# wrench: diagonal handle with a C-shaped head
-write_png(f"assets/{MODID}/textures/item/wrench.png", icon(
-    lambda x, y: GREY if (abs(x - (15 - y)) <= 1 and 4 <= y <= 14) or (y <= 5 and 9 <= x <= 14 and not (y in (2, 3) and x in (11, 12))) else T))
-# filter: funnel
-write_png(f"assets/{MODID}/textures/item/filter.png", icon(
-    lambda x, y: GREY if (2 <= y <= 7 and (2 + (y - 2) * 0.0) <= x <= 13 - (y - 2) * 0.0 and 3 + (y - 2) <= x <= 12 - (y - 2)) or (8 <= y <= 13 and 7 <= x <= 8) else T))
-for tier, col in ((1, (0xC0, 0xC0, 0xC8)), (2, (0xE6, 0xC2, 0x3A)), (3, (0x4A, 0xE0, 0xE6))):
-    write_png(f"assets/{MODID}/textures/item/speed_upgrade_{tier}.png", icon(
-        lambda x, y, c=col, t=tier: shade(c, 1.0) if (2 <= x <= 13 and 2 <= y <= 13 and not (x in (2, 13) or y in (2, 13)) and (y - 2) // 3 < t + 1 and (y % 3) != 0 or (2 <= x <= 13 and y in (2, 13)) or (x in (2, 13) and 2 <= y <= 13)) else T))
+
+WRENCH = [
+    "................",
+    "..........XXX...",
+    ".........XXXXX..",
+    ".........XXX.XX.",
+    ".........XX..XX.",
+    ".........XXX.XX.",
+    "..........XXXX..",
+    ".........XXXXX..",
+    "........XXXXX...",
+    ".......XXXXX....",
+    "......HHHHH.....",
+    ".....HHHHH......",
+    "....HHHHH.......",
+    "...HHHHH........",
+    "...HHHH.........",
+    "................",
+]
+write_png(f"assets/{MODID}/textures/item/wrench.png",
+          ascii_icon(WRENCH, {"X": GREY, "H": (0xC0, 0x50, 0x3C)}))
+
+FILTER = [
+    "................",
+    "..XXXXXXXXXXXX..",
+    "..XLXLXLXLXLXX..",
+    "..XXXXXXXXXXXX..",
+    "...XXXXXXXXXX...",
+    "....XXXXXXXX....",
+    ".....XXXXXX.....",
+    "......XXXX......",
+    "......XXXX......",
+    "......XXXX......",
+    "......XXXX......",
+    "......XXXX......",
+    "......XXXX......",
+    ".......XX.......",
+    "................",
+    "................",
+]
+write_png(f"assets/{MODID}/textures/item/filter.png",
+          ascii_icon(FILTER, {"X": (0x8A, 0x92, 0xA0), "L": (0xE8, 0xE8, 0xF0)}))
+
+for tier, accent in ((1, (0xC8, 0xC8, 0xD0)), (2, (0xF0, 0xC8, 0x3A)), (3, (0x4A, 0xE6, 0xF0))):
+    art = ["................"] * 16
+    art = [list(r) for r in art]
+    for y in range(3, 13):
+        for x in range(3, 13):
+            art[y][x] = "B"
+    for y in (4, 7, 10):                       # pins
+        art[y][2] = "P"
+        art[y][13] = "P"
+    for i, y in enumerate((5, 8, 11)):         # tier bars, lit from the bottom up
+        lit = i >= 3 - tier
+        for x in range(5, 11):
+            art[y][x] = "A" if lit else "D"
+    art = ["".join(r) for r in art]
+    write_png(f"assets/{MODID}/textures/item/speed_upgrade_{tier}.png",
+              ascii_icon(art, {"B": (0x3A, 0x4A, 0x5A), "P": (0xB0, 0xB0, 0xB8),
+                               "A": accent, "D": (0x22, 0x2A, 0x33)}))
 
 # ---------------------------------------------------------------- models
 for name in TYPES:
@@ -223,6 +301,19 @@ en = {
     "message.flowline.filter_removed": "Removed from filter: %s",
     "message.flowline.upgrade_not_better": "This side already has an equal or better upgrade.",
     "message.flowline.upgrade_installed": "Speed upgrade installed (x%s)",
+    "message.flowline.filter_full": "The filter is full (9 entries).",
+    "gui.flowline.pipe_config": "%s - %s",
+    "gui.flowline.mode": "Mode: %s",
+    "gui.flowline.distribution": "Distribution: %s",
+    "gui.flowline.redstone": "Redstone: %s",
+    "gui.flowline.whitelist": "Whitelist",
+    "gui.flowline.blacklist": "Blacklist",
+    "gui.flowline.clear": "Clear filter",
+    "gui.flowline.filter": "Filter",
+    "gui.flowline.speed": "Speed x%s",
+    "redstone.flowline.ignored": "Ignored",
+    "redstone.flowline.require_signal": "Needs signal",
+    "redstone.flowline.require_no_signal": "Needs no signal",
     "direction.flowline.down": "Down", "direction.flowline.up": "Up",
     "direction.flowline.north": "North", "direction.flowline.south": "South",
     "direction.flowline.west": "West", "direction.flowline.east": "East",
@@ -251,6 +342,19 @@ tr = {
     "message.flowline.filter_removed": "Filtreden çıkarıldı: %s",
     "message.flowline.upgrade_not_better": "Bu tarafta zaten eşit veya daha iyi bir yükseltme var.",
     "message.flowline.upgrade_installed": "Hız yükseltmesi takıldı (x%s)",
+    "message.flowline.filter_full": "Filtre dolu (9 kayıt).",
+    "gui.flowline.pipe_config": "%s - %s",
+    "gui.flowline.mode": "Mod: %s",
+    "gui.flowline.distribution": "Dağıtım: %s",
+    "gui.flowline.redstone": "Redstone: %s",
+    "gui.flowline.whitelist": "Beyaz liste",
+    "gui.flowline.blacklist": "Kara liste",
+    "gui.flowline.clear": "Filtreyi temizle",
+    "gui.flowline.filter": "Filtre",
+    "gui.flowline.speed": "Hız x%s",
+    "redstone.flowline.ignored": "Yok sayılır",
+    "redstone.flowline.require_signal": "Sinyal gerekir",
+    "redstone.flowline.require_no_signal": "Sinyal olmamalı",
     "direction.flowline.down": "Aşağı", "direction.flowline.up": "Yukarı",
     "direction.flowline.north": "Kuzey", "direction.flowline.south": "Güney",
     "direction.flowline.west": "Batı", "direction.flowline.east": "Doğu",

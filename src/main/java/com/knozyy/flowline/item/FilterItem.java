@@ -54,6 +54,10 @@ public class FilterItem extends Item implements PipeInteractable {
             player.displayClientMessage(Component.translatable("message.flowline.filter_invalid_sample"), true);
             return;
         }
+        if (!cfg.filter.contains(id) && cfg.isFilterFull()) {
+            player.displayClientMessage(Component.translatable("message.flowline.filter_full"), true);
+            return;
+        }
         boolean added = cfg.toggleFilter(id);
         pipe.setChanged();
         player.displayClientMessage(Component.translatable(

@@ -12,9 +12,13 @@ import java.util.List;
 
 /** Per-side configuration of a pipe block entity. */
 public class SideConfig {
+    /** Size of the filter; matches the number of ghost slots in the configuration GUI. */
+    public static final int MAX_FILTER = 9;
+
     public SideMode mode = SideMode.INSERT;
     public Distribution distribution = Distribution.NEAREST;
     public SpeedTier speed = SpeedTier.BASE;
+    public RedstoneMode redstone = RedstoneMode.IGNORED;
     public boolean whitelist = false;
     public final List<ResourceLocation> filter = new ArrayList<>();
     /** Rotating cursor for {@link Distribution#ROUND_ROBIN}. Not persisted. */
@@ -24,6 +28,10 @@ public class SideConfig {
     public boolean allows(ResourceLocation id) {
         if (filter.isEmpty()) return true;
         return whitelist == filter.contains(id);
+    }
+
+    public boolean isFilterFull() {
+        return filter.size() >= MAX_FILTER;
     }
 
     /** @return true if the id is now part of the filter, false if it was removed. */
@@ -38,6 +46,7 @@ public class SideConfig {
         tag.putString("mode", mode.name());
         tag.putString("distribution", distribution.name());
         tag.putInt("speed", speed.ordinal());
+        tag.putString("redstone", redstone.name());
         tag.putBoolean("whitelist", whitelist);
         ListTag list = new ListTag();
         for (ResourceLocation id : filter) list.add(StringTag.valueOf(id.toString()));
@@ -49,6 +58,7 @@ public class SideConfig {
         mode = SideMode.byName(tag.getString("mode"));
         distribution = Distribution.byName(tag.getString("distribution"));
         speed = SpeedTier.byIndex(tag.getInt("speed"));
+        redstone = RedstoneMode.byName(tag.getString("redstone"));
         whitelist = tag.getBoolean("whitelist");
         filter.clear();
         for (Tag t : tag.getList("filter", Tag.TAG_STRING)) {

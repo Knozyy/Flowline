@@ -1,0 +1,270 @@
+package com.knozyy.flowline.menu;
+
+import com.knozyy.flowline.pipe.Distribution;
+import com.knozyy.flowline.pipe.PipeBlockEntity;
+import com.knozyy.flowline.pipe.PipeType;
+import com.knozyy.flowline.pipe.RedstoneMode;
+import com.knozyy.flowline.pipe.SideConfig;
+import com.knozyy.flowline.pipe.SideMode;
+import com.knozyy.flowline.pipe.SpeedTier;
+import com.knozyy.flowline.registry.ModMenus;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.DataSlot;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.material.Fluid;
+import net.neoforged.neoforge.fluids.FluidUtil;
+
+import java.util.function.IntSupplier;
+
+/**
+ * Configuration screen for one side of a pipe. The server owns the {@link SideConfig}; the client only mirrors
+ * its scalar values through data slots and its filter through ghost slots.
+ *
+ * <p>Filter slots hold display stacks: the sample item for item pipes, the fluid's bucket for fluid pipes.
+ */
+public class PipeMenu extends AbstractContainerMenu {
+    public static final int BTN_MODE = 0;
+    public static final int BTN_DISTRIBUTION = 1;
+    public static final int BTN_REDSTONE = 2;
+    public static final int BTN_WHITELIST = 3;
+    public static final int BTN_CLEAR = 4;
+
+    public static final int FILTER_X = 8;
+    public static final int FILTER_Y = 118;
+    public static final int INVENTORY_Y = 150;
+    public static final int HOTBAR_Y = 208;
+
+    public final BlockPos pos;
+    public final Direction side;
+    public final PipeType type;
+
+    /** Null on the client. */
+    private final PipeBlockEntity pipe;
+    private final SideConfig cfg;
+
+    private final SimpleContainer filterInv = new SimpleContainer(SideConfig.MAX_FILTER);
+    private final int ghostCount;
+
+    private final DataSlot modeData;
+    private final DataSlot distributionData;
+    private final DataSlot redstoneData;
+    private final DataSlot whitelistData;
+    private final DataSlot speedData;
+
+    /** Client constructor, fed by the extra data written in {@code PipeBlock}. */
+    public PipeMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
+        this(id, inventory, buf.readBlockPos(), buf.readEnum(Direction.class), buf.readEnum(PipeType.class), null);
+    }
+
+    /** Server constructor. */
+    public PipeMenu(int id, Inventory inventory, PipeBlockEntity pipe, Direction side) {
+        this(id, inventory, pipe.getBlockPos(), side, pipe.type(), pipe);
+    }
+
+    private PipeMenu(int id, Inventory inventory, BlockPos pos, Direction side, PipeType type, PipeBlockEntity pipe) {
+        super(ModMenus.PIPE.get(), id);
+        this.pos = pos;
+        this.side = side;
+        this.type = type;
+        this.pipe = pipe;
+        this.cfg = pipe == null ? null : pipe.side(side);
+        this.ghostCount = type == PipeType.ENERGY ? 0 : SideConfig.MAX_FILTER;
+
+        for (int i = 0; i < ghostCount; i++) {
+            addSlot(new GhostSlot(filterInv, i, FILTER_X + i * 18, FILTER_Y));
+        }
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 9; col++) {
+                addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, INVENTORY_Y + row * 18));
+            }
+        }
+        for (int col = 0; col < 9; col++) {
+            addSlot(new Slot(inventory, col, 8 + col * 18, HOTBAR_Y));
+        }
+
+        modeData = track(() -> cfg.mode.ordinal());
+        distributionData = track(() -> cfg.distribution.ordinal());
+        redstoneData = track(() -> cfg.redstone.ordinal());
+        whitelistData = track(() -> cfg.whitelist ? 1 : 0);
+        speedData = track(() -> cfg.speed.ordinal());
+
+        if (cfg != null) loadFilter();
+    }
+
+    private DataSlot track(IntSupplier server) {
+        if (cfg == null) return addDataSlot(DataSlot.standalone());
+        return addDataSlot(new DataSlot() {
+            @Override
+            public int get() {
+                return server.getAsInt();
+            }
+
+            @Override
+            public void set(int value) {}
+        });
+    }
+
+    // ---- state for the screen -----------------------------------------------------------------------------
+
+    public SideMode mode() {
+        return SideMode.values()[modeData.get()];
+    }
+
+    public Distribution distribution() {
+        return Distribution.values()[distributionData.get()];
+    }
+
+    public RedstoneMode redstone() {
+        return RedstoneMode.values()[redstoneData.get()];
+    }
+
+    public boolean whitelist() {
+        return whitelistData.get() != 0;
+    }
+
+    public SpeedTier speed() {
+        return SpeedTier.byIndex(speedData.get());
+    }
+
+    // ---- buttons ------------------------------------------------------------------------------------------
+
+    @Override
+    public boolean clickMenuButton(Player player, int id) {
+        if (cfg == null) return false;
+        switch (id) {
+            case BTN_MODE -> cfg.mode = cfg.mode.next();
+            case BTN_DISTRIBUTION -> cfg.distribution = cfg.distribution.next();
+            case BTN_REDSTONE -> cfg.redstone = cfg.redstone.next();
+            case BTN_WHITELIST -> cfg.whitelist = !cfg.whitelist;
+            case BTN_CLEAR -> {
+                filterInv.clearContent();
+                cfg.filter.clear();
+            }
+            default -> {
+                return false;
+            }
+        }
+        pipe.setChanged();
+        return true;
+    }
+
+    // ---- ghost filter slots -------------------------------------------------------------------------------
+
+    @Override
+    public void clicked(int slotId, int button, ClickType clickType, Player player) {
+        if (slotId >= 0 && slotId < ghostCount && clickType != ClickType.QUICK_CRAFT) {
+            clickGhost(slots.get(slotId), getCarried());
+            return;
+        }
+        super.clicked(slotId, button, clickType, player);
+    }
+
+    private void clickGhost(Slot slot, ItemStack carried) {
+        if (carried.isEmpty()) {
+            slot.set(ItemStack.EMPTY);
+        } else {
+            ResourceLocation id = idOf(type, carried);
+            if (id == null || filterContains(id)) return;
+            ItemStack display = displayOf(type, id);
+            if (display.isEmpty()) return;
+            slot.set(display);
+        }
+        saveFilter();
+    }
+
+    private boolean filterContains(ResourceLocation id) {
+        for (int i = 0; i < filterInv.getContainerSize(); i++) {
+            if (id.equals(idOf(type, filterInv.getItem(i)))) return true;
+        }
+        return false;
+    }
+
+    private void loadFilter() {
+        int slot = 0;
+        for (ResourceLocation id : cfg.filter) {
+            if (slot >= filterInv.getContainerSize()) break;
+            ItemStack display = displayOf(type, id);
+            if (!display.isEmpty()) filterInv.setItem(slot++, display);
+        }
+    }
+
+    private void saveFilter() {
+        if (cfg == null) return;
+        cfg.filter.clear();
+        for (int i = 0; i < filterInv.getContainerSize(); i++) {
+            ResourceLocation id = idOf(type, filterInv.getItem(i));
+            if (id != null && !cfg.filter.contains(id)) cfg.filter.add(id);
+        }
+        pipe.setChanged();
+    }
+
+    private static ResourceLocation idOf(PipeType type, ItemStack stack) {
+        if (stack.isEmpty()) return null;
+        return switch (type) {
+            case ITEM -> BuiltInRegistries.ITEM.getKey(stack.getItem());
+            case FLUID -> FluidUtil.getFluidContained(stack)
+                    .map(f -> BuiltInRegistries.FLUID.getKey(f.getFluid()))
+                    .orElse(null);
+            case ENERGY -> null;
+        };
+    }
+
+    private static ItemStack displayOf(PipeType type, ResourceLocation id) {
+        switch (type) {
+            case ITEM -> {
+                Item item = BuiltInRegistries.ITEM.get(id);
+                return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
+            }
+            case FLUID -> {
+                Fluid fluid = BuiltInRegistries.FLUID.get(id);
+                Item bucket = fluid.getBucket();
+                return bucket == Items.AIR ? ItemStack.EMPTY : new ItemStack(bucket);
+            }
+            default -> {
+                return ItemStack.EMPTY;
+            }
+        }
+    }
+
+    // ---- menu plumbing ------------------------------------------------------------------------------------
+
+    @Override
+    public ItemStack quickMoveStack(Player player, int index) {
+        return ItemStack.EMPTY;
+    }
+
+    @Override
+    public boolean stillValid(Player player) {
+        if (pipe == null) return true;
+        return !pipe.isRemoved() && player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64;
+    }
+
+    /** A slot that only displays a filter entry: nothing can be put in or taken out by the vanilla logic. */
+    private static class GhostSlot extends Slot {
+        GhostSlot(SimpleContainer container, int index, int x, int y) {
+            super(container, index, x, y);
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            return false;
+        }
+
+        @Override
+        public boolean mayPickup(Player player) {
+            return false;
+        }
+    }
+}

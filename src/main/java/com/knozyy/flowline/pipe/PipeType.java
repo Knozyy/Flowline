@@ -1,5 +1,6 @@
 package com.knozyy.flowline.pipe;
 
+import com.knozyy.flowline.FlowlineConfig;
 import com.knozyy.flowline.pipe.transfer.EnergyTransfer;
 import com.knozyy.flowline.pipe.transfer.FluidTransfer;
 import com.knozyy.flowline.pipe.transfer.ItemTransfer;
@@ -12,17 +13,23 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import java.util.List;
 
 public enum PipeType implements StringRepresentable {
-    ITEM("item", 4),
-    FLUID("fluid", 200),
-    ENERGY("energy", 1000);
+    ITEM("item"),
+    FLUID("fluid"),
+    ENERGY("energy");
 
     private final String name;
-    /** Amount moved per operation at {@link SpeedTier#BASE}: items, mB or FE. */
-    public final int baseAmount;
 
-    PipeType(String name, int baseAmount) {
+    PipeType(String name) {
         this.name = name;
-        this.baseAmount = baseAmount;
+    }
+
+    /** Amount moved per operation at {@link SpeedTier#BASE}: items, mB or FE. Read from the config. */
+    public int baseAmount() {
+        return switch (this) {
+            case ITEM -> FlowlineConfig.ITEMS_PER_OPERATION.get();
+            case FLUID -> FlowlineConfig.FLUID_PER_OPERATION.get();
+            case ENERGY -> FlowlineConfig.ENERGY_PER_OPERATION.get();
+        };
     }
 
     @Override
@@ -41,7 +48,7 @@ public enum PipeType implements StringRepresentable {
 
     public void transfer(Level level, BlockPos sourcePos, Direction sourceAccess, SideConfig cfg,
                          List<PipeNetwork.Target> targets) {
-        int amount = baseAmount * cfg.speed.multiplier;
+        int amount = baseAmount() * cfg.speed.multiplier;
         switch (this) {
             case ITEM -> ItemTransfer.run(level, sourcePos, sourceAccess, cfg, targets, amount);
             case FLUID -> FluidTransfer.run(level, sourcePos, sourceAccess, cfg, targets, amount);

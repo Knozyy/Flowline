@@ -32,11 +32,16 @@ public class PipeBlockEntity extends BlockEntity {
     public void serverTick(ServerLevel level) {
         BlockState state = getBlockState();
         long time = level.getGameTime();
+        Boolean powered = null;
         for (Direction dir : Direction.values()) {
             SideConfig cfg = sides[dir.ordinal()];
             if (cfg.mode != SideMode.EXTRACT) continue;
             if (state.getValue(PipeBlock.prop(dir)) != Conn.ENDPOINT) continue;
             if (time % cfg.speed.interval != 0) continue;
+            if (cfg.redstone != RedstoneMode.IGNORED) {
+                if (powered == null) powered = level.hasNeighborSignal(worldPosition);
+                if (!cfg.redstone.allows(powered)) continue;
+            }
 
             List<PipeNetwork.Target> targets = PipeNetwork.collectTargets(level, worldPosition, dir, type(), cfg);
             if (targets.isEmpty()) continue;

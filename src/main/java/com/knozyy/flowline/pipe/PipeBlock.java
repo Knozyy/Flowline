@@ -1,13 +1,18 @@
 package com.knozyy.flowline.pipe;
 
 import com.knozyy.flowline.item.PipeInteractable;
+import com.knozyy.flowline.menu.PipeMenu;
 import com.knozyy.flowline.registry.ModBlockEntities;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.StringRepresentable;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -159,6 +164,27 @@ public class PipeBlock extends Block implements EntityBlock {
             }
         }
         return ItemInteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    /** Empty-handed click on an endpoint side opens that side's configuration screen. */
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
+                                               BlockHitResult hit) {
+        Direction side = sideFromHit(hit, pos);
+        if (state.getValue(prop(side)) != Conn.ENDPOINT) return InteractionResult.PASS;
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer
+                && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
+            Component title = Component.translatable("gui.flowline.pipe_config", getName(),
+                    Component.translatable("direction.flowline." + side.getName()));
+            serverPlayer.openMenu(
+                    new SimpleMenuProvider((id, inventory, p) -> new PipeMenu(id, inventory, be, side), title),
+                    buf -> {
+                        buf.writeBlockPos(pos);
+                        buf.writeEnum(side);
+                        buf.writeEnum(be.type());
+                    });
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     /**
