@@ -16,6 +16,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private static final int SLOT_DARK = 0xFF373737;
     private static final int SLOT_LIGHT = 0xFF8B8B8B;
     private static final int TEXT = 0x404040;
+    private static final int UPGRADE_BORDER = 0xFF7A4AB0;
 
     private Button distributionButton;
     private Button redstoneButton;
@@ -34,8 +35,8 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     protected void init() {
         super.init();
         int x = leftPos + 8;
-        distributionButton = addRenderableWidget(button(PipeMenu.BTN_DISTRIBUTION, x, topPos + 18, 160, 20));
-        redstoneButton = addRenderableWidget(button(PipeMenu.BTN_REDSTONE, x, topPos + 40, 160, 20));
+        distributionButton = addRenderableWidget(button(PipeMenu.BTN_DISTRIBUTION, x, topPos + 18, 136, 20));
+        redstoneButton = addRenderableWidget(button(PipeMenu.BTN_REDSTONE, x, topPos + 40, 136, 20));
         whitelistButton = addRenderableWidget(button(PipeMenu.BTN_WHITELIST, x, topPos + 62, 78, 20));
         matchButton = addRenderableWidget(button(PipeMenu.BTN_MATCH, x + 82, topPos + 62, 78, 20));
         clearButton = addRenderableWidget(button(PipeMenu.BTN_CLEAR, leftPos + imageWidth - 8 - 50, topPos + 84, 50, 12));
@@ -71,6 +72,10 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         refreshButtons();
         super.render(graphics, mouseX, mouseY, partialTick);
         renderTooltip(graphics, mouseX, mouseY);
+        Slot upgrade = menu.upgradeSlot();
+        if (!upgrade.hasItem() && menu.getCarried().isEmpty() && isHovering(upgrade.x, upgrade.y, 16, 16, mouseX, mouseY)) {
+            graphics.renderTooltip(font, Component.translatable("gui.flowline.upgrade_slot"), mouseX, mouseY);
+        }
     }
 
     @Override
@@ -78,8 +83,12 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         graphics.fill(leftPos - 1, topPos - 1, leftPos + imageWidth + 1, topPos + imageHeight + 1, PANEL_BORDER);
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, PANEL);
         for (Slot slot : menu.slots) {
+            if (!slot.isActive()) continue;
             int x = leftPos + slot.x;
             int y = topPos + slot.y;
+            if (slot == menu.upgradeSlot()) {
+                graphics.fill(x - 2, y - 2, x + 18, y + 18, UPGRADE_BORDER);
+            }
             graphics.fill(x - 1, y - 1, x + 17, y + 17, SLOT_DARK);
             graphics.fill(x, y, x + 16, y + 16, SLOT_LIGHT);
         }

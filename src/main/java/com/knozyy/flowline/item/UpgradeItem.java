@@ -2,9 +2,8 @@ package com.knozyy.flowline.item;
 
 import com.knozyy.flowline.pipe.Conn;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
-import com.knozyy.flowline.pipe.SideConfig;
+import com.knozyy.flowline.pipe.SideMode;
 import com.knozyy.flowline.pipe.SpeedTier;
-import com.knozyy.flowline.registry.ModItems;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
@@ -15,11 +14,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 
 /**
- * Installs an upgrade on one side of a pipe: faster transfers and access to the filter.
- * A better upgrade replaces (and refunds) a worse one.
+ * Upgrade for an extracting side: faster transfers and access to the filter. Installed through the side's GUI
+ * slot, or by right-clicking the side (which swaps out and returns the previous upgrade).
  */
 public class UpgradeItem extends Item implements PipeInteractable {
     private final SpeedTier tier;
+
+    /** Tier of the upgrade in {@code stack}, or {@link SpeedTier#BASE} if it is not an upgrade. */
+    public static SpeedTier tierOf(ItemStack stack) {
+        return stack.getItem() instanceof UpgradeItem upgrade ? upgrade.tier : SpeedTier.BASE;
+    }
 
     public UpgradeItem(Properties properties, SpeedTier tier) {
         super(properties);
@@ -38,17 +42,17 @@ public class UpgradeItem extends Item implements PipeInteractable {
             player.displayClientMessage(Component.translatable("message.flowline.no_endpoint"), true);
             return;
         }
-        SideConfig cfg = pipe.side(side);
-        if (cfg.speed.ordinal() >= tier.ordinal()) {
-            player.displayClientMessage(Component.translatable("message.flowline.upgrade_not_better"), true);
+        if (pipe.side(side).mode != SideMode.EXTRACT) {
+            player.displayClientMessage(Component.translatable("message.flowline.upgrade_needs_extract"), true);
             return;
         }
-        if (cfg.speed != SpeedTier.BASE) {
-            player.getInventory().placeItemBackInInventory(new ItemStack(ModItems.SPEED_UPGRADES.get(cfg.speed.ordinal() - 1).get()));
+        if (pipe.getUpgrade(side).is(this)) {
+            player.displayClientMessage(Component.translatable("message.flowline.upgrade_already"), true);
+            return;
         }
-        cfg.speed = tier;
-        pipe.setChanged();
+        ItemStack old = pipe.setUpgrade(side, stack.copyWithCount(1));
         if (!player.getAbilities().instabuild) stack.shrink(1);
+        if (!old.isEmpty()) player.getInventory().placeItemBackInInventory(old);
         player.displayClientMessage(Component.translatable("message.flowline.upgrade_installed", tier.multiplier), true);
     }
 }

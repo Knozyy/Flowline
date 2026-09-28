@@ -18,6 +18,7 @@ public class SideConfig {
 
     public SideMode mode = SideMode.INSERT;
     public Distribution distribution = Distribution.NEAREST;
+    /** Mirrors the upgrade installed on this side; set by the block entity, never saved on its own. */
     public SpeedTier speed = SpeedTier.BASE;
     public RedstoneMode redstone = RedstoneMode.IGNORED;
     public boolean whitelist = false;
@@ -99,7 +100,6 @@ public class SideConfig {
         CompoundTag tag = new CompoundTag();
         tag.putString("mode", mode.name());
         tag.putString("distribution", distribution.name());
-        tag.putInt("speed", speed.ordinal());
         tag.putString("redstone", redstone.name());
         tag.putBoolean("whitelist", whitelist);
         tag.putBoolean("match_components", matchComponents);
@@ -114,7 +114,6 @@ public class SideConfig {
     public void load(CompoundTag tag, HolderLookup.Provider registries) {
         mode = SideMode.byName(tag.getString("mode"));
         distribution = Distribution.byName(tag.getString("distribution"));
-        speed = SpeedTier.byIndex(tag.getInt("speed"));
         redstone = RedstoneMode.byName(tag.getString("redstone"));
         whitelist = tag.getBoolean("whitelist");
         matchComponents = tag.getBoolean("match_components");

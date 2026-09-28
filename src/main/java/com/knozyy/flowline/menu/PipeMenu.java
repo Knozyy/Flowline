@@ -1,5 +1,6 @@
 package com.knozyy.flowline.menu;
 
+import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.pipe.Distribution;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
 import com.knozyy.flowline.pipe.PipeType;
@@ -11,6 +12,7 @@ import com.knozyy.flowline.registry.ModMenus;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -23,10 +25,12 @@ import net.minecraft.world.item.ItemStack;
 import java.util.function.IntSupplier;
 
 /**
- * Configuration screen for one side of a pipe. The server owns the {@link SideConfig}; the client only mirrors
- * its scalar values through data slots and its filter through ghost slots.
+ * Configuration screen for one extracting side of a pipe. The server owns the {@link SideConfig}; the client only
+ * mirrors its scalar values through data slots, its filter through ghost slots and its upgrade through a real slot.
  *
- * <p>Filter slots hold the samples themselves: items for item pipes, filled containers for fluid pipes.
+ * <p>Slot layout: 0 = upgrade, 1..9 = filter (not on energy pipes), then the player inventory.
+ * Filter slots hold the samples themselves: items for item pipes, filled containers for fluid pipes. They are only
+ * active while an upgrade is installed.
  */
 public class PipeMenu extends AbstractContainerMenu {
     public static final int BTN_DISTRIBUTION = 1;
@@ -35,23 +39,27 @@ public class PipeMenu extends AbstractContainerMenu {
     public static final int BTN_CLEAR = 4;
     public static final int BTN_MATCH = 5;
 
+    public static final int UPGRADE_X = 152;
+    public static final int UPGRADE_Y = 31;
     public static final int FILTER_X = 8;
     public static final int FILTER_Y = 98;
     public static final int INVENTORY_Y = 130;
     public static final int HOTBAR_Y = 188;
 
+    private static final int UPGRADE_SLOT = 0;
+
     public final BlockPos pos;
     public final Direction side;
     public final PipeType type;
-    /** Whether the side has an upgrade, which unlocks the filter. Fixed while the screen is open. */
-    public final boolean upgraded;
 
     /** Null on the client. */
     private final PipeBlockEntity pipe;
     private final SideConfig cfg;
 
+    private final Slot upgradeSlot;
     private final SimpleContainer filterInv = new SimpleContainer(SideConfig.MAX_FILTER);
     private final int ghostCount;
+    private final int inventoryStart;
 
     private final DataSlot modeData;
     private final DataSlot distributionData;
@@ -62,29 +70,30 @@ public class PipeMenu extends AbstractContainerMenu {
 
     /** Client constructor, fed by the extra data written in {@code PipeBlock}. */
     public PipeMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
-        this(id, inventory, buf.readBlockPos(), buf.readEnum(Direction.class), buf.readEnum(PipeType.class),
-                buf.readBoolean(), null);
+        this(id, inventory, buf.readBlockPos(), buf.readEnum(Direction.class), buf.readEnum(PipeType.class), null);
     }
 
     /** Server constructor. */
     public PipeMenu(int id, Inventory inventory, PipeBlockEntity pipe, Direction side) {
-        this(id, inventory, pipe.getBlockPos(), side, pipe.type(), pipe.side(side).speed.isUpgraded(), pipe);
+        this(id, inventory, pipe.getBlockPos(), side, pipe.type(), pipe);
     }
 
-    private PipeMenu(int id, Inventory inventory, BlockPos pos, Direction side, PipeType type, boolean upgraded,
-                     PipeBlockEntity pipe) {
+    private PipeMenu(int id, Inventory inventory, BlockPos pos, Direction side, PipeType type, PipeBlockEntity pipe) {
         super(ModMenus.PIPE.get(), id);
         this.pos = pos;
         this.side = side;
         this.type = type;
-        this.upgraded = upgraded;
         this.pipe = pipe;
         this.cfg = pipe == null ? null : pipe.side(side);
-        this.ghostCount = hasFilter(type, upgraded) ? SideConfig.MAX_FILTER : 0;
+        this.ghostCount = type == PipeType.ENERGY ? 0 : SideConfig.MAX_FILTER;
 
+        // The client mirrors all six upgrades so the slot index matches the server's container.
+        Container upgrades = pipe != null ? pipe.upgrades() : new SimpleContainer(6);
+        upgradeSlot = addSlot(new UpgradeSlot(upgrades, side.ordinal(), UPGRADE_X, UPGRADE_Y));
         for (int i = 0; i < ghostCount; i++) {
             addSlot(new GhostSlot(filterInv, i, FILTER_X + i * 18, FILTER_Y));
         }
+        inventoryStart = slots.size();
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, INVENTORY_Y + row * 18));
@@ -117,13 +126,9 @@ public class PipeMenu extends AbstractContainerMenu {
         });
     }
 
-    /** Energy pipes have no filter; other pipes need an upgrade on the side. */
-    public static boolean hasFilter(PipeType type, boolean upgraded) {
-        return type != PipeType.ENERGY && upgraded;
-    }
-
+    /** Energy pipes have no filter; other pipes need an upgrade in the slot. Can change while the screen is open. */
     public boolean hasFilter() {
-        return ghostCount > 0;
+        return ghostCount > 0 && upgradeSlot.hasItem();
     }
 
     // ---- state for the screen -----------------------------------------------------------------------------
@@ -150,6 +155,10 @@ public class PipeMenu extends AbstractContainerMenu {
 
     public SpeedTier speed() {
         return SpeedTier.byIndex(speedData.get());
+    }
+
+    public Slot upgradeSlot() {
+        return upgradeSlot;
     }
 
     // ---- buttons ------------------------------------------------------------------------------------------
@@ -183,10 +192,14 @@ public class PipeMenu extends AbstractContainerMenu {
 
     // ---- ghost filter slots -------------------------------------------------------------------------------
 
+    private boolean isGhost(int slotId) {
+        return slotId > UPGRADE_SLOT && slotId <= ghostCount;
+    }
+
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
-        if (slotId >= 0 && slotId < ghostCount && clickType != ClickType.QUICK_CRAFT) {
-            clickGhost(slots.get(slotId), getCarried());
+        if (isGhost(slotId)) {
+            if (hasFilter() && clickType != ClickType.QUICK_CRAFT) clickGhost(slots.get(slotId), getCarried());
             return;
         }
         super.clicked(slotId, button, clickType, player);
@@ -227,19 +240,59 @@ public class PipeMenu extends AbstractContainerMenu {
 
     // ---- menu plumbing ------------------------------------------------------------------------------------
 
+    /** Shift-click moves upgrades between the player inventory and the upgrade slot. */
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        return ItemStack.EMPTY;
+        Slot slot = slots.get(index);
+        if (!slot.hasItem()) return ItemStack.EMPTY;
+        ItemStack stack = slot.getItem();
+        ItemStack original = stack.copy();
+
+        if (index == UPGRADE_SLOT) {
+            if (!moveItemStackTo(stack, inventoryStart, slots.size(), true)) return ItemStack.EMPTY;
+        } else if (index >= inventoryStart && stack.getItem() instanceof UpgradeItem) {
+            if (!moveItemStackTo(stack, UPGRADE_SLOT, UPGRADE_SLOT + 1, false)) return ItemStack.EMPTY;
+        } else {
+            return ItemStack.EMPTY;
+        }
+
+        if (stack.isEmpty()) {
+            slot.setByPlayer(ItemStack.EMPTY);
+        } else {
+            slot.setChanged();
+        }
+        return original;
     }
 
     @Override
     public boolean stillValid(Player player) {
         if (pipe == null) return true;
-        return !pipe.isRemoved() && player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64;
+        return !pipe.isRemoved() && cfg.mode == SideMode.EXTRACT
+                && player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64;
     }
 
-    /** A slot that only displays a filter entry: nothing can be put in or taken out by the vanilla logic. */
-    private static class GhostSlot extends Slot {
+    /** Holds one upgrade item. */
+    private static class UpgradeSlot extends Slot {
+        UpgradeSlot(Container container, int index, int x, int y) {
+            super(container, index, x, y);
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            return stack.getItem() instanceof UpgradeItem;
+        }
+
+        @Override
+        public int getMaxStackSize() {
+            return 1;
+        }
+    }
+
+    /**
+     * A slot that only displays a filter entry: nothing can be put in or taken out by the vanilla logic, and it is
+     * hidden while no upgrade is installed.
+     */
+    private class GhostSlot extends Slot {
         GhostSlot(SimpleContainer container, int index, int x, int y) {
             super(container, index, x, y);
         }
@@ -252,6 +305,11 @@ public class PipeMenu extends AbstractContainerMenu {
         @Override
         public boolean mayPickup(Player player) {
             return false;
+        }
+
+        @Override
+        public boolean isActive() {
+            return upgradeSlot.hasItem();
         }
     }
 }

@@ -3,7 +3,6 @@ package com.knozyy.flowline.pipe;
 import com.knozyy.flowline.item.PipeInteractable;
 import com.knozyy.flowline.menu.PipeMenu;
 import com.knozyy.flowline.registry.ModBlockEntities;
-import com.knozyy.flowline.registry.ModItems;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
@@ -13,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
@@ -151,12 +151,7 @@ public class PipeBlock extends Block implements EntityBlock {
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
-            for (Direction dir : Direction.values()) {
-                SpeedTier speed = be.side(dir).speed;
-                if (speed != SpeedTier.BASE) {
-                    Block.popResource(level, pos, new ItemStack(ModItems.SPEED_UPGRADES.get(speed.ordinal() - 1).get()));
-                }
-            }
+            Containers.dropContents(level, pos, be.upgrades());
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
@@ -249,7 +244,10 @@ public class PipeBlock extends Block implements EntityBlock {
                                                BlockHitResult hit) {
         Direction side = sideFromHit(hit, pos);
         if (state.getValue(prop(side)) != Conn.ENDPOINT) return InteractionResult.PASS;
-        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be
+                && be.side(side).mode != SideMode.EXTRACT) {
+            player.displayClientMessage(Component.translatable("message.flowline.gui_needs_extract"), true);
+        } else if (!level.isClientSide && player instanceof ServerPlayer serverPlayer
                 && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
             Component title = Component.translatable("gui.flowline.pipe_config", getName(),
                     Component.translatable("direction.flowline." + side.getName()));
@@ -259,16 +257,21 @@ public class PipeBlock extends Block implements EntityBlock {
                         buf.writeBlockPos(pos);
                         buf.writeEnum(side);
                         buf.writeEnum(be.type());
-                        buf.writeBoolean(be.side(side).speed.isUpgraded());
                     });
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
-    /** Switches a side between insert and extract and tells the player which one it is now. */
+    /**
+     * Switches a side between insert and extract and tells the player which one it is now. Upgrades only work on
+     * extracting sides, so switching to insert hands the installed upgrade back.
+     */
     public static void toggleMode(PipeBlockEntity be, Direction side, Player player) {
         SideConfig cfg = be.side(side);
         cfg.mode = cfg.mode.toggle();
+        if (cfg.mode == SideMode.INSERT && !be.getUpgrade(side).isEmpty()) {
+            player.getInventory().placeItemBackInInventory(be.removeUpgrade(side));
+        }
         be.setChanged();
         player.displayClientMessage(Component.translatable("message.flowline.mode_set",
                 Component.translatable("direction.flowline." + side.getName()),

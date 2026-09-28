@@ -9,8 +9,8 @@ modes, filters, distribution modes and speed upgrades.
 | --- | --- |
 | Item / Fluid / Energy Pipe | Connects to pipes of the same type and to any block exposing the matching capability. |
 | Flowline Wrench | **Sneak + right-click** an attached side: toggle **Insert ↔ Extract**. Right-click any side: cut / restore the connection. |
-| Empty hand | Right-click an attached side: opens its config screen (distribution, redstone, filter). |
-| Basic / Regular / Advanced / Knozy Upgrade | Right-click a side to install. Speeds up that side (x2 / x4 / x8 / x16) and **unlocks its filter**. A better upgrade replaces and refunds a worse one; upgrades drop when the pipe is broken. |
+| Empty hand | Right-click an **Extract** side: opens its config screen (upgrade slot, distribution, redstone, filter). |
+| Basic / Regular / Advanced / Knozy Upgrade | Put it in the upgrade slot of an Extract side's screen (or right-click the side to swap it in). Speeds the side up (x2 / x4 / x8 / x16) and **unlocks its filter**. Returned when the side goes back to Insert, dropped when the pipe is broken. |
 
 Every side defaults to **Insert**; sneak-click the side facing your source chest/tank/generator with the wrench to make it **Extract**.
 Extracting sides search the connected pipe network (BFS, capped by `maxNetworkSize`) for Insert sides and push into them.

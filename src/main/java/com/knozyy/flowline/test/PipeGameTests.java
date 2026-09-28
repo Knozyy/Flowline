@@ -46,6 +46,10 @@ public class PipeGameTests {
         return first;
     }
 
+    private static ItemStack upgrade(SpeedTier tier) {
+        return new ItemStack(ModItems.SPEED_UPGRADES.get(tier.ordinal() - 1).get());
+    }
+
     private static ChestBlockEntity chest(GameTestHelper helper, BlockPos pos) {
         return helper.getBlockEntity(pos);
     }
@@ -67,8 +71,9 @@ public class PipeGameTests {
 
     @GameTest(template = TEMPLATE, timeoutTicks = 200)
     public static void whitelistOnlyMovesListedItems(GameTestHelper helper) {
-        SideConfig cfg = line(helper, 1).side(Direction.WEST);
-        cfg.speed = SpeedTier.BASIC;
+        PipeBlockEntity pipe = line(helper, 1);
+        pipe.setUpgrade(Direction.WEST, upgrade(SpeedTier.BASIC));
+        SideConfig cfg = pipe.side(Direction.WEST);
         cfg.whitelist = true;
         cfg.filter.add(new ItemStack(Items.DIAMOND));
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 8));
@@ -86,8 +91,9 @@ public class PipeGameTests {
 
     @GameTest(template = TEMPLATE, timeoutTicks = 200)
     public static void blacklistBlocksListedItems(GameTestHelper helper) {
-        SideConfig cfg = line(helper, 1).side(Direction.WEST);
-        cfg.speed = SpeedTier.BASIC;
+        PipeBlockEntity pipe = line(helper, 1);
+        pipe.setUpgrade(Direction.WEST, upgrade(SpeedTier.BASIC));
+        SideConfig cfg = pipe.side(Direction.WEST);
         cfg.whitelist = false;
         cfg.filter.add(new ItemStack(Items.DIRT));
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 8));
@@ -150,8 +156,19 @@ public class PipeGameTests {
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void upgradeSlotSetsSpeed(GameTestHelper helper) {
+        PipeBlockEntity pipe = line(helper, 1);
+        pipe.setUpgrade(Direction.WEST, upgrade(SpeedTier.KNOZY));
+        helper.assertTrue(pipe.side(Direction.WEST).speed == SpeedTier.KNOZY, "installing sets the speed");
+        ItemStack removed = pipe.removeUpgrade(Direction.WEST);
+        helper.assertTrue(removed.is(ModItems.SPEED_UPGRADES.get(3).get()), "removing returns the upgrade");
+        helper.assertTrue(pipe.side(Direction.WEST).speed == SpeedTier.BASE, "removing resets the speed");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void brokenPipeDropsUpgrades(GameTestHelper helper) {
-        line(helper, 1).side(Direction.WEST).speed = SpeedTier.REGULAR;
+        line(helper, 1).setUpgrade(Direction.WEST, upgrade(SpeedTier.REGULAR));
         helper.destroyBlock(FIRST_PIPE);
         helper.succeedWhen(() -> helper.assertItemEntityPresent(ModItems.SPEED_UPGRADES.get(1).get(), FIRST_PIPE, 2.0));
     }
