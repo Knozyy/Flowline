@@ -45,7 +45,9 @@ public class PipeBlockEntity extends BlockEntity {
     }
 
     public void serverTick(ServerLevel level) {
-        BlockState state = getBlockState();
+        // The level's state, not the cached one: connection updates must be visible here immediately.
+        BlockState state = level.getBlockState(worldPosition);
+        if (!(state.getBlock() instanceof PipeBlock)) return;
         long time = level.getGameTime();
         Boolean powered = null;
         for (Direction dir : Direction.values()) {

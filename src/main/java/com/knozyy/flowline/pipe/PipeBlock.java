@@ -10,7 +10,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
@@ -136,6 +138,13 @@ public class PipeBlock extends Block implements EntityBlock {
                 }
             }
         }
+        // Deferred: updating the state from inside onPlace nests a setBlock into vanilla's, which then hands the
+        // block entity the stale pre-update state.
+        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+    }
+
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         refresh(state, level, pos);
     }
 
@@ -284,6 +293,6 @@ public class PipeBlock extends Block implements EntityBlock {
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                   BlockEntityType<T> beType) {
         if (level.isClientSide || beType != ModBlockEntities.PIPE.get()) return null;
-        return (lvl, p, s, be) -> ((PipeBlockEntity) be).serverTick((net.minecraft.server.level.ServerLevel) lvl);
+        return (lvl, p, s, be) -> ((PipeBlockEntity) be).serverTick((ServerLevel) lvl);
     }
 }
