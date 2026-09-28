@@ -68,6 +68,7 @@ public class PipeGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 200)
     public static void whitelistOnlyMovesListedItems(GameTestHelper helper) {
         SideConfig cfg = line(helper, 1).side(Direction.WEST);
+        cfg.speed = SpeedTier.BASIC;
         cfg.whitelist = true;
         cfg.filter.add(new ItemStack(Items.DIAMOND));
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 8));
@@ -86,6 +87,7 @@ public class PipeGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 200)
     public static void blacklistBlocksListedItems(GameTestHelper helper) {
         SideConfig cfg = line(helper, 1).side(Direction.WEST);
+        cfg.speed = SpeedTier.BASIC;
         cfg.whitelist = false;
         cfg.filter.add(new ItemStack(Items.DIRT));
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 8));
@@ -98,6 +100,17 @@ public class PipeGameTests {
                     helper.assertTrue(count(helper, target(1), Items.DIRT) == 0, "dirt must not be moved");
                 })
                 .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 200)
+    public static void filterNeedsAnUpgrade(GameTestHelper helper) {
+        SideConfig cfg = line(helper, 1).side(Direction.WEST);
+        cfg.whitelist = true;
+        cfg.filter.add(new ItemStack(Items.DIAMOND));
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 4));
+
+        helper.succeedWhen(() -> helper.assertTrue(count(helper, target(1), Items.DIRT) == 4,
+                "without an upgrade the filter is inactive, so dirt should move"));
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 200)
@@ -138,7 +151,7 @@ public class PipeGameTests {
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void brokenPipeDropsUpgrades(GameTestHelper helper) {
-        line(helper, 1).side(Direction.WEST).speed = SpeedTier.TIER_2;
+        line(helper, 1).side(Direction.WEST).speed = SpeedTier.REGULAR;
         helper.destroyBlock(FIRST_PIPE);
         helper.succeedWhen(() -> helper.assertItemEntityPresent(ModItems.SPEED_UPGRADES.get(1).get(), FIRST_PIPE, 2.0));
     }

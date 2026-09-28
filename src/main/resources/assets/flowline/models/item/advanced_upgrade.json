@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "flowline:item/speed_upgrade_3"
+    "layer0": "flowline:item/advanced_upgrade"
   }
 }

@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    " N ",
+    "NUN",
+    " N "
+  ],
+  "key": {
+    "N": {
+      "item": "minecraft:netherite_ingot"
+    },
+    "U": {
+      "item": "flowline:advanced_upgrade"
+    }
+  },
+  "result": {
+    "id": "flowline:knozy_upgrade",
+    "count": 1
+  }
+}

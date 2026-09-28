@@ -116,42 +116,26 @@ WRENCH = [
 write_png(f"assets/{MODID}/textures/item/wrench.png",
           ascii_icon(WRENCH, {"X": GREY, "H": (0xC0, 0x50, 0x3C)}))
 
-FILTER = [
-    "................",
-    "..XXXXXXXXXXXX..",
-    "..XLXLXLXLXLXX..",
-    "..XXXXXXXXXXXX..",
-    "...XXXXXXXXXX...",
-    "....XXXXXXXX....",
-    ".....XXXXXX.....",
-    "......XXXX......",
-    "......XXXX......",
-    "......XXXX......",
-    "......XXXX......",
-    "......XXXX......",
-    "......XXXX......",
-    ".......XX.......",
-    "................",
-    "................",
-]
-write_png(f"assets/{MODID}/textures/item/filter.png",
-          ascii_icon(FILTER, {"X": (0x8A, 0x92, 0xA0), "L": (0xE8, 0xE8, 0xF0)}))
-
-for tier, accent in ((1, (0xC8, 0xC8, 0xD0)), (2, (0xF0, 0xC8, 0x3A)), (3, (0x4A, 0xE6, 0xF0))):
-    art = ["................"] * 16
-    art = [list(r) for r in art]
-    for y in range(3, 13):
+UPGRADES = (
+    ("basic_upgrade", 1, (0xC8, 0xC8, 0xD0)),
+    ("regular_upgrade", 2, (0xF0, 0xC8, 0x3A)),
+    ("advanced_upgrade", 3, (0x4A, 0xE6, 0xF0)),
+    ("knozy_upgrade", 4, (0xD2, 0x4A, 0xF5)),
+)
+for up_name, tier, accent in UPGRADES:
+    art = [list("................") for _ in range(16)]
+    for y in range(2, 14):
         for x in range(3, 13):
             art[y][x] = "B"
-    for y in (4, 7, 10):                       # pins
+    for y in (3, 6, 9, 12):                    # pins
         art[y][2] = "P"
         art[y][13] = "P"
-    for i, y in enumerate((5, 8, 11)):         # tier bars, lit from the bottom up
-        lit = i >= 3 - tier
+    for i, y in enumerate((4, 6, 8, 10)):      # tier bars, lit from the bottom up
+        lit = i >= 4 - tier
         for x in range(5, 11):
             art[y][x] = "A" if lit else "D"
     art = ["".join(r) for r in art]
-    write_png(f"assets/{MODID}/textures/item/speed_upgrade_{tier}.png",
+    write_png(f"assets/{MODID}/textures/item/{up_name}.png",
               ascii_icon(art, {"B": (0x3A, 0x4A, 0x5A), "P": (0xB0, 0xB0, 0xB8),
                                "A": accent, "D": (0x22, 0x2A, 0x33)}))
 
@@ -227,7 +211,7 @@ for name in TYPES:
         }],
     })
 
-for name in ("wrench", "filter", "speed_upgrade_1", "speed_upgrade_2", "speed_upgrade_3"):
+for name in ("wrench", "basic_upgrade", "regular_upgrade", "advanced_upgrade", "knozy_upgrade"):
     write_json(f"assets/{MODID}/models/item/{name}.json", {
         "parent": "minecraft:item/generated",
         "textures": {"layer0": f"{MODID}:item/{name}"},
@@ -266,10 +250,10 @@ shapeless("item_pipe", ["minecraft:iron_ingot"] * 3 + ["minecraft:hopper"], f"{M
 shapeless("fluid_pipe", ["minecraft:iron_ingot"] * 3 + ["minecraft:bucket"], f"{MODID}:fluid_pipe", 4)
 shapeless("energy_pipe", ["minecraft:iron_ingot"] * 3 + ["minecraft:redstone_block"], f"{MODID}:energy_pipe", 4)
 shaped("wrench", ["I I", " S ", " S "], {"I": "minecraft:iron_ingot", "S": "minecraft:stick"}, f"{MODID}:wrench")
-shapeless("filter", ["minecraft:paper", "minecraft:iron_ingot", "minecraft:hopper"], f"{MODID}:filter")
-shaped("speed_upgrade_1", ["III", "IRI", "III"], {"I": "minecraft:iron_ingot", "R": "minecraft:redstone"}, f"{MODID}:speed_upgrade_1")
-shaped("speed_upgrade_2", ["GGG", "GUG", "GGG"], {"G": "minecraft:gold_ingot", "U": f"{MODID}:speed_upgrade_1"}, f"{MODID}:speed_upgrade_2")
-shaped("speed_upgrade_3", ["DDD", "DUD", "DDD"], {"D": "minecraft:diamond", "U": f"{MODID}:speed_upgrade_2"}, f"{MODID}:speed_upgrade_3")
+shaped("basic_upgrade", ["III", "IRI", "III"], {"I": "minecraft:iron_ingot", "R": "minecraft:redstone"}, f"{MODID}:basic_upgrade")
+shaped("regular_upgrade", ["GGG", "GUG", "GGG"], {"G": "minecraft:gold_ingot", "U": f"{MODID}:basic_upgrade"}, f"{MODID}:regular_upgrade")
+shaped("advanced_upgrade", ["DDD", "DUD", "DDD"], {"D": "minecraft:diamond", "U": f"{MODID}:regular_upgrade"}, f"{MODID}:advanced_upgrade")
+shaped("knozy_upgrade", [" N ", "NUN", " N "], {"N": "minecraft:netherite_ingot", "U": f"{MODID}:advanced_upgrade"}, f"{MODID}:knozy_upgrade")
 
 # ---------------------------------------------------------------- lang
 def lang(code, tr):
@@ -282,24 +266,15 @@ en = {
     "block.flowline.fluid_pipe": "Fluid Pipe",
     "block.flowline.energy_pipe": "Energy Pipe",
     "item.flowline.wrench": "Flowline Wrench",
-    "item.flowline.filter": "Flowline Filter",
-    "item.flowline.speed_upgrade_1": "Speed Upgrade (Tier 1)",
-    "item.flowline.speed_upgrade_2": "Speed Upgrade (Tier 2)",
-    "item.flowline.speed_upgrade_3": "Speed Upgrade (Tier 3)",
+    "item.flowline.basic_upgrade": "Basic Upgrade",
+    "item.flowline.regular_upgrade": "Regular Upgrade",
+    "item.flowline.advanced_upgrade": "Advanced Upgrade",
+    "item.flowline.knozy_upgrade": "Knozy Upgrade",
     "message.flowline.no_endpoint": "Nothing to configure on this side.",
-    "message.flowline.side_info": "%s: %s, %s, speed x%s",
-    "message.flowline.no_filter_energy": "Energy pipes have no filter.",
-    "message.flowline.filter_whitelist": "Filter: whitelist",
-    "message.flowline.filter_blacklist": "Filter: blacklist",
-    "message.flowline.filter_cleared": "Filter cleared",
-    "message.flowline.filter_invalid_sample": "Hold a valid sample in the other hand (a bucket for fluids).",
-    "message.flowline.filter_added": "Added to filter: %s",
-    "message.flowline.filter_removed": "Removed from filter: %s",
+    "message.flowline.mode_set": "%s: %s",
     "message.flowline.upgrade_not_better": "This side already has an equal or better upgrade.",
-    "message.flowline.upgrade_installed": "Speed upgrade installed (x%s)",
-    "message.flowline.filter_full": "The filter is full (9 entries).",
+    "message.flowline.upgrade_installed": "Upgrade installed (speed x%s, filter unlocked)",
     "gui.flowline.pipe_config": "%s - %s",
-    "gui.flowline.mode": "Mode: %s",
     "gui.flowline.distribution": "Distribution: %s",
     "gui.flowline.redstone": "Redstone: %s",
     "gui.flowline.whitelist": "Whitelist",
@@ -311,14 +286,15 @@ en = {
     "message.flowline.disconnected": "Side disconnected",
     "message.flowline.nothing_to_connect": "Nothing to connect on this side.",
     "gui.flowline.filter": "Filter",
-    "gui.flowline.speed": "Speed x%s",
+    "gui.flowline.status": "%s · x%s",
+    "gui.flowline.filter_needs_upgrade": "Install an upgrade on this side to use the filter.",
     "redstone.flowline.ignored": "Ignored",
     "redstone.flowline.require_signal": "Needs signal",
     "redstone.flowline.require_no_signal": "Needs no signal",
     "direction.flowline.down": "Down", "direction.flowline.up": "Up",
     "direction.flowline.north": "North", "direction.flowline.south": "South",
     "direction.flowline.west": "West", "direction.flowline.east": "East",
-    "mode.flowline.insert": "Insert", "mode.flowline.extract": "Extract", "mode.flowline.disabled": "Disabled",
+    "mode.flowline.insert": "Insert", "mode.flowline.extract": "Extract",
     "distribution.flowline.nearest": "Nearest first", "distribution.flowline.farthest": "Farthest first",
     "distribution.flowline.round_robin": "Round robin", "distribution.flowline.random": "Random",
 }
@@ -328,24 +304,15 @@ tr = {
     "block.flowline.fluid_pipe": "Sıvı Borusu",
     "block.flowline.energy_pipe": "Enerji Borusu",
     "item.flowline.wrench": "Flowline Anahtarı",
-    "item.flowline.filter": "Flowline Filtresi",
-    "item.flowline.speed_upgrade_1": "Hız Yükseltmesi (Seviye 1)",
-    "item.flowline.speed_upgrade_2": "Hız Yükseltmesi (Seviye 2)",
-    "item.flowline.speed_upgrade_3": "Hız Yükseltmesi (Seviye 3)",
+    "item.flowline.basic_upgrade": "Basic Upgrade",
+    "item.flowline.regular_upgrade": "Regular Upgrade",
+    "item.flowline.advanced_upgrade": "Advanced Upgrade",
+    "item.flowline.knozy_upgrade": "Knozy Upgrade",
     "message.flowline.no_endpoint": "Bu tarafta ayarlanacak bir şey yok.",
-    "message.flowline.side_info": "%s: %s, %s, hız x%s",
-    "message.flowline.no_filter_energy": "Enerji borularında filtre yoktur.",
-    "message.flowline.filter_whitelist": "Filtre: beyaz liste",
-    "message.flowline.filter_blacklist": "Filtre: kara liste",
-    "message.flowline.filter_cleared": "Filtre temizlendi",
-    "message.flowline.filter_invalid_sample": "Diğer elinde geçerli bir örnek tut (sıvılar için kova).",
-    "message.flowline.filter_added": "Filtreye eklendi: %s",
-    "message.flowline.filter_removed": "Filtreden çıkarıldı: %s",
+    "message.flowline.mode_set": "%s: %s",
     "message.flowline.upgrade_not_better": "Bu tarafta zaten eşit veya daha iyi bir yükseltme var.",
-    "message.flowline.upgrade_installed": "Hız yükseltmesi takıldı (x%s)",
-    "message.flowline.filter_full": "Filtre dolu (9 kayıt).",
+    "message.flowline.upgrade_installed": "Yükseltme takıldı (hız x%s, filtre açıldı)",
     "gui.flowline.pipe_config": "%s - %s",
-    "gui.flowline.mode": "Mod: %s",
     "gui.flowline.distribution": "Dağıtım: %s",
     "gui.flowline.redstone": "Redstone: %s",
     "gui.flowline.whitelist": "Beyaz liste",
@@ -357,14 +324,15 @@ tr = {
     "message.flowline.disconnected": "Bağlantı kesildi",
     "message.flowline.nothing_to_connect": "Bu tarafta bağlanacak bir şey yok.",
     "gui.flowline.filter": "Filtre",
-    "gui.flowline.speed": "Hız x%s",
+    "gui.flowline.status": "%s · x%s",
+    "gui.flowline.filter_needs_upgrade": "Filtreyi kullanmak için bu tarafa bir yükseltme tak.",
     "redstone.flowline.ignored": "Yok sayılır",
     "redstone.flowline.require_signal": "Sinyal gerekir",
     "redstone.flowline.require_no_signal": "Sinyal olmamalı",
     "direction.flowline.down": "Aşağı", "direction.flowline.up": "Yukarı",
     "direction.flowline.north": "Kuzey", "direction.flowline.south": "Güney",
     "direction.flowline.west": "Batı", "direction.flowline.east": "Doğu",
-    "mode.flowline.insert": "Ekle", "mode.flowline.extract": "Çek", "mode.flowline.disabled": "Kapalı",
+    "mode.flowline.insert": "Ekle", "mode.flowline.extract": "Çek",
     "distribution.flowline.nearest": "En yakın önce", "distribution.flowline.farthest": "En uzak önce",
     "distribution.flowline.round_robin": "Sırayla", "distribution.flowline.random": "Rastgele",
 }

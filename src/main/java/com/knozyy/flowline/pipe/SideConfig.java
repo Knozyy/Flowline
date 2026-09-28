@@ -33,9 +33,14 @@ public class SideConfig {
 
     // ---- matching -----------------------------------------------------------------------------------------
 
-    /** Empty filters allow everything, in both whitelist and blacklist mode. */
+    /** The filter only works with an upgrade installed. */
+    public boolean filterActive() {
+        return speed.isUpgraded() && !filter.isEmpty();
+    }
+
+    /** Inactive filters allow everything, in both whitelist and blacklist mode. */
     public boolean allowsItem(ItemStack stack) {
-        if (filter.isEmpty()) return true;
+        if (!filterActive()) return true;
         boolean listed = false;
         for (ItemStack sample : filter) {
             if (matchComponents ? ItemStack.isSameItemSameComponents(sample, stack) : ItemStack.isSameItem(sample, stack)) {
@@ -47,7 +52,7 @@ public class SideConfig {
     }
 
     public boolean allowsFluid(FluidStack fluid) {
-        if (filter.isEmpty()) return true;
+        if (!filterActive()) return true;
         boolean listed = false;
         for (ItemStack sample : filter) {
             FluidStack sampleFluid = fluidOf(sample);

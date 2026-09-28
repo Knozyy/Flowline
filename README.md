@@ -8,15 +8,15 @@ modes, filters, distribution modes and speed upgrades.
 | Item | Use |
 | --- | --- |
 | Item / Fluid / Energy Pipe | Connects to pipes of the same type and to any block exposing the matching capability. |
-| Empty hand | Right-click a side attached to a block: opens its config screen (mode, distribution, redstone, filter). |
-| Flowline Wrench | Click an attached side: cycle **Insert → Extract → Disabled**. Sneak-click any side: cut / restore the connection. |
-| Flowline Filter | Hold it in one hand and a sample (item, or bucket for fluids) in the other, then click a side to add/remove the sample. Empty off hand clears, sneak-click toggles whitelist/blacklist. |
-| Speed Upgrade 1-3 | Click a side of a pipe to speed up that side's extraction (x2 / x4 / x8 throughput, shorter interval). Dropped when the pipe is broken. |
+| Flowline Wrench | **Sneak + right-click** an attached side: toggle **Insert ↔ Extract**. Right-click any side: cut / restore the connection. |
+| Empty hand | Right-click an attached side: opens its config screen (distribution, redstone, filter). |
+| Basic / Regular / Advanced / Knozy Upgrade | Right-click a side to install. Speeds up that side (x2 / x4 / x8 / x16) and **unlocks its filter**. A better upgrade replaces and refunds a worse one; upgrades drop when the pipe is broken. |
 
-Every side defaults to **Insert**; set the side facing your source chest/tank/generator to **Extract**.
+Every side defaults to **Insert**; sneak-click the side facing your source chest/tank/generator with the wrench to make it **Extract**.
 Extracting sides search the connected pipe network (BFS, capped by `maxNetworkSize`) for Insert sides and push into them.
 
-The filter holds up to 9 samples. With **NBT: match** it also compares data components (enchantments,
+The filter (upgraded sides only, not on energy pipes) holds up to 9 samples: click a slot with an item (or a
+filled bucket/tank for fluid pipes) to add it, click with an empty hand to clear it. With **NBT: match** it also compares data components (enchantments,
 damage, names, fluid data); with **NBT: ignore** only the item/fluid type counts.
 
 Config (`config/flowline-common.toml`): per-operation amounts for items / fluids / energy and the max network size.

@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "flowline:item/filter"
+    "layer0": "flowline:item/basic_upgrade"
   }
 }

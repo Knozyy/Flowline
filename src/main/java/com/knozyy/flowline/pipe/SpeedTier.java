@@ -1,11 +1,12 @@
 package com.knozyy.flowline.pipe;
 
-/** Speed upgrade level of an extracting side. Tier 0 means no upgrade installed. */
+/** Upgrade installed on a side. {@link #BASE} means none; any other tier also unlocks the filter. */
 public enum SpeedTier {
     BASE(20, 1),
-    TIER_1(10, 2),
-    TIER_2(5, 4),
-    TIER_3(2, 8);
+    BASIC(10, 2),
+    REGULAR(5, 4),
+    ADVANCED(2, 8),
+    KNOZY(1, 16);
 
     /** Ticks between two transfer operations. */
     public final int interval;
@@ -15,6 +16,10 @@ public enum SpeedTier {
     SpeedTier(int interval, int multiplier) {
         this.interval = interval;
         this.multiplier = multiplier;
+    }
+
+    public boolean isUpgraded() {
+        return this != BASE;
     }
 
     public static SpeedTier byIndex(int i) {

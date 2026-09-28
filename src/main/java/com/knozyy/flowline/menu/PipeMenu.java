@@ -29,7 +29,6 @@ import java.util.function.IntSupplier;
  * <p>Filter slots hold the samples themselves: items for item pipes, filled containers for fluid pipes.
  */
 public class PipeMenu extends AbstractContainerMenu {
-    public static final int BTN_MODE = 0;
     public static final int BTN_DISTRIBUTION = 1;
     public static final int BTN_REDSTONE = 2;
     public static final int BTN_WHITELIST = 3;
@@ -37,13 +36,15 @@ public class PipeMenu extends AbstractContainerMenu {
     public static final int BTN_MATCH = 5;
 
     public static final int FILTER_X = 8;
-    public static final int FILTER_Y = 118;
-    public static final int INVENTORY_Y = 150;
-    public static final int HOTBAR_Y = 208;
+    public static final int FILTER_Y = 98;
+    public static final int INVENTORY_Y = 130;
+    public static final int HOTBAR_Y = 188;
 
     public final BlockPos pos;
     public final Direction side;
     public final PipeType type;
+    /** Whether the side has an upgrade, which unlocks the filter. Fixed while the screen is open. */
+    public final boolean upgraded;
 
     /** Null on the client. */
     private final PipeBlockEntity pipe;
@@ -61,22 +62,25 @@ public class PipeMenu extends AbstractContainerMenu {
 
     /** Client constructor, fed by the extra data written in {@code PipeBlock}. */
     public PipeMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
-        this(id, inventory, buf.readBlockPos(), buf.readEnum(Direction.class), buf.readEnum(PipeType.class), null);
+        this(id, inventory, buf.readBlockPos(), buf.readEnum(Direction.class), buf.readEnum(PipeType.class),
+                buf.readBoolean(), null);
     }
 
     /** Server constructor. */
     public PipeMenu(int id, Inventory inventory, PipeBlockEntity pipe, Direction side) {
-        this(id, inventory, pipe.getBlockPos(), side, pipe.type(), pipe);
+        this(id, inventory, pipe.getBlockPos(), side, pipe.type(), pipe.side(side).speed.isUpgraded(), pipe);
     }
 
-    private PipeMenu(int id, Inventory inventory, BlockPos pos, Direction side, PipeType type, PipeBlockEntity pipe) {
+    private PipeMenu(int id, Inventory inventory, BlockPos pos, Direction side, PipeType type, boolean upgraded,
+                     PipeBlockEntity pipe) {
         super(ModMenus.PIPE.get(), id);
         this.pos = pos;
         this.side = side;
         this.type = type;
+        this.upgraded = upgraded;
         this.pipe = pipe;
         this.cfg = pipe == null ? null : pipe.side(side);
-        this.ghostCount = type == PipeType.ENERGY ? 0 : SideConfig.MAX_FILTER;
+        this.ghostCount = hasFilter(type, upgraded) ? SideConfig.MAX_FILTER : 0;
 
         for (int i = 0; i < ghostCount; i++) {
             addSlot(new GhostSlot(filterInv, i, FILTER_X + i * 18, FILTER_Y));
@@ -113,6 +117,15 @@ public class PipeMenu extends AbstractContainerMenu {
         });
     }
 
+    /** Energy pipes have no filter; other pipes need an upgrade on the side. */
+    public static boolean hasFilter(PipeType type, boolean upgraded) {
+        return type != PipeType.ENERGY && upgraded;
+    }
+
+    public boolean hasFilter() {
+        return ghostCount > 0;
+    }
+
     // ---- state for the screen -----------------------------------------------------------------------------
 
     public SideMode mode() {
@@ -145,12 +158,18 @@ public class PipeMenu extends AbstractContainerMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (cfg == null) return false;
         switch (id) {
-            case BTN_MODE -> cfg.mode = cfg.mode.next();
             case BTN_DISTRIBUTION -> cfg.distribution = cfg.distribution.next();
             case BTN_REDSTONE -> cfg.redstone = cfg.redstone.next();
-            case BTN_WHITELIST -> cfg.whitelist = !cfg.whitelist;
-            case BTN_MATCH -> cfg.matchComponents = !cfg.matchComponents;
+            case BTN_WHITELIST -> {
+                if (!hasFilter()) return false;
+                cfg.whitelist = !cfg.whitelist;
+            }
+            case BTN_MATCH -> {
+                if (!hasFilter()) return false;
+                cfg.matchComponents = !cfg.matchComponents;
+            }
             case BTN_CLEAR -> {
+                if (!hasFilter()) return false;
                 filterInv.clearContent();
                 cfg.filter.clear();
             }

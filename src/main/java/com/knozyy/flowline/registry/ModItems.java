@@ -1,7 +1,6 @@
 package com.knozyy.flowline.registry;
 
 import com.knozyy.flowline.Flowline;
-import com.knozyy.flowline.item.FilterItem;
 import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.item.WrenchItem;
 import com.knozyy.flowline.pipe.SpeedTier;
@@ -21,14 +20,12 @@ public final class ModItems {
 
     public static final DeferredItem<WrenchItem> WRENCH =
             ITEMS.registerItem("wrench", WrenchItem::new, new Item.Properties().stacksTo(1));
-    public static final DeferredItem<FilterItem> FILTER =
-            ITEMS.registerItem("filter", FilterItem::new, new Item.Properties().stacksTo(1));
-
-    /** Indexed by {@code tier.ordinal() - 1}: tier 1, 2, 3. */
+    /** Indexed by {@code tier.ordinal() - 1}: basic, regular, advanced, knozy. */
     public static final List<DeferredItem<UpgradeItem>> SPEED_UPGRADES = List.of(
-            upgrade("speed_upgrade_1", SpeedTier.TIER_1),
-            upgrade("speed_upgrade_2", SpeedTier.TIER_2),
-            upgrade("speed_upgrade_3", SpeedTier.TIER_3));
+            upgrade("basic_upgrade", SpeedTier.BASIC),
+            upgrade("regular_upgrade", SpeedTier.REGULAR),
+            upgrade("advanced_upgrade", SpeedTier.ADVANCED),
+            upgrade("knozy_upgrade", SpeedTier.KNOZY));
 
     private static DeferredItem<UpgradeItem> upgrade(String name, SpeedTier tier) {
         return ITEMS.registerItem(name, props -> new UpgradeItem(props, tier), new Item.Properties());

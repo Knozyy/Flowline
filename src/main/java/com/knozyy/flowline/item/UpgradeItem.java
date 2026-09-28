@@ -14,7 +14,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 
-/** Installs a speed tier on one side of a pipe. A better upgrade replaces (and refunds) a worse one. */
+/**
+ * Installs an upgrade on one side of a pipe: faster transfers and access to the filter.
+ * A better upgrade replaces (and refunds) a worse one.
+ */
 public class UpgradeItem extends Item implements PipeInteractable {
     private final SpeedTier tier;
 

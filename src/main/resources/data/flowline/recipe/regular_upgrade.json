@@ -2,20 +2,20 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "pattern": [
-    "DDD",
-    "DUD",
-    "DDD"
+    "GGG",
+    "GUG",
+    "GGG"
   ],
   "key": {
-    "D": {
-      "item": "minecraft:diamond"
+    "G": {
+      "item": "minecraft:gold_ingot"
     },
     "U": {
-      "item": "flowline:speed_upgrade_2"
+      "item": "flowline:basic_upgrade"
     }
   },
   "result": {
-    "id": "flowline:speed_upgrade_3",
+    "id": "flowline:regular_upgrade",
     "count": 1
   }
 }

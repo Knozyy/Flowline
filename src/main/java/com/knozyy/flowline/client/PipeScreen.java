@@ -17,7 +17,6 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private static final int SLOT_LIGHT = 0xFF8B8B8B;
     private static final int TEXT = 0x404040;
 
-    private Button modeButton;
     private Button distributionButton;
     private Button redstoneButton;
     private Button whitelistButton;
@@ -27,20 +26,19 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     public PipeScreen(PipeMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 176;
-        this.imageHeight = 232;
-        this.inventoryLabelY = 140;
+        this.imageHeight = 212;
+        this.inventoryLabelY = PipeMenu.INVENTORY_Y - 11;
     }
 
     @Override
     protected void init() {
         super.init();
         int x = leftPos + 8;
-        modeButton = addRenderableWidget(button(PipeMenu.BTN_MODE, x, topPos + 18, 160, 20));
-        distributionButton = addRenderableWidget(button(PipeMenu.BTN_DISTRIBUTION, x, topPos + 40, 160, 20));
-        redstoneButton = addRenderableWidget(button(PipeMenu.BTN_REDSTONE, x, topPos + 62, 160, 20));
-        whitelistButton = addRenderableWidget(button(PipeMenu.BTN_WHITELIST, x, topPos + 84, 78, 20));
-        matchButton = addRenderableWidget(button(PipeMenu.BTN_MATCH, x + 82, topPos + 84, 78, 20));
-        clearButton = addRenderableWidget(button(PipeMenu.BTN_CLEAR, leftPos + imageWidth - 8 - 50, topPos + 104, 50, 12));
+        distributionButton = addRenderableWidget(button(PipeMenu.BTN_DISTRIBUTION, x, topPos + 18, 160, 20));
+        redstoneButton = addRenderableWidget(button(PipeMenu.BTN_REDSTONE, x, topPos + 40, 160, 20));
+        whitelistButton = addRenderableWidget(button(PipeMenu.BTN_WHITELIST, x, topPos + 62, 78, 20));
+        matchButton = addRenderableWidget(button(PipeMenu.BTN_MATCH, x + 82, topPos + 62, 78, 20));
+        clearButton = addRenderableWidget(button(PipeMenu.BTN_CLEAR, leftPos + imageWidth - 8 - 50, topPos + 84, 50, 12));
     }
 
     private Button button(int id, int x, int y, int width, int height) {
@@ -52,8 +50,6 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     }
 
     private void refreshButtons() {
-        modeButton.setMessage(Component.translatable("gui.flowline.mode",
-                Component.translatable("mode.flowline." + menu.mode().name().toLowerCase())));
         distributionButton.setMessage(Component.translatable("gui.flowline.distribution",
                 Component.translatable("distribution.flowline." + menu.distribution().name().toLowerCase())));
         redstoneButton.setMessage(Component.translatable("gui.flowline.redstone",
@@ -64,7 +60,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                 ? "gui.flowline.match_components" : "gui.flowline.ignore_components"));
         clearButton.setMessage(Component.translatable("gui.flowline.clear"));
 
-        boolean hasFilter = menu.type != PipeType.ENERGY;
+        boolean hasFilter = menu.hasFilter();
         whitelistButton.visible = hasFilter;
         matchButton.visible = hasFilter;
         clearButton.visible = hasFilter;
@@ -94,10 +90,14 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         graphics.drawString(font, title, titleLabelX, titleLabelY, TEXT, false);
         graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, TEXT, false);
 
-        if (menu.type != PipeType.ENERGY) {
-            graphics.drawString(font, Component.translatable("gui.flowline.filter"), 8, 108, TEXT, false);
+        if (menu.hasFilter()) {
+            graphics.drawString(font, Component.translatable("gui.flowline.filter"), 8, 86, TEXT, false);
+        } else if (menu.type != PipeType.ENERGY) {
+            graphics.drawWordWrap(font, Component.translatable("gui.flowline.filter_needs_upgrade"), 8, 68,
+                    imageWidth - 16, TEXT);
         }
-        Component speed = Component.translatable("gui.flowline.speed", menu.speed().multiplier);
-        graphics.drawString(font, speed, imageWidth - 8 - font.width(speed), titleLabelY, TEXT, false);
+        Component status = Component.translatable("gui.flowline.status",
+                Component.translatable("mode.flowline." + menu.mode().name().toLowerCase()), menu.speed().multiplier);
+        graphics.drawString(font, status, imageWidth - 8 - font.width(status), titleLabelY, TEXT, false);
     }
 }

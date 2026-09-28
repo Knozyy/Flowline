@@ -1,19 +1,15 @@
 package com.knozyy.flowline.pipe;
 
-/** How a pipe treats the inventory/tank/machine attached to one of its sides. */
+/** How a pipe treats the block attached to one of its sides. Toggled with sneak + right-click. */
 public enum SideMode {
     INSERT,
-    EXTRACT,
-    DISABLED;
+    EXTRACT;
 
-    public SideMode next() {
-        return values()[(ordinal() + 1) % values().length];
+    public SideMode toggle() {
+        return this == INSERT ? EXTRACT : INSERT;
     }
 
     public static SideMode byName(String name) {
-        for (SideMode m : values()) {
-            if (m.name().equals(name)) return m;
-        }
-        return INSERT;
+        return EXTRACT.name().equals(name) ? EXTRACT : INSERT;
     }
 }

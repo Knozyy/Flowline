@@ -259,9 +259,20 @@ public class PipeBlock extends Block implements EntityBlock {
                         buf.writeBlockPos(pos);
                         buf.writeEnum(side);
                         buf.writeEnum(be.type());
+                        buf.writeBoolean(be.side(side).speed.isUpgraded());
                     });
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    /** Switches a side between insert and extract and tells the player which one it is now. */
+    public static void toggleMode(PipeBlockEntity be, Direction side, Player player) {
+        SideConfig cfg = be.side(side);
+        cfg.mode = cfg.mode.toggle();
+        be.setChanged();
+        player.displayClientMessage(Component.translatable("message.flowline.mode_set",
+                Component.translatable("direction.flowline." + side.getName()),
+                Component.translatable("mode.flowline." + cfg.mode.name().toLowerCase())), true);
     }
 
     /**
