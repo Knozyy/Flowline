@@ -155,7 +155,7 @@ public class PipeBlockEntity extends BlockEntity {
 
         for (Direction dir : Direction.values()) {
             SideConfig cfg = sides[dir.ordinal()];
-            if (cfg.mode != SideMode.EXTRACT || state.getValue(PipeBlock.prop(dir)) != Conn.ENDPOINT) {
+            if (cfg.mode != SideMode.EXTRACT || !state.getValue(PipeBlock.prop(dir)).isEndpoint()) {
                 if (cfg.interval >= 0) cfg.resetRuntime();
                 continue;
             }

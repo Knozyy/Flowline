@@ -76,6 +76,24 @@ for idx, (name, base) in enumerate(TYPES.items()):
         rows.append(row)
     write_png(f"assets/{MODID}/textures/block/{name}_pipe.png", rows)
 
+    # extract collar: a bright green ring (same "extract" colour on every pipe) around the pipe's own colour
+    green = (0x5A, 0xE0, 0x7A)
+    ring_rows = []
+    for y in range(16):
+        ring_row = []
+        for x in range(16):
+            inside = 3 <= x <= 12 and 3 <= y <= 12
+            edge = inside and (x in (3, 4, 11, 12) or y in (3, 4, 11, 12))
+            if edge:
+                f = 1.25 if (x == 3 or y == 3) else 0.8 if (x == 12 or y == 12) else 1.0
+                ring_row.append(shade(green, f))
+            elif inside and 7 <= x <= 8 and 7 <= y <= 8:
+                ring_row.append(shade(base, 0.45))          # port opening
+            else:
+                ring_row.append(rows[y][x])
+        ring_rows.append(ring_row)
+    write_png(f"assets/{MODID}/textures/block/{name}_pipe_extract.png", ring_rows)
+
 GREY = (0xB4, 0xB4, 0xBC)
 
 
@@ -223,6 +241,33 @@ for name in TYPES:
             },
         ],
     })
+    # extracting end: a larger, thicker collar with a green ring so it stands out from inserting ends
+    ring = f"{MODID}:block/{name}_pipe_extract"
+    write_json(f"assets/{MODID}/models/block/{name}_pipe_extract.json", {
+        "textures": {"pipe": tex, "ring": ring, "particle": tex},
+        "elements": [
+            {
+                "from": [5, 5, 2.5], "to": [11, 11, 5],
+                "faces": {
+                    "down": {"uv": [5, 0, 11, 2.5], "texture": "#pipe"},
+                    "up": {"uv": [5, 0, 11, 2.5], "texture": "#pipe"},
+                    "west": {"uv": [0, 5, 2.5, 11], "texture": "#pipe"},
+                    "east": {"uv": [0, 5, 2.5, 11], "texture": "#pipe"},
+                },
+            },
+            {
+                "from": [3, 3, 0], "to": [13, 13, 2.5],
+                "faces": {
+                    "north": {"uv": [3, 3, 13, 13], "texture": "#ring"},
+                    "south": {"uv": [3, 3, 13, 13], "texture": "#ring"},
+                    "down": {"uv": [3, 3, 13, 5.5], "texture": "#ring"},
+                    "up": {"uv": [3, 3, 13, 5.5], "texture": "#ring"},
+                    "west": {"uv": [3, 3, 5.5, 13], "texture": "#ring"},
+                    "east": {"uv": [3, 3, 5.5, 13], "texture": "#ring"},
+                },
+            },
+        ],
+    })
     write_json(f"assets/{MODID}/models/item/{name}_pipe.json", {
         "parent": "minecraft:block/block",
         "textures": {"pipe": tex, "particle": tex},
@@ -241,6 +286,7 @@ for name in TYPES:
     for side, r in rot.items():
         multipart.append({"when": {side: "pipe"}, "apply": {"model": f"{MODID}:block/{name}_pipe_arm", **r}})
         multipart.append({"when": {side: "endpoint"}, "apply": {"model": f"{MODID}:block/{name}_pipe_endpoint", **r}})
+        multipart.append({"when": {side: "extract"}, "apply": {"model": f"{MODID}:block/{name}_pipe_extract", **r}})
     write_json(f"assets/{MODID}/blockstates/{name}_pipe.json", {"multipart": multipart})
 
     # loot table + recipes

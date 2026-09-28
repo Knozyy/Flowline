@@ -23,6 +23,14 @@
     },
     {
       "when": {
+        "north": "extract"
+      },
+      "apply": {
+        "model": "flowline:block/universal_pipe_extract"
+      }
+    },
+    {
+      "when": {
         "east": "pipe"
       },
       "apply": {
@@ -36,6 +44,15 @@
       },
       "apply": {
         "model": "flowline:block/universal_pipe_endpoint",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "east": "extract"
+      },
+      "apply": {
+        "model": "flowline:block/universal_pipe_extract",
         "y": 90
       }
     },
@@ -59,6 +76,15 @@
     },
     {
       "when": {
+        "south": "extract"
+      },
+      "apply": {
+        "model": "flowline:block/universal_pipe_extract",
+        "y": 180
+      }
+    },
+    {
+      "when": {
         "west": "pipe"
       },
       "apply": {
@@ -72,6 +98,15 @@
       },
       "apply": {
         "model": "flowline:block/universal_pipe_endpoint",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "west": "extract"
+      },
+      "apply": {
+        "model": "flowline:block/universal_pipe_extract",
         "y": 270
       }
     },
@@ -95,6 +130,15 @@
     },
     {
       "when": {
+        "up": "extract"
+      },
+      "apply": {
+        "model": "flowline:block/universal_pipe_extract",
+        "x": 270
+      }
+    },
+    {
+      "when": {
         "down": "pipe"
       },
       "apply": {
@@ -108,6 +152,15 @@
       },
       "apply": {
         "model": "flowline:block/universal_pipe_endpoint",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "down": "extract"
+      },
+      "apply": {
+        "model": "flowline:block/universal_pipe_extract",
         "x": 90
       }
     }

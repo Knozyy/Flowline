@@ -86,7 +86,7 @@ public final class PipeNetwork {
                         queue.add(next);
                         depth.add(dist + 1);
                     }
-                } else if (conn == Conn.ENDPOINT
+                } else if (conn.isEndpoint()
                         && pipeBe.side(dir).mode == SideMode.INSERT
                         && !(pos.equals(origin) && dir == extractSide)) {
                     targets.add(new Target(pos, dir, dist, Caps.create(type, level, pos.relative(dir), dir.getOpposite())));

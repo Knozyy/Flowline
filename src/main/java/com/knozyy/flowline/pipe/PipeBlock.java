@@ -111,7 +111,7 @@ public class PipeBlock extends Block implements EntityBlock {
                         && nb.isDisconnected(dir.getOpposite());
                 conn = otherCut ? Conn.NONE : Conn.PIPE;
             } else if (type.hasEndpoint(level, neighbor, dir.getOpposite())) {
-                conn = Conn.ENDPOINT;
+                conn = self != null && self.side(dir).mode == SideMode.EXTRACT ? Conn.EXTRACT : Conn.ENDPOINT;
             } else {
                 conn = Conn.NONE;
             }
@@ -255,16 +255,17 @@ public class PipeBlock extends Block implements EntityBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
                                                BlockHitResult hit) {
         Direction side = sideFromHit(hit, pos);
-        if (state.getValue(prop(side)) != Conn.ENDPOINT) return InteractionResult.PASS;
+        Conn conn = state.getValue(prop(side));
+        if (!conn.isEndpoint()) return InteractionResult.PASS;
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
-            openConfig(be, side, Conn.ENDPOINT, player);
+            openConfig(be, side, conn, player);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     /** Opens the configuration screen of an extracting side, or says why it cannot. Server side. */
     public static void openConfig(PipeBlockEntity be, Direction side, Conn conn, Player player) {
-        if (conn != Conn.ENDPOINT) {
+        if (!conn.isEndpoint()) {
             player.displayClientMessage(Component.translatable("message.flowline.no_endpoint"), true);
             return;
         }
@@ -299,7 +300,7 @@ public class PipeBlock extends Block implements EntityBlock {
         if (isCut(level, pos, side)) {
             toggleConnection(level, pos, side);
             player.displayClientMessage(Component.translatable("message.flowline.side_normal", where), true);
-        } else if (conn == Conn.ENDPOINT && cfg.mode == SideMode.INSERT) {
+        } else if (conn.isEndpoint() && cfg.mode == SideMode.INSERT) {
             setMode(be, side, SideMode.EXTRACT, player);
             player.displayClientMessage(Component.translatable("message.flowline.side_extract", where), true);
         } else if (conn != Conn.NONE) {
@@ -332,6 +333,8 @@ public class PipeBlock extends Block implements EntityBlock {
         }
         be.setChanged();
         PipeNetwork.invalidate();
+        // redraw the side: extracting ends carry a green ring
+        if (be.getLevel() != null) updateConnections(be.getLevel(), be.getBlockPos());
     }
 
     /**

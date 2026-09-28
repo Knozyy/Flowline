@@ -79,7 +79,7 @@ public class UpgradeItem extends Item implements PipeInteractable {
     @Override
     public void useOnPipe(PipeBlockEntity pipe, Direction side, Conn conn, Player player, InteractionHand hand,
                           ItemStack stack) {
-        if (conn != Conn.ENDPOINT) {
+        if (!conn.isEndpoint()) {
             player.displayClientMessage(Component.translatable("message.flowline.no_endpoint"), true);
             return;
         }

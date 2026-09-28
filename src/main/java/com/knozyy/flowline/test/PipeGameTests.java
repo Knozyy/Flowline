@@ -299,19 +299,25 @@ public class PipeGameTests {
                     SideConfig cfg = pipe.side(Direction.WEST);
                     cycle(helper, pipe, player);
                     helper.assertTrue(cfg.mode == SideMode.EXTRACT, "1st: normal -> extract");
+                    helper.assertTrue(westConn(helper) == Conn.EXTRACT, "extracting ends are drawn with the ring");
                     cycle(helper, pipe, player);
                     helper.assertTrue(pipe.isDisconnected(Direction.WEST) && cfg.mode == SideMode.INSERT,
                             "2nd: extract -> disconnected (and back to insert)");
+                    helper.assertTrue(westConn(helper) == Conn.NONE, "disconnected ends are not drawn");
                     cycle(helper, pipe, player);
                     helper.assertTrue(!pipe.isDisconnected(Direction.WEST) && cfg.mode == SideMode.INSERT,
                             "3rd: disconnected -> normal");
+                    helper.assertTrue(westConn(helper) == Conn.ENDPOINT, "normal ends are plain again");
                 })
                 .thenSucceed();
     }
 
+    private static Conn westConn(GameTestHelper helper) {
+        return helper.getBlockState(FIRST_PIPE).getValue(PipeBlock.prop(Direction.WEST));
+    }
+
     private static void cycle(GameTestHelper helper, PipeBlockEntity pipe, Player player) {
-        Conn conn = helper.getBlockState(FIRST_PIPE).getValue(PipeBlock.prop(Direction.WEST));
-        PipeBlock.cycleSide(pipe, Direction.WEST, conn, player);
+        PipeBlock.cycleSide(pipe, Direction.WEST, westConn(helper), player);
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
