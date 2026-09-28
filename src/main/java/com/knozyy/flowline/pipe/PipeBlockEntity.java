@@ -15,6 +15,8 @@ import java.util.List;
 
 public class PipeBlockEntity extends BlockEntity {
     private final SideConfig[] sides = new SideConfig[6];
+    /** Bit per {@link Direction#ordinal()}: the wrench disconnected that side. */
+    private int disconnected = 0;
 
     public PipeBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PIPE.get(), pos, state);
@@ -27,6 +29,19 @@ public class PipeBlockEntity extends BlockEntity {
 
     public PipeType type() {
         return ((PipeBlock) getBlockState().getBlock()).type();
+    }
+
+    public boolean isDisconnected(Direction dir) {
+        return (disconnected & (1 << dir.ordinal())) != 0;
+    }
+
+    public void setDisconnected(Direction dir, boolean value) {
+        int bit = 1 << dir.ordinal();
+        int updated = value ? disconnected | bit : disconnected & ~bit;
+        if (updated != disconnected) {
+            disconnected = updated;
+            setChanged();
+        }
     }
 
     public void serverTick(ServerLevel level) {
@@ -53,14 +68,16 @@ public class PipeBlockEntity extends BlockEntity {
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         ListTag list = new ListTag();
-        for (SideConfig cfg : sides) list.add(cfg.save());
+        for (SideConfig cfg : sides) list.add(cfg.save(registries));
         tag.put("sides", list);
+        tag.putInt("disconnected", disconnected);
     }
 
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         ListTag list = tag.getList("sides", Tag.TAG_COMPOUND);
-        for (int i = 0; i < sides.length && i < list.size(); i++) sides[i].load(list.getCompound(i));
+        for (int i = 0; i < sides.length && i < list.size(); i++) sides[i].load(list.getCompound(i), registries);
+        disconnected = tag.getInt("disconnected");
     }
 }

@@ -10,9 +10,7 @@ import com.knozyy.flowline.pipe.SpeedTier;
 import com.knozyy.flowline.registry.ModMenus;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -20,11 +18,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.fluids.FluidUtil;
 
 import java.util.function.IntSupplier;
 
@@ -32,7 +26,7 @@ import java.util.function.IntSupplier;
  * Configuration screen for one side of a pipe. The server owns the {@link SideConfig}; the client only mirrors
  * its scalar values through data slots and its filter through ghost slots.
  *
- * <p>Filter slots hold display stacks: the sample item for item pipes, the fluid's bucket for fluid pipes.
+ * <p>Filter slots hold the samples themselves: items for item pipes, filled containers for fluid pipes.
  */
 public class PipeMenu extends AbstractContainerMenu {
     public static final int BTN_MODE = 0;
@@ -40,6 +34,7 @@ public class PipeMenu extends AbstractContainerMenu {
     public static final int BTN_REDSTONE = 2;
     public static final int BTN_WHITELIST = 3;
     public static final int BTN_CLEAR = 4;
+    public static final int BTN_MATCH = 5;
 
     public static final int FILTER_X = 8;
     public static final int FILTER_Y = 118;
@@ -62,6 +57,7 @@ public class PipeMenu extends AbstractContainerMenu {
     private final DataSlot redstoneData;
     private final DataSlot whitelistData;
     private final DataSlot speedData;
+    private final DataSlot matchData;
 
     /** Client constructor, fed by the extra data written in {@code PipeBlock}. */
     public PipeMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
@@ -99,6 +95,7 @@ public class PipeMenu extends AbstractContainerMenu {
         redstoneData = track(() -> cfg.redstone.ordinal());
         whitelistData = track(() -> cfg.whitelist ? 1 : 0);
         speedData = track(() -> cfg.speed.ordinal());
+        matchData = track(() -> cfg.matchComponents ? 1 : 0);
 
         if (cfg != null) loadFilter();
     }
@@ -134,6 +131,10 @@ public class PipeMenu extends AbstractContainerMenu {
         return whitelistData.get() != 0;
     }
 
+    public boolean matchComponents() {
+        return matchData.get() != 0;
+    }
+
     public SpeedTier speed() {
         return SpeedTier.byIndex(speedData.get());
     }
@@ -148,6 +149,7 @@ public class PipeMenu extends AbstractContainerMenu {
             case BTN_DISTRIBUTION -> cfg.distribution = cfg.distribution.next();
             case BTN_REDSTONE -> cfg.redstone = cfg.redstone.next();
             case BTN_WHITELIST -> cfg.whitelist = !cfg.whitelist;
+            case BTN_MATCH -> cfg.matchComponents = !cfg.matchComponents;
             case BTN_CLEAR -> {
                 filterInv.clearContent();
                 cfg.filter.clear();
@@ -175,28 +177,22 @@ public class PipeMenu extends AbstractContainerMenu {
         if (carried.isEmpty()) {
             slot.set(ItemStack.EMPTY);
         } else {
-            ResourceLocation id = idOf(type, carried);
-            if (id == null || filterContains(id)) return;
-            ItemStack display = displayOf(type, id);
-            if (display.isEmpty()) return;
-            slot.set(display);
+            if (!SideConfig.isValidSample(type, carried) || filterContains(carried)) return;
+            slot.set(carried.copyWithCount(1));
         }
         saveFilter();
     }
 
-    private boolean filterContains(ResourceLocation id) {
+    private boolean filterContains(ItemStack stack) {
         for (int i = 0; i < filterInv.getContainerSize(); i++) {
-            if (id.equals(idOf(type, filterInv.getItem(i)))) return true;
+            if (ItemStack.isSameItemSameComponents(filterInv.getItem(i), stack)) return true;
         }
         return false;
     }
 
     private void loadFilter() {
-        int slot = 0;
-        for (ResourceLocation id : cfg.filter) {
-            if (slot >= filterInv.getContainerSize()) break;
-            ItemStack display = displayOf(type, id);
-            if (!display.isEmpty()) filterInv.setItem(slot++, display);
+        for (int i = 0; i < cfg.filter.size() && i < filterInv.getContainerSize(); i++) {
+            filterInv.setItem(i, cfg.filter.get(i).copy());
         }
     }
 
@@ -204,38 +200,10 @@ public class PipeMenu extends AbstractContainerMenu {
         if (cfg == null) return;
         cfg.filter.clear();
         for (int i = 0; i < filterInv.getContainerSize(); i++) {
-            ResourceLocation id = idOf(type, filterInv.getItem(i));
-            if (id != null && !cfg.filter.contains(id)) cfg.filter.add(id);
+            ItemStack stack = filterInv.getItem(i);
+            if (!stack.isEmpty()) cfg.filter.add(stack.copy());
         }
         pipe.setChanged();
-    }
-
-    private static ResourceLocation idOf(PipeType type, ItemStack stack) {
-        if (stack.isEmpty()) return null;
-        return switch (type) {
-            case ITEM -> BuiltInRegistries.ITEM.getKey(stack.getItem());
-            case FLUID -> FluidUtil.getFluidContained(stack)
-                    .map(f -> BuiltInRegistries.FLUID.getKey(f.getFluid()))
-                    .orElse(null);
-            case ENERGY -> null;
-        };
-    }
-
-    private static ItemStack displayOf(PipeType type, ResourceLocation id) {
-        switch (type) {
-            case ITEM -> {
-                Item item = BuiltInRegistries.ITEM.get(id);
-                return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
-            }
-            case FLUID -> {
-                Fluid fluid = BuiltInRegistries.FLUID.get(id);
-                Item bucket = fluid.getBucket();
-                return bucket == Items.AIR ? ItemStack.EMPTY : new ItemStack(bucket);
-            }
-            default -> {
-                return ItemStack.EMPTY;
-            }
-        }
     }
 
     // ---- menu plumbing ------------------------------------------------------------------------------------

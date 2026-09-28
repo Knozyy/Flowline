@@ -24,7 +24,9 @@ jobs:
           ./gradlew build --stacktrace
 
       - uses: actions/upload-artifact@v4
-        if: success()
         with:
           name: flowline-jar
           path: build/libs/*.jar
+
+      - name: In-world tests
+        run: ./gradlew runGameTestServer --stacktrace

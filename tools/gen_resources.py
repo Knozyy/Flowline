@@ -308,7 +308,12 @@ en = {
     "gui.flowline.redstone": "Redstone: %s",
     "gui.flowline.whitelist": "Whitelist",
     "gui.flowline.blacklist": "Blacklist",
-    "gui.flowline.clear": "Clear filter",
+    "gui.flowline.clear": "Clear",
+    "gui.flowline.match_components": "NBT: match",
+    "gui.flowline.ignore_components": "NBT: ignore",
+    "message.flowline.connected": "Side connected",
+    "message.flowline.disconnected": "Side disconnected",
+    "message.flowline.nothing_to_connect": "Nothing to connect on this side.",
     "gui.flowline.filter": "Filter",
     "gui.flowline.speed": "Speed x%s",
     "redstone.flowline.ignored": "Ignored",
@@ -349,7 +354,12 @@ tr = {
     "gui.flowline.redstone": "Redstone: %s",
     "gui.flowline.whitelist": "Beyaz liste",
     "gui.flowline.blacklist": "Kara liste",
-    "gui.flowline.clear": "Filtreyi temizle",
+    "gui.flowline.clear": "Temizle",
+    "gui.flowline.match_components": "NBT: eşleş",
+    "gui.flowline.ignore_components": "NBT: yok say",
+    "message.flowline.connected": "Bağlantı açıldı",
+    "message.flowline.disconnected": "Bağlantı kesildi",
+    "message.flowline.nothing_to_connect": "Bu tarafta bağlanacak bir şey yok.",
     "gui.flowline.filter": "Filtre",
     "gui.flowline.speed": "Hız x%s",
     "redstone.flowline.ignored": "Yok sayılır",
@@ -364,6 +374,33 @@ tr = {
 }
 lang("en_us", en)
 lang("tr_tr", tr)
+
+# ---------------------------------------------------------------- gametest structure
+def nbt_empty_structure(size):
+    """Minimal gzipped structure NBT: air-only palette, no blocks, no entities."""
+    import gzip
+
+    def name(n):
+        b = n.encode()
+        return struct.pack(">H", len(b)) + b
+
+    def int_list(key, values):
+        return b"\x09" + name(key) + b"\x03" + struct.pack(">i", len(values)) + b"".join(struct.pack(">i", v) for v in values)
+
+    def empty_list(key):
+        return b"\x09" + name(key) + b"\x00" + struct.pack(">i", 0)
+
+    palette = (b"\x09" + name("palette") + b"\x0a" + struct.pack(">i", 1)
+               + b"\x08" + name("Name") + name("minecraft:air") + b"\x00")
+    body = (b"\x03" + name("DataVersion") + struct.pack(">i", 3955)
+            + int_list("size", size) + palette + empty_list("blocks") + empty_list("entities"))
+    return gzip.compress(b"\x0a" + name("") + body + b"\x00", mtime=0)
+
+
+full = os.path.join(ROOT, "data", MODID, "structure", "empty.nbt")
+os.makedirs(os.path.dirname(full), exist_ok=True)
+with open(full, "wb") as f:
+    f.write(nbt_empty_structure([6, 3, 3]))
 
 # pack.mcmeta is not needed for NeoForge mods (metadata comes from neoforge.mods.toml)
 print("resources generated")

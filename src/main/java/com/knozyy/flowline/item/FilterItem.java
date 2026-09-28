@@ -1,17 +1,17 @@
 package com.knozyy.flowline.item;
 
+import com.knozyy.flowline.pipe.Conn;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
 import com.knozyy.flowline.pipe.PipeType;
 import com.knozyy.flowline.pipe.SideConfig;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidUtil;
+import net.minecraft.world.item.context.UseOnContext;
 
 /**
  * Hold the filter in one hand and a sample in the other (an item, or a bucket/tank for fluid pipes).
@@ -24,13 +24,22 @@ public class FilterItem extends Item implements PipeInteractable {
     }
 
     @Override
-    public void useOnPipe(PipeBlockEntity pipe, Direction side, Player player, InteractionHand hand, ItemStack stack) {
-        SideConfig cfg = pipe.side(side);
+    public InteractionResult useOn(UseOnContext ctx) {
+        return PipeInteractable.useOnFromItem(this, ctx);
+    }
 
+    @Override
+    public void useOnPipe(PipeBlockEntity pipe, Direction side, Conn conn, Player player, InteractionHand hand,
+                          ItemStack stack) {
+        if (conn != Conn.ENDPOINT) {
+            player.displayClientMessage(Component.translatable("message.flowline.no_endpoint"), true);
+            return;
+        }
         if (pipe.type() == PipeType.ENERGY) {
             player.displayClientMessage(Component.translatable("message.flowline.no_filter_energy"), true);
             return;
         }
+        SideConfig cfg = pipe.side(side);
 
         if (player.isShiftKeyDown()) {
             cfg.whitelist = !cfg.whitelist;
@@ -48,28 +57,23 @@ public class FilterItem extends Item implements PipeInteractable {
             player.displayClientMessage(Component.translatable("message.flowline.filter_cleared"), true);
             return;
         }
-
-        ResourceLocation id = sampleId(pipe.type(), sample);
-        if (id == null) {
+        if (!SideConfig.isValidSample(pipe.type(), sample)) {
             player.displayClientMessage(Component.translatable("message.flowline.filter_invalid_sample"), true);
             return;
         }
-        if (!cfg.filter.contains(id) && cfg.isFilterFull()) {
+
+        int index = cfg.indexOfSample(sample);
+        if (index >= 0) {
+            cfg.filter.remove(index);
+        } else if (cfg.isFilterFull()) {
             player.displayClientMessage(Component.translatable("message.flowline.filter_full"), true);
             return;
+        } else {
+            cfg.filter.add(sample.copyWithCount(1));
         }
-        boolean added = cfg.toggleFilter(id);
         pipe.setChanged();
         player.displayClientMessage(Component.translatable(
-                added ? "message.flowline.filter_added" : "message.flowline.filter_removed", id.toString()), true);
-    }
-
-    private static ResourceLocation sampleId(PipeType type, ItemStack sample) {
-        if (type == PipeType.FLUID) {
-            return FluidUtil.getFluidContained(sample)
-                    .map(f -> BuiltInRegistries.FLUID.getKey(f.getFluid()))
-                    .orElse(null);
-        }
-        return BuiltInRegistries.ITEM.getKey(sample.getItem());
+                index < 0 ? "message.flowline.filter_added" : "message.flowline.filter_removed",
+                sample.getHoverName()), true);
     }
 }

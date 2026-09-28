@@ -4,7 +4,6 @@ import com.knozyy.flowline.pipe.PipeNetwork.Target;
 import com.knozyy.flowline.pipe.SideConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -33,7 +32,7 @@ public final class ItemTransfer {
         for (int slot = 0; slot < source.getSlots() && budget > 0; slot++) {
             ItemStack offered = source.extractItem(slot, budget, true);
             if (offered.isEmpty()) continue;
-            if (!cfg.allows(BuiltInRegistries.ITEM.getKey(offered.getItem()))) continue;
+            if (!cfg.allowsItem(offered)) continue;
 
             for (IItemHandler dest : destinations) {
                 ItemStack leftover = ItemHandlerHelper.insertItemStacked(dest, offered, true);

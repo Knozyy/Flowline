@@ -26,6 +26,11 @@ neoForge {
             programArgument '--nogui'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
+        // Headless in-world tests: ./gradlew runGameTestServer (exits non-zero if a test fails)
+        gameTestServer {
+            type = "gameTestServer"
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
     }
 
     mods {

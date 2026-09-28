@@ -21,6 +21,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private Button distributionButton;
     private Button redstoneButton;
     private Button whitelistButton;
+    private Button matchButton;
     private Button clearButton;
 
     public PipeScreen(PipeMenu menu, Inventory inventory, Component title) {
@@ -34,19 +35,20 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     protected void init() {
         super.init();
         int x = leftPos + 8;
-        modeButton = addRenderableWidget(button(PipeMenu.BTN_MODE, x, topPos + 18, 160));
-        distributionButton = addRenderableWidget(button(PipeMenu.BTN_DISTRIBUTION, x, topPos + 40, 160));
-        redstoneButton = addRenderableWidget(button(PipeMenu.BTN_REDSTONE, x, topPos + 62, 160));
-        whitelistButton = addRenderableWidget(button(PipeMenu.BTN_WHITELIST, x, topPos + 84, 78));
-        clearButton = addRenderableWidget(button(PipeMenu.BTN_CLEAR, x + 82, topPos + 84, 78));
+        modeButton = addRenderableWidget(button(PipeMenu.BTN_MODE, x, topPos + 18, 160, 20));
+        distributionButton = addRenderableWidget(button(PipeMenu.BTN_DISTRIBUTION, x, topPos + 40, 160, 20));
+        redstoneButton = addRenderableWidget(button(PipeMenu.BTN_REDSTONE, x, topPos + 62, 160, 20));
+        whitelistButton = addRenderableWidget(button(PipeMenu.BTN_WHITELIST, x, topPos + 84, 78, 20));
+        matchButton = addRenderableWidget(button(PipeMenu.BTN_MATCH, x + 82, topPos + 84, 78, 20));
+        clearButton = addRenderableWidget(button(PipeMenu.BTN_CLEAR, leftPos + imageWidth - 8 - 50, topPos + 104, 50, 12));
     }
 
-    private Button button(int id, int x, int y, int width) {
+    private Button button(int id, int x, int y, int width, int height) {
         return Button.builder(Component.empty(), b -> {
             if (minecraft != null && minecraft.gameMode != null) {
                 minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
             }
-        }).bounds(x, y, width, 20).build();
+        }).bounds(x, y, width, height).build();
     }
 
     private void refreshButtons() {
@@ -58,11 +60,14 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                 Component.translatable("redstone.flowline." + menu.redstone().name().toLowerCase())));
         whitelistButton.setMessage(Component.translatable(menu.whitelist()
                 ? "gui.flowline.whitelist" : "gui.flowline.blacklist"));
+        matchButton.setMessage(Component.translatable(menu.matchComponents()
+                ? "gui.flowline.match_components" : "gui.flowline.ignore_components"));
         clearButton.setMessage(Component.translatable("gui.flowline.clear"));
 
         boolean hasFilter = menu.type != PipeType.ENERGY;
-        whitelistButton.active = hasFilter;
-        clearButton.active = hasFilter;
+        whitelistButton.visible = hasFilter;
+        matchButton.visible = hasFilter;
+        clearButton.visible = hasFilter;
     }
 
     @Override
@@ -93,6 +98,6 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             graphics.drawString(font, Component.translatable("gui.flowline.filter"), 8, 108, TEXT, false);
         }
         Component speed = Component.translatable("gui.flowline.speed", menu.speed().multiplier);
-        graphics.drawString(font, speed, imageWidth - 8 - font.width(speed), 108, TEXT, false);
+        graphics.drawString(font, speed, imageWidth - 8 - font.width(speed), titleLabelY, TEXT, false);
     }
 }

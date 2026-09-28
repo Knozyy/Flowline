@@ -3,6 +3,7 @@ package com.knozyy.flowline.pipe;
 import com.knozyy.flowline.item.PipeInteractable;
 import com.knozyy.flowline.menu.PipeMenu;
 import com.knozyy.flowline.registry.ModBlockEntities;
+import com.knozyy.flowline.registry.ModItems;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
@@ -95,12 +96,17 @@ public class PipeBlock extends Block implements EntityBlock {
     // ---- connections ------------------------------------------------------------------------------------------
 
     private BlockState withConnections(Level level, BlockPos pos, BlockState state) {
+        PipeBlockEntity self = level.getBlockEntity(pos) instanceof PipeBlockEntity be ? be : null;
         for (Direction dir : Direction.values()) {
             BlockPos neighbor = pos.relative(dir);
             BlockState ns = level.getBlockState(neighbor);
             Conn conn;
-            if (ns.getBlock() instanceof PipeBlock other && other.type == type) {
-                conn = Conn.PIPE;
+            if (self != null && self.isDisconnected(dir)) {
+                conn = Conn.NONE;
+            } else if (ns.getBlock() instanceof PipeBlock other && other.type == type) {
+                boolean otherCut = level.getBlockEntity(neighbor) instanceof PipeBlockEntity nb
+                        && nb.isDisconnected(dir.getOpposite());
+                conn = otherCut ? Conn.NONE : Conn.PIPE;
             } else if (type.hasEndpoint(level, neighbor, dir.getOpposite())) {
                 conn = Conn.ENDPOINT;
             } else {
@@ -119,7 +125,31 @@ public class PipeBlock extends Block implements EntityBlock {
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (!level.isClientSide && !oldState.is(this)) {
+            // A freshly placed pipe reconnects neighbours that were cut towards this position earlier.
+            for (Direction dir : Direction.values()) {
+                BlockPos n = pos.relative(dir);
+                if (level.getBlockEntity(n) instanceof PipeBlockEntity nb && nb.type() == type
+                        && nb.isDisconnected(dir.getOpposite())) {
+                    nb.setDisconnected(dir.getOpposite(), false);
+                    updateConnections(level, n);
+                }
+            }
+        }
         refresh(state, level, pos);
+    }
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
+            for (Direction dir : Direction.values()) {
+                SpeedTier speed = be.side(dir).speed;
+                if (speed != SpeedTier.BASE) {
+                    Block.popResource(level, pos, new ItemStack(ModItems.SPEED_UPGRADES.get(speed.ordinal() - 1).get()));
+                }
+            }
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     @Override
@@ -133,6 +163,39 @@ public class PipeBlock extends Block implements EntityBlock {
         if (level.isClientSide) return;
         BlockState updated = withConnections(level, pos, state);
         if (updated != state) level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+    }
+
+    /** Recomputes the connection properties of the pipe at {@code pos}, if there is one. */
+    public static void updateConnections(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (state.getBlock() instanceof PipeBlock pipe) pipe.refresh(state, level, pos);
+    }
+
+    /**
+     * Wrench action: cuts or restores the connection on one side. Pipe-to-pipe connections are cut on both
+     * pipes so neither side reconnects on its own.
+     *
+     * @return the new state: true if the side is now connected, false if it is cut. Null if there is nothing
+     * on that side to connect to.
+     */
+    @Nullable
+    public static Boolean toggleConnection(Level level, BlockPos pos, Direction side) {
+        if (!(level.getBlockEntity(pos) instanceof PipeBlockEntity be)) return null;
+        BlockPos n = pos.relative(side);
+        PipeBlockEntity other = level.getBlockEntity(n) instanceof PipeBlockEntity nb && nb.type() == be.type()
+                ? nb : null;
+
+        boolean cut = be.isDisconnected(side) || (other != null && other.isDisconnected(side.getOpposite()));
+        if (!cut && other == null && !be.type().hasEndpoint(level, n, side.getOpposite())) return null;
+
+        boolean cutNow = !cut;
+        be.setDisconnected(side, cutNow);
+        if (other != null) {
+            other.setDisconnected(side.getOpposite(), cutNow);
+            updateConnections(level, n);
+        }
+        updateConnections(level, pos);
+        return !cutNow;
     }
 
     // ---- shape ------------------------------------------------------------------------------------------------
@@ -151,19 +214,24 @@ public class PipeBlock extends Block implements EntityBlock {
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
                                               Player player, InteractionHand hand, BlockHitResult hit) {
-        if (!(stack.getItem() instanceof PipeInteractable tool)) {
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        if (stack.getItem() instanceof PipeInteractable tool) {
+            useTool(tool, stack, state, level, pos, player, hand, hit);
+            return ItemInteractionResult.sidedSuccess(level.isClientSide);
         }
-        if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
-            Direction side = sideFromHit(hit, pos);
-            if (state.getValue(prop(side)) != Conn.ENDPOINT) {
-                player.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable("message.flowline.no_endpoint"), true);
-            } else {
-                tool.useOnPipe(be, side, player, hand, stack);
-            }
-        }
-        return ItemInteractionResult.sidedSuccess(level.isClientSide);
+        // Any other held item keeps its normal behaviour (e.g. placing a block against the pipe).
+        return stack.isEmpty() ? ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
+                : ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+    }
+
+    /**
+     * Shared entry point for tools. Called from {@link #useItemOn} and, because vanilla skips the block when the
+     * player sneaks with an item in hand, from the tools' own {@code useOn} as well.
+     */
+    public static void useTool(PipeInteractable tool, ItemStack stack, BlockState state, Level level, BlockPos pos,
+                               Player player, InteractionHand hand, BlockHitResult hit) {
+        if (level.isClientSide || !(level.getBlockEntity(pos) instanceof PipeBlockEntity be)) return;
+        Direction side = sideFromHit(hit, pos);
+        tool.useOnPipe(be, side, state.getValue(prop(side)), player, hand, stack);
     }
 
     /** Empty-handed click on an endpoint side opens that side's configuration screen. */
