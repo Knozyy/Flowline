@@ -278,19 +278,42 @@ en = {
     "message.flowline.upgrade_installed": "Upgrade installed (speed x%s, filter unlocked)",
     "gui.flowline.pipe_config": "%s - %s",
     "gui.flowline.distribution": "Distribution: %s",
-    "gui.flowline.redstone": "Redstone: %s",
+    "gui.flowline.side_line": "%s side · %s",
+    "gui.flowline.section.settings": "Settings",
+    "gui.flowline.section.filter": "Filter",
+    "gui.flowline.section.upgrade": "Upgrade",
+    "gui.flowline.interval": "every %s ticks",
+    "gui.flowline.no_filter": "No filter",
+    "gui.flowline.needs_upgrade": "Requires an upgrade",
+    "gui.flowline.filter_mode": "Filter mode: %s",
+    "gui.flowline.nbt": "NBT: %s",
+    "gui.flowline.clear": "Clear filter",
+    "gui.flowline.upgrade_slot": "Upgrade slot",
+    "gui.flowline.upgrade_slot.desc": "Faster transfers and unlocks the filter.",
     "gui.flowline.whitelist": "Whitelist",
+    "gui.flowline.whitelist.desc": "Only listed entries pass.",
     "gui.flowline.blacklist": "Blacklist",
-    "gui.flowline.clear": "Clear",
-    "gui.flowline.match_components": "NBT: match",
-    "gui.flowline.ignore_components": "NBT: ignore",
+    "gui.flowline.blacklist.desc": "Everything except listed entries passes.",
+    "gui.flowline.match_components": "Match",
+    "gui.flowline.match_components.desc": "Enchantments, damage, names and other data must match too.",
+    "gui.flowline.ignore_components": "Ignore",
+    "gui.flowline.ignore_components.desc": "Only the item or fluid type counts.",
+    "redstone.flowline.ignored.desc": "Runs regardless of redstone.",
+    "redstone.flowline.require_signal.desc": "Only extracts while powered.",
+    "redstone.flowline.require_no_signal.desc": "Stops while powered.",
+    "distribution.flowline.nearest.desc": "Fills the closest target first.",
+    "distribution.flowline.farthest.desc": "Fills the farthest target first.",
+    "distribution.flowline.round_robin.desc": "Takes turns between targets.",
+    "distribution.flowline.random.desc": "Picks a random target each time.",
+    "tier.flowline.none": "None",
+    "tier.flowline.basic": "Basic",
+    "tier.flowline.regular": "Regular",
+    "tier.flowline.advanced": "Advanced",
+    "tier.flowline.knozy": "Knozy",
+    "gui.flowline.redstone": "Redstone: %s",
     "message.flowline.connected": "Side connected",
     "message.flowline.disconnected": "Side disconnected",
     "message.flowline.nothing_to_connect": "Nothing to connect on this side.",
-    "gui.flowline.filter": "Filter",
-    "gui.flowline.upgrade_slot": "Upgrade slot",
-    "gui.flowline.status": "%s · x%s",
-    "gui.flowline.filter_needs_upgrade": "Install an upgrade on this side to use the filter.",
     "redstone.flowline.ignored": "Ignored",
     "redstone.flowline.require_signal": "Needs signal",
     "redstone.flowline.require_no_signal": "Needs no signal",
@@ -319,19 +342,42 @@ tr = {
     "message.flowline.upgrade_installed": "Yükseltme takıldı (hız x%s, filtre açıldı)",
     "gui.flowline.pipe_config": "%s - %s",
     "gui.flowline.distribution": "Dağıtım: %s",
-    "gui.flowline.redstone": "Redstone: %s",
+    "gui.flowline.side_line": "%s tarafı · %s",
+    "gui.flowline.section.settings": "Ayarlar",
+    "gui.flowline.section.filter": "Filtre",
+    "gui.flowline.section.upgrade": "Yükseltme",
+    "gui.flowline.interval": "her %s tickte",
+    "gui.flowline.no_filter": "Filtre yok",
+    "gui.flowline.needs_upgrade": "Yükseltme gerekli",
+    "gui.flowline.filter_mode": "Filtre modu: %s",
+    "gui.flowline.nbt": "NBT: %s",
+    "gui.flowline.clear": "Filtreyi temizle",
+    "gui.flowline.upgrade_slot": "Yükseltme yuvası",
+    "gui.flowline.upgrade_slot.desc": "Taşımayı hızlandırır ve filtreyi açar.",
     "gui.flowline.whitelist": "Beyaz liste",
+    "gui.flowline.whitelist.desc": "Sadece listedekiler geçer.",
     "gui.flowline.blacklist": "Kara liste",
-    "gui.flowline.clear": "Temizle",
-    "gui.flowline.match_components": "NBT: eşleş",
-    "gui.flowline.ignore_components": "NBT: yok say",
+    "gui.flowline.blacklist.desc": "Listedekiler hariç her şey geçer.",
+    "gui.flowline.match_components": "Eşleş",
+    "gui.flowline.match_components.desc": "Büyü, hasar, isim gibi veriler de aynı olmalı.",
+    "gui.flowline.ignore_components": "Yok say",
+    "gui.flowline.ignore_components.desc": "Sadece eşya ya da sıvı türüne bakılır.",
+    "redstone.flowline.ignored.desc": "Redstone'a bakmadan çalışır.",
+    "redstone.flowline.require_signal.desc": "Sadece sinyal varken çeker.",
+    "redstone.flowline.require_no_signal.desc": "Sinyal varken durur.",
+    "distribution.flowline.nearest.desc": "Önce en yakın hedefi doldurur.",
+    "distribution.flowline.farthest.desc": "Önce en uzak hedefi doldurur.",
+    "distribution.flowline.round_robin.desc": "Hedefler arasında sırayla dağıtır.",
+    "distribution.flowline.random.desc": "Her seferinde rastgele bir hedef seçer.",
+    "tier.flowline.none": "Yok",
+    "tier.flowline.basic": "Basic",
+    "tier.flowline.regular": "Regular",
+    "tier.flowline.advanced": "Advanced",
+    "tier.flowline.knozy": "Knozy",
+    "gui.flowline.redstone": "Redstone: %s",
     "message.flowline.connected": "Bağlantı açıldı",
     "message.flowline.disconnected": "Bağlantı kesildi",
     "message.flowline.nothing_to_connect": "Bu tarafta bağlanacak bir şey yok.",
-    "gui.flowline.filter": "Filtre",
-    "gui.flowline.upgrade_slot": "Yükseltme yuvası",
-    "gui.flowline.status": "%s · x%s",
-    "gui.flowline.filter_needs_upgrade": "Filtreyi kullanmak için bu tarafa bir yükseltme tak.",
     "redstone.flowline.ignored": "Yok sayılır",
     "redstone.flowline.require_signal": "Sinyal gerekir",
     "redstone.flowline.require_no_signal": "Sinyal olmamalı",
@@ -344,6 +390,165 @@ tr = {
 }
 lang("en_us", en)
 lang("tr_tr", tr)
+
+# ---------------------------------------------------------------- gui icons
+class Canvas:
+    def __init__(self):
+        self.px = [[None] * 16 for _ in range(16)]
+
+    def dot(self, x, y, c):
+        if 0 <= x < 16 and 0 <= y < 16:
+            self.px[y][x] = c
+
+    def rect(self, x0, y0, x1, y1, c):
+        for y in range(y0, y1 + 1):
+            for x in range(x0, x1 + 1):
+                self.dot(x, y, c)
+
+    def line(self, x0, y0, x1, y1, c, w=1):
+        n = max(abs(x1 - x0), abs(y1 - y0), 1)
+        for i in range(n + 1):
+            x = round(x0 + (x1 - x0) * i / n)
+            y = round(y0 + (y1 - y0) * i / n)
+            for dx in range(w):
+                for dy in range(w):
+                    self.dot(x + dx, y + dy, c)
+
+    def pixels(self, outline=True):
+        out = [[(0, 0, 0, 0)] * 16 for _ in range(16)]
+        for y in range(16):
+            for x in range(16):
+                c = self.px[y][x]
+                if c is not None:
+                    out[y][x] = tuple(c) + (255,)
+                elif outline and any(0 <= x + dx < 16 and 0 <= y + dy < 16 and self.px[y + dy][x + dx] is not None
+                                     for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                    out[y][x] = (0x10, 0x12, 0x16, 255)
+        return out
+
+
+RED, RED_HI, RED_DK = (0xE8, 0x30, 0x30), (0xFF, 0xA0, 0x90), (0x5A, 0x22, 0x22)
+STICK, GREY, GREY_DK = (0x9A, 0x6A, 0x3A), (0xA8, 0xAE, 0xB8), (0x5A, 0x60, 0x6A)
+GREEN, GOLD, WHITE, CYAN = (0x4C, 0xD9, 0x64), (0xF2, 0xC2, 0x3A), (0xF0, 0xF2, 0xF5), (0x5A, 0xC8, 0xF0)
+
+
+def torch(lit):
+    c = Canvas()
+    c.rect(7, 7, 8, 14, STICK)
+    head = RED if lit else RED_DK
+    c.rect(6, 3, 9, 6, head)
+    if lit:
+        c.rect(7, 4, 8, 5, RED_HI)
+        for x, y in ((4, 2), (11, 2), (3, 6), (12, 6), (7, 0)):
+            c.dot(x, y, RED)
+    return c
+
+
+def rs_ignored():
+    c = Canvas()
+    for x, y in ((4, 9), (5, 8), (5, 9), (5, 10), (6, 9), (9, 5), (10, 4), (10, 5), (10, 6), (11, 5),
+                 (9, 11), (10, 10), (10, 11), (10, 12), (11, 11), (4, 4), (5, 4), (4, 5)):
+        c.dot(x, y, RED)
+    c.line(2, 13, 13, 2, GREY, 2)
+    return c
+
+
+def distribution(kind):
+    c = Canvas()
+    if kind in ("nearest", "farthest"):
+        c.rect(1, 9, 3, 12, GREY)                      # source
+        for x in (6, 10, 14):                           # targets
+            c.rect(x - 1, 10, x, 11, GREY_DK)
+        tx = 6 if kind == "nearest" else 14
+        c.rect(tx - 1, 10, tx, 11, CYAN)
+        c.line(2, 5, tx - 1, 5, WHITE)                  # arrow over the row
+        c.line(2, 5, 2, 8, WHITE)
+        c.line(tx - 1, 5, tx - 1, 8, WHITE)
+        c.dot(tx - 2, 7, WHITE)
+        c.dot(tx, 7, WHITE)
+    elif kind == "round_robin":
+        ring = [(6, 2), (7, 2), (8, 2), (9, 2), (11, 3), (12, 4), (13, 6), (13, 7), (13, 8), (13, 9), (12, 11),
+                (11, 12), (9, 13), (8, 13), (7, 13), (6, 13), (4, 12), (3, 11), (2, 9), (2, 8), (2, 7), (2, 6),
+                (3, 4), (4, 3), (10, 2), (5, 13)]
+        for x, y in ring:
+            c.dot(x, y, WHITE)
+        for x, y in ((10, 0), (10, 1), (11, 1), (11, 2), (10, 3), (10, 4)):   # arrow head, top
+            c.dot(x, y, CYAN)
+        for x, y in ((5, 15), (5, 14), (4, 14), (4, 13), (5, 12), (5, 11)):   # arrow head, bottom
+            c.dot(x, y, CYAN)
+        c.rect(7, 7, 8, 8, CYAN)
+    else:  # random: a die
+        c.rect(2, 2, 13, 13, WHITE)
+        for x, y in ((4, 4), (10, 4), (7, 7), (4, 10), (10, 10)):
+            c.rect(x, y, x + 1, y + 1, (0x22, 0x26, 0x2E))
+    return c
+
+
+def check():
+    c = Canvas()
+    c.line(2, 8, 5, 11, GREEN, 2)
+    c.line(6, 11, 12, 3, GREEN, 2)
+    return c
+
+
+def cross():
+    c = Canvas()
+    c.line(3, 3, 11, 11, RED, 2)
+    c.line(11, 3, 3, 11, RED, 2)
+    return c
+
+
+def tag(active):
+    c = Canvas()
+    col = GOLD if active else GREY_DK
+    c.rect(6, 4, 13, 11, col)
+    for i in range(4):
+        c.line(5 - i, 5 + i, 5 - i, 10 - i, col)
+    c.dot(5, 7, (0x22, 0x26, 0x2E))
+    c.dot(5, 8, (0x22, 0x26, 0x2E))
+    c.line(7, 6, 12, 6, WHITE if active else GREY)
+    c.line(7, 9, 11, 9, WHITE if active else GREY)
+    if not active:
+        c.line(2, 14, 14, 2, RED, 2)
+    return c
+
+
+def trash():
+    c = Canvas()
+    c.rect(3, 3, 12, 4, GREY)
+    c.rect(6, 1, 9, 2, GREY)
+    c.rect(4, 5, 11, 14, GREY_DK)
+    for x in (6, 9):
+        c.line(x, 7, x, 12, GREY)
+    return c
+
+
+def lock():
+    c = Canvas()
+    for x, y in ((5, 7), (5, 6), (5, 5), (5, 4), (6, 3), (7, 2), (8, 2), (9, 3), (10, 4), (10, 5), (10, 6), (10, 7)):
+        c.dot(x, y, GREY)
+    c.rect(3, 8, 12, 14, GOLD)
+    c.rect(7, 10, 8, 12, (0x5A, 0x44, 0x10))
+    return c
+
+
+GUI_ICONS = {
+    "redstone_ignored": rs_ignored(),
+    "redstone_require_signal": torch(True),
+    "redstone_require_no_signal": torch(False),
+    "distribution_nearest": distribution("nearest"),
+    "distribution_farthest": distribution("farthest"),
+    "distribution_round_robin": distribution("round_robin"),
+    "distribution_random": distribution("random"),
+    "whitelist": check(),
+    "blacklist": cross(),
+    "match_components": tag(True),
+    "ignore_components": tag(False),
+    "clear": trash(),
+    "lock": lock(),
+}
+for icon_name, canvas in GUI_ICONS.items():
+    write_png(f"assets/{MODID}/textures/gui/icon/{icon_name}.png", canvas.pixels())
 
 # ---------------------------------------------------------------- gametest structure
 def nbt_empty_structure(size):

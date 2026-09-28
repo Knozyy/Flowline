@@ -39,12 +39,13 @@ public class PipeMenu extends AbstractContainerMenu {
     public static final int BTN_CLEAR = 4;
     public static final int BTN_MATCH = 5;
 
-    public static final int UPGRADE_X = 152;
-    public static final int UPGRADE_Y = 31;
-    public static final int FILTER_X = 8;
-    public static final int FILTER_Y = 98;
-    public static final int INVENTORY_Y = 130;
-    public static final int HOTBAR_Y = 188;
+    public static final int UPGRADE_X = 138;
+    public static final int UPGRADE_Y = 44;
+    /** Top-left of the 3x3 filter grid. */
+    public static final int FILTER_X = 60;
+    public static final int FILTER_Y = 44;
+    public static final int INVENTORY_Y = 114;
+    public static final int HOTBAR_Y = 172;
 
     private static final int UPGRADE_SLOT = 0;
 
@@ -91,7 +92,7 @@ public class PipeMenu extends AbstractContainerMenu {
         Container upgrades = pipe != null ? pipe.upgrades() : new SimpleContainer(6);
         upgradeSlot = addSlot(new UpgradeSlot(upgrades, side.ordinal(), UPGRADE_X, UPGRADE_Y));
         for (int i = 0; i < ghostCount; i++) {
-            addSlot(new GhostSlot(filterInv, i, FILTER_X + i * 18, FILTER_Y));
+            addSlot(new GhostSlot(filterInv, i, FILTER_X + (i % 3) * 18, FILTER_Y + (i / 3) * 18));
         }
         inventoryStart = slots.size();
         for (int row = 0; row < 3; row++) {
