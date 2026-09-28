@@ -106,13 +106,16 @@ public class PipeBlockEntity extends BlockEntity {
             SideConfig cfg = sides[dir.ordinal()];
             int speed = 0;
             int stack = 0;
+            int filter = 0;
             for (int i = 0; i < SideConfig.UPGRADE_SLOTS; i++) {
                 UpgradeType type = UpgradeItem.typeOf(getUpgrade(dir, i));
                 if (type != null) {
                     speed += type.speed;
                     stack += type.stack;
+                    filter += type.filter;
                 }
             }
+            cfg.filterCount = filter;
             if (speed != cfg.speedCount || stack != cfg.stackCount) {
                 cfg.speedCount = speed;
                 cfg.stackCount = stack;

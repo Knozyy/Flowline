@@ -47,6 +47,8 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private IconButton whitelistButton;
     private IconButton matchButton;
     private IconButton clearButton;
+    private IconButton prevPageButton;
+    private IconButton nextPageButton;
 
     public PipeScreen(PipeMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -76,6 +78,10 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                 b -> press(PipeMenu.BTN_MATCH)));
         clearButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 13, topPos + PANEL_TOP + 1, 11,
                 () -> "clear", accent, b -> press(PipeMenu.BTN_CLEAR)));
+        prevPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 36, topPos + PANEL_TOP + 2, 10,
+                () -> "page_prev", accent, b -> press(PipeMenu.BTN_PREV_PAGE)));
+        nextPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 25, topPos + PANEL_TOP + 2, 10,
+                () -> "page_next", accent, b -> press(PipeMenu.BTN_NEXT_PAGE)));
     }
 
     private void press(int id) {
@@ -88,6 +94,20 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         return value.name().toLowerCase(Locale.ROOT);
     }
 
+    /** Mouse wheel over the filter panel flips filter pages. */
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (menu.hasFilter() && menu.pageCount() > 1 && scrollY != 0
+                && isHovering(FILTER_L, PANEL_TOP, FILTER_R - FILTER_L, PANEL_BOTTOM - PANEL_TOP, mouseX, mouseY)) {
+            int target = menu.page() + (scrollY < 0 ? 1 : -1);
+            if (target >= 0 && target < menu.pageCount()) {
+                press(scrollY < 0 ? PipeMenu.BTN_NEXT_PAGE : PipeMenu.BTN_PREV_PAGE);
+            }
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
     // ---- rendering ----------------------------------------------------------------------------------------
 
     @Override
@@ -97,6 +117,11 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         matchButton.active = filter;
         clearButton.active = filter;
         clearButton.visible = menu.type != PipeType.ENERGY;
+        boolean paged = filter && menu.pageCount() > 1;
+        prevPageButton.visible = paged;
+        nextPageButton.visible = paged;
+        prevPageButton.active = menu.page() > 0;
+        nextPageButton.active = menu.page() < menu.pageCount() - 1;
 
         super.render(graphics, mouseX, mouseY, partialTick);
         renderTooltip(graphics, mouseX, mouseY);
@@ -132,6 +157,13 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         if (!menu.hasFilter()) {
             int cx = l + (FILTER_L + FILTER_R) / 2;
             smallCentered(graphics, Component.translatable("gui.flowline.no_filter"), cx, t + 66, MUTED);
+        } else if (menu.pageCount() > 1) {
+            // page dots in the strip right of the grid
+            int x = l + FILTER_R - 4;
+            for (int i = 0; i < menu.pageCount(); i++) {
+                int y = t + PipeMenu.FILTER_Y + 2 + i * 5;
+                graphics.fill(x, y, x + 2, y + 3, i == menu.page() ? accent : PANEL_EDGE);
+            }
         }
     }
 
@@ -161,7 +193,11 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
 
         // panel captions
         small(graphics, caption("gui.flowline.section.settings"), SETTINGS_L + 4, PANEL_TOP + 4, MUTED);
-        small(graphics, caption("gui.flowline.section.filter"), FILTER_L + 4, PANEL_TOP + 4, MUTED);
+        // with several filter pages the page arrows take the caption's place, so show the page number instead
+        Component filterCaption = menu.hasFilter() && menu.pageCount() > 1
+                ? Component.literal((menu.page() + 1) + "/" + menu.pageCount())
+                : caption("gui.flowline.section.filter");
+        small(graphics, filterCaption, FILTER_L + 4, PANEL_TOP + 4, MUTED);
         int ucx = (UPGRADE_L + UPGRADE_R) / 2;
         smallCentered(graphics, caption("gui.flowline.section.upgrade"), ucx, PANEL_TOP + 4, MUTED);
 
@@ -194,6 +230,10 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         } else if (matchButton.isHovered()) {
             String k = menu.matchComponents() ? "match_components" : "ignore_components";
             lines = describe("gui.flowline.nbt", "gui.flowline." + k, matchButton.active);
+        } else if (prevPageButton.visible && (prevPageButton.isHovered() || nextPageButton.isHovered())) {
+            lines = List.of(Component.translatable("gui.flowline.filter_page", menu.page() + 1, menu.pageCount()),
+                    Component.translatable("gui.flowline.filter_capacity", menu.capacity())
+                            .withStyle(ChatFormatting.GRAY));
         } else if (clearButton.visible && clearButton.isHovered()) {
             lines = new ArrayList<>(List.of(Component.translatable("gui.flowline.clear")));
             if (!clearButton.active) lines.add(unavailable());
@@ -209,7 +249,8 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private List<Component> pacingTooltip() {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable("gui.flowline.pacing.title"));
-        lines.add(Component.translatable("gui.flowline.pacing.counts", menu.speedCount(), menu.stackCount())
+        lines.add(Component.translatable("gui.flowline.pacing.counts", menu.speedCount(), menu.stackCount(),
+                menu.filterCount())
                 .withStyle(ChatFormatting.GRAY));
         lines.add(Component.translatable("gui.flowline.pacing.amount", menu.multiplier())
                 .withStyle(ChatFormatting.GRAY));

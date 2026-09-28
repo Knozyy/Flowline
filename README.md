@@ -10,7 +10,7 @@ modes, filters, distribution modes and speed upgrades.
 | Item / Fluid / Energy Pipe | Connects to pipes of the same type and to any block exposing the matching capability. |
 | Flowline Wrench | **Sneak + right-click** an attached side: toggle **Insert ↔ Extract**. Right-click any side: cut / restore the connection. |
 | Empty hand | Right-click an **Extract** side: opens its config screen (upgrade slots, distribution, redstone, filter). |
-| Speed / Stack / Knozy Upgrade | Six upgrade slots per Extract side (GUI, or right-click the side). **Speed** lowers the starting interval, **Stack** multiplies the amount per operation, **Knozy** counts as both. Returned when the side goes back to Insert, dropped when the pipe is broken. |
+| Speed / Stack / Filter / Knozy Upgrade | Six upgrade slots per Extract side (GUI, or right-click the side). **Speed** lowers the starting interval, **Stack** multiplies the amount per operation, **Filter** adds filter entries, **Knozy** counts as all three. Returned when the side goes back to Insert, dropped when the pipe is broken. |
 
 Every side defaults to **Insert**; sneak-click the side facing your source chest/tank/generator with the wrench to make it **Extract**.
 Extracting sides send to the Insert sides of their pipe network (target lists are cached and rebuilt only when
@@ -29,10 +29,13 @@ Each Extract side runs on an adaptive interval, similar to AE2's tick rate modul
 
 The badge in the GUI header shows the amount multiplier and the current interval (hover for details).
 
-The filter (not on energy pipes) holds up to 9 samples: click a slot with an item (or a filled bucket/tank for fluid
-pipes) to add it, click with an empty hand to clear it. **NBT: match** also compares data components.
+The filter (not on energy pipes) holds **9 entries** by default and **9 more per Filter upgrade** (Knozy counts):
+click a slot with an item (or a filled bucket/tank for fluid pipes) to add it, click with an empty hand to clear it.
+With more than 9 entries the grid gets pages (arrows in the panel header, or the mouse wheel). Entries past the
+capacity are kept but ignored until the upgrade is back. **NBT: match** also compares data components.
 
-Config (`config/flowline-common.toml`): per-operation amounts, Stack multipliers
+Config (`config/flowline-common.toml`): per-operation amounts, Stack multipliers, filter entries
+(`baseFilterSlots` = 9, `filterSlotsPerUpgrade` = 9)
 (`[1, 8, 16, 32, 64, 96, 128]` by number of Stack upgrades), every pacing value above, and the max network size.
 
 ## Building

@@ -143,6 +143,8 @@ UPGRADE_ART = {
     "speed_upgrade": (chevrons((4, 8), 4, 7), (0x4A, 0xE6, 0xF0)),
     "stack_upgrade": (bars([(4, (6, 11)), (5, (6, 11)), (7, (5, 10)), (8, (5, 10)), (10, (4, 9)), (11, (4, 9))]),
                       (0xF0, 0x9A, 0x3A)),
+    "filter_upgrade": (bars([(4, (4, 11)), (5, (5, 10)), (6, (6, 9)), (7, (7, 8)), (8, (7, 8)), (9, (7, 8)),
+                             (10, (7, 8))]), (0x5A, 0xE0, 0x7A)),
     "knozy_upgrade": (chevrons((5, 8), 3, 5) | bars([(9, (4, 11)), (11, (4, 11))]), (0xD2, 0x4A, 0xF5)),
 }
 for up_name, (symbol, accent) in UPGRADE_ART.items():
@@ -221,7 +223,7 @@ for name in TYPES:
         }],
     })
 
-for name in ("wrench", "speed_upgrade", "stack_upgrade", "knozy_upgrade"):
+for name in ("wrench", "speed_upgrade", "stack_upgrade", "filter_upgrade", "knozy_upgrade"):
     write_json(f"assets/{MODID}/models/item/{name}.json", {
         "parent": "minecraft:item/generated",
         "textures": {"layer0": f"{MODID}:item/{name}"},
@@ -264,8 +266,10 @@ shaped("speed_upgrade", ["ISI", "RIR", "ISI"],
        {"I": "minecraft:iron_ingot", "S": "minecraft:sugar", "R": "minecraft:redstone"}, f"{MODID}:speed_upgrade")
 shaped("stack_upgrade", ["IRI", "ICI", "IRI"],
        {"I": "minecraft:iron_ingot", "C": "minecraft:chest", "R": "minecraft:redstone"}, f"{MODID}:stack_upgrade")
-shapeless("knozy_upgrade", [f"{MODID}:speed_upgrade", f"{MODID}:stack_upgrade", "minecraft:netherite_ingot"],
-          f"{MODID}:knozy_upgrade")
+shaped("filter_upgrade", ["IPI", "PHP", "IPI"],
+       {"I": "minecraft:iron_ingot", "P": "minecraft:paper", "H": "minecraft:hopper"}, f"{MODID}:filter_upgrade")
+shapeless("knozy_upgrade", [f"{MODID}:speed_upgrade", f"{MODID}:stack_upgrade", f"{MODID}:filter_upgrade",
+                            "minecraft:netherite_ingot"], f"{MODID}:knozy_upgrade")
 
 # ---------------------------------------------------------------- lang
 def lang(code, tr):
@@ -283,12 +287,16 @@ en = {
     "item.flowline.stack_upgrade": "Stack Upgrade",
     "item.flowline.stack_upgrade.desc": "Moves more per operation.",
     "item.flowline.knozy_upgrade": "Knozy Upgrade",
-    "item.flowline.knozy_upgrade.desc": "Counts as a Speed and a Stack Upgrade.",
+    "item.flowline.filter_upgrade": "Filter Upgrade",
+    "item.flowline.filter_upgrade.desc": "Adds more whitelist/blacklist entries.",
+    "item.flowline.knozy_upgrade.desc": "Counts as a Speed, a Stack and a Filter Upgrade.",
     "message.flowline.upgrade_installed": "Upgrade installed (%s/%s)",
     "message.flowline.upgrade_slots_full": "All upgrade slots on this side are full.",
-    "gui.flowline.upgrade_slot.desc": "Speed: shorter start interval. Stack: more per operation. Knozy: both.",
+    "gui.flowline.upgrade_slot.desc": "Speed: shorter start interval. Stack: more per operation. Filter: more filter entries. Knozy: all three.",
+    "gui.flowline.filter_page": "Filter page %s/%s",
+    "gui.flowline.filter_capacity": "%s entries (Filter upgrades add more)",
     "gui.flowline.pacing.title": "Pacing",
-    "gui.flowline.pacing.counts": "Speed: %s · Stack: %s",
+    "gui.flowline.pacing.counts": "Speed: %s · Stack: %s · Filter: %s",
     "gui.flowline.pacing.amount": "Amount per operation: x%s",
     "gui.flowline.pacing.interval": "Interval: %s ticks (start %s, min %s)",
     "gui.flowline.pacing.hint": "Speeds up while moving, slows down when idle.",
@@ -348,12 +356,16 @@ tr = {
     "item.flowline.stack_upgrade": "Stack Upgrade",
     "item.flowline.stack_upgrade.desc": "Her işlemde daha fazla taşır.",
     "item.flowline.knozy_upgrade": "Knozy Upgrade",
-    "item.flowline.knozy_upgrade.desc": "Hem Speed hem Stack Upgrade sayılır.",
+    "item.flowline.filter_upgrade": "Filter Upgrade",
+    "item.flowline.filter_upgrade.desc": "Beyaz/kara listeye daha fazla kayıt ekler.",
+    "item.flowline.knozy_upgrade.desc": "Hem Speed, hem Stack, hem de Filter Upgrade sayılır.",
     "message.flowline.upgrade_installed": "Yükseltme takıldı (%s/%s)",
     "message.flowline.upgrade_slots_full": "Bu taraftaki tüm yükseltme yuvaları dolu.",
-    "gui.flowline.upgrade_slot.desc": "Speed: daha kısa başlangıç aralığı. Stack: işlem başına daha fazla. Knozy: ikisi birden.",
+    "gui.flowline.upgrade_slot.desc": "Speed: daha kısa başlangıç aralığı. Stack: işlem başına daha fazla. Filter: daha fazla filtre kaydı. Knozy: üçü birden.",
+    "gui.flowline.filter_page": "Filtre sayfası %s/%s",
+    "gui.flowline.filter_capacity": "%s kayıt (Filter Upgrade ile artar)",
     "gui.flowline.pacing.title": "Hız",
-    "gui.flowline.pacing.counts": "Speed: %s · Stack: %s",
+    "gui.flowline.pacing.counts": "Speed: %s · Stack: %s · Filter: %s",
     "gui.flowline.pacing.amount": "İşlem başına miktar: x%s",
     "gui.flowline.pacing.interval": "Aralık: %s tick (başlangıç %s, en az %s)",
     "gui.flowline.pacing.hint": "Taşıdıkça hızlanır, boştayken yavaşlar.",
@@ -546,7 +558,18 @@ def lock():
     return c
 
 
+def page_arrow(right):
+    c = Canvas()
+    for dy in range(9):
+        off = 4 - abs(4 - dy)
+        x = 5 + off if right else 10 - off
+        c.line(x, 3 + dy, x + 1, 3 + dy, WHITE)
+    return c
+
+
 GUI_ICONS = {
+    "page_prev": page_arrow(False),
+    "page_next": page_arrow(True),
     "redstone_ignored": rs_ignored(),
     "redstone_require_signal": torch(True),
     "redstone_require_no_signal": torch(False),

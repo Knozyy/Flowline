@@ -9,6 +9,9 @@
       "item": "flowline:stack_upgrade"
     },
     {
+      "item": "flowline:filter_upgrade"
+    },
+    {
       "item": "minecraft:netherite_ingot"
     }
   ],

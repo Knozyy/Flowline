@@ -177,17 +177,19 @@ public class PipeGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void upgradesCountPerSide(GameTestHelper helper) {
         PipeBlockEntity pipe = line(helper, 1);
-        install(pipe, UpgradeType.STACK, UpgradeType.STACK, UpgradeType.KNOZY);
+        install(pipe, UpgradeType.STACK, UpgradeType.STACK, UpgradeType.KNOZY, UpgradeType.FILTER);
         SideConfig cfg = pipe.side(Direction.WEST);
         helper.assertTrue(cfg.stackCount == 3, "2 Stack + 1 Knozy = 3 stack, got " + cfg.stackCount);
         helper.assertTrue(cfg.speedCount == 1, "1 Knozy = 1 speed, got " + cfg.speedCount);
+        helper.assertTrue(cfg.filterCount == 2, "1 Filter + 1 Knozy = 2 filter, got " + cfg.filterCount);
 
-        for (int i = 3; i < SideConfig.UPGRADE_SLOTS; i++) install(pipe, UpgradeType.SPEED);
+        for (int i = 4; i < SideConfig.UPGRADE_SLOTS; i++) install(pipe, UpgradeType.SPEED);
         helper.assertTrue(!pipe.installUpgrade(Direction.WEST, upgrade(UpgradeType.SPEED)), "a 7th upgrade must not fit");
 
         List<ItemStack> removed = pipe.removeAllUpgrades(Direction.WEST);
         helper.assertTrue(removed.size() == SideConfig.UPGRADE_SLOTS, "removing returns all six upgrades");
-        helper.assertTrue(cfg.stackCount == 0 && cfg.speedCount == 0, "removing resets the counts");
+        helper.assertTrue(cfg.stackCount == 0 && cfg.speedCount == 0 && cfg.filterCount == 0,
+                "removing resets the counts");
         helper.succeed();
     }
 
@@ -201,13 +203,52 @@ public class PipeGameTests {
         });
     }
 
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void filterUpgradesAddCapacity(GameTestHelper helper) {
+        PipeBlockEntity pipe = line(helper, 1);
+        SideConfig cfg = pipe.side(Direction.WEST);
+        helper.assertTrue(cfg.filterCapacity() == 9, "9 entries by default, got " + cfg.filterCapacity());
+        install(pipe, UpgradeType.FILTER);
+        helper.assertTrue(cfg.filterCapacity() == 18, "one Filter upgrade adds 9, got " + cfg.filterCapacity());
+        install(pipe, UpgradeType.KNOZY);
+        helper.assertTrue(cfg.filterCapacity() == 27, "Knozy adds 9 more, got " + cfg.filterCapacity());
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 200)
+    public static void entriesPastCapacityNeedAFilterUpgrade(GameTestHelper helper) {
+        PipeBlockEntity pipe = line(helper, 1);
+        install(pipe, UpgradeType.STACK);
+        SideConfig cfg = pipe.side(Direction.WEST);
+        cfg.whitelist = true;
+        cfg.setSample(9, new ItemStack(Items.DIAMOND));   // the 10th entry: only usable with a Filter upgrade
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 4));
+        chest(helper, SOURCE).setItem(1, new ItemStack(Items.DIAMOND, 4));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(count(helper, target(1), Items.DIRT) == 4,
+                        "without a Filter upgrade the 10th entry is inactive, so everything moves"))
+                .thenExecute(() -> {
+                    install(pipe, UpgradeType.FILTER);
+                    chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 4));
+                    chest(helper, SOURCE).setItem(1, new ItemStack(Items.DIAMOND, 4));
+                    chest(helper, target(1)).clearContent();
+                })
+                .thenWaitUntil(() -> helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 4,
+                        "with the upgrade the whitelisted diamonds move"))
+                .thenExecute(() -> helper.assertTrue(count(helper, target(1), Items.DIRT) == 0,
+                        "with the upgrade dirt is filtered out"))
+                .thenSucceed();
+    }
+
     // ---- pacing -------------------------------------------------------------------------------------------
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void speedLowersStart(GameTestHelper helper) {
         helper.assertTrue(Pacing.start(0) == 30, "default start is 30 ticks, got " + Pacing.start(0));
         helper.assertTrue(Pacing.start(2) == 22, "two Speed upgrades start at 22 ticks, got " + Pacing.start(2));
-        helper.assertTrue(Pacing.start(6) == Pacing.min(), "never below the minimum interval");
+        helper.assertTrue(Pacing.start(6) == 6, "six Speed upgrades start at 6 ticks, got " + Pacing.start(6));
+        helper.assertTrue(Pacing.start(100) == Pacing.min(), "never below the minimum interval");
         helper.succeed();
     }
 

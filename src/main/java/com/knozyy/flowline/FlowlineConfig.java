@@ -58,6 +58,19 @@ public final class FlowlineConfig {
 
     static {
         BUILDER.pop();
+        BUILDER.comment("Filter entries per side (whitelist or blacklist).").push("filter");
+    }
+
+    public static final ModConfigSpec.IntValue BASE_FILTER_SLOTS = BUILDER
+            .comment("Entries available without Filter upgrades.")
+            .defineInRange("baseFilterSlots", 9, 1, 54);
+
+    public static final ModConfigSpec.IntValue FILTER_SLOTS_PER_UPGRADE = BUILDER
+            .comment("Entries added by each Filter upgrade (Knozy counts as one).")
+            .defineInRange("filterSlotsPerUpgrade", 9, 0, 54);
+
+    static {
+        BUILDER.pop();
     }
 
     public static final ModConfigSpec.IntValue MAX_NETWORK_SIZE = BUILDER

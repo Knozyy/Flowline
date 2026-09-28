@@ -1,5 +1,6 @@
 package com.knozyy.flowline.pipe;
 
+import com.knozyy.flowline.FlowlineConfig;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -13,8 +14,8 @@ import java.util.List;
 
 /** Per-side configuration of a pipe block entity. */
 public class SideConfig {
-    /** Size of the filter; matches the number of ghost slots in the configuration GUI. */
-    public static final int MAX_FILTER = 9;
+    /** Filter entries shown per page in the configuration GUI (a 3x3 grid). */
+    public static final int FILTER_PAGE = 9;
     /** Upgrade slots per side. */
     public static final int UPGRADE_SLOTS = 6;
 
@@ -25,8 +26,9 @@ public class SideConfig {
     /** Also compare data components (NBT): enchantments, damage, custom names, fluid data... */
     public boolean matchComponents = false;
     /**
-     * Filter samples, one item each. Item pipes compare the item itself; fluid pipes compare the fluid contained
-     * in the sample (a bucket or any other fluid container).
+     * Filter samples by position, one item each; empty stacks are holes. Item pipes compare the item itself; fluid
+     * pipes compare the fluid contained in the sample (a bucket or any other fluid container). Only the first
+     * {@link #filterCapacity()} positions are active, so entries past it survive removing a Filter upgrade.
      */
     public final List<ItemStack> filter = new ArrayList<>();
     /** Rotating cursor for {@link Distribution#ROUND_ROBIN}. Not persisted. */
@@ -34,9 +36,10 @@ public class SideConfig {
 
     // ---- runtime state, derived or reset on load, never saved ---------------------------------------------
 
-    /** Speed and Stack contributions of the installed upgrades; kept in sync by the block entity. */
+    /** Speed, Stack and Filter contributions of the installed upgrades; kept in sync by the block entity. */
     public int speedCount = 0;
     public int stackCount = 0;
+    public int filterCount = 0;
     /** Current ticks between operations; -1 until the side runs for the first time. See {@link Pacing}. */
     public int interval = -1;
     /** Ticks left until the next operation. */
@@ -67,15 +70,40 @@ public class SideConfig {
 
     // ---- matching -----------------------------------------------------------------------------------------
 
-    public boolean filterActive() {
-        return !filter.isEmpty();
+    /** Number of usable filter entries for {@code filterCount} Filter upgrades. */
+    public static int filterCapacity(int filterCount) {
+        return FlowlineConfig.BASE_FILTER_SLOTS.get() + filterCount * FlowlineConfig.FILTER_SLOTS_PER_UPGRADE.get();
     }
 
-    /** Inactive filters allow everything, in both whitelist and blacklist mode. */
+    public int filterCapacity() {
+        return filterCapacity(filterCount);
+    }
+
+    public ItemStack getSample(int index) {
+        return index < filter.size() ? filter.get(index) : ItemStack.EMPTY;
+    }
+
+    public void setSample(int index, ItemStack sample) {
+        while (filter.size() <= index) filter.add(ItemStack.EMPTY);
+        filter.set(index, sample);
+    }
+
+    /** The non-empty samples within the current capacity. */
+    private List<ItemStack> activeSamples() {
+        List<ItemStack> active = new ArrayList<>();
+        int end = Math.min(filter.size(), filterCapacity());
+        for (int i = 0; i < end; i++) {
+            if (!filter.get(i).isEmpty()) active.add(filter.get(i));
+        }
+        return active;
+    }
+
+    /** Filters without active entries allow everything, in both whitelist and blacklist mode. */
     public boolean allowsItem(ItemStack stack) {
-        if (!filterActive()) return true;
+        List<ItemStack> samples = activeSamples();
+        if (samples.isEmpty()) return true;
         boolean listed = false;
-        for (ItemStack sample : filter) {
+        for (ItemStack sample : samples) {
             if (matchComponents ? ItemStack.isSameItemSameComponents(sample, stack) : ItemStack.isSameItem(sample, stack)) {
                 listed = true;
                 break;
@@ -85,9 +113,10 @@ public class SideConfig {
     }
 
     public boolean allowsFluid(FluidStack fluid) {
-        if (!filterActive()) return true;
+        List<ItemStack> samples = activeSamples();
+        if (samples.isEmpty()) return true;
         boolean listed = false;
-        for (ItemStack sample : filter) {
+        for (ItemStack sample : samples) {
             FluidStack sampleFluid = fluidOf(sample);
             if (sampleFluid.isEmpty()) continue;
             if (matchComponents ? FluidStack.isSameFluidSameComponents(sampleFluid, fluid)
@@ -113,19 +142,6 @@ public class SideConfig {
         };
     }
 
-    // ---- editing ------------------------------------------------------------------------------------------
-
-    public boolean isFilterFull() {
-        return filter.size() >= MAX_FILTER;
-    }
-
-    public int indexOfSample(ItemStack stack) {
-        for (int i = 0; i < filter.size(); i++) {
-            if (ItemStack.isSameItemSameComponents(filter.get(i), stack)) return i;
-        }
-        return -1;
-    }
-
     // ---- persistence --------------------------------------------------------------------------------------
 
     public CompoundTag save(HolderLookup.Provider registries) {
@@ -136,8 +152,12 @@ public class SideConfig {
         tag.putBoolean("whitelist", whitelist);
         tag.putBoolean("match_components", matchComponents);
         ListTag list = new ListTag();
-        for (ItemStack sample : filter) {
-            if (!sample.isEmpty()) list.add(sample.save(registries));
+        for (int i = 0; i < filter.size(); i++) {
+            if (filter.get(i).isEmpty()) continue;
+            CompoundTag entry = new CompoundTag();
+            entry.putInt("slot", i);
+            entry.put("item", filter.get(i).save(registries));
+            list.add(entry);
         }
         tag.put("filter", list);
         return tag;
@@ -151,7 +171,11 @@ public class SideConfig {
         matchComponents = tag.getBoolean("match_components");
         filter.clear();
         for (Tag t : tag.getList("filter", Tag.TAG_COMPOUND)) {
-            ItemStack.parse(registries, t).filter(s -> !s.isEmpty()).ifPresent(filter::add);
+            CompoundTag entry = (CompoundTag) t;
+            int slot = entry.getInt("slot");
+            ItemStack.parse(registries, entry.getCompound("item"))
+                    .filter(stack -> !stack.isEmpty())
+                    .ifPresent(stack -> setSample(slot, stack));
         }
     }
 }
