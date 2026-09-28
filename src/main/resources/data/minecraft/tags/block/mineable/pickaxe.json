@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "flowline:item_pipe",
+    "flowline:fluid_pipe",
+    "flowline:energy_pipe"
+  ]
+}

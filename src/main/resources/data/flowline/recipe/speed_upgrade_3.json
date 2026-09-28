@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "DDD",
+    "DUD",
+    "DDD"
+  ],
+  "key": {
+    "D": {
+      "item": "minecraft:diamond"
+    },
+    "U": {
+      "item": "flowline:speed_upgrade_2"
+    }
+  },
+  "result": {
+    "id": "flowline:speed_upgrade_3",
+    "count": 1
+  }
+}

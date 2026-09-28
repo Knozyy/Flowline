@@ -1,0 +1,115 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "flowline:block/fluid_pipe_core"
+      }
+    },
+    {
+      "when": {
+        "north": "pipe"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_arm"
+      }
+    },
+    {
+      "when": {
+        "north": "endpoint"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_endpoint"
+      }
+    },
+    {
+      "when": {
+        "east": "pipe"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_arm",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "east": "endpoint"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_endpoint",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "south": "pipe"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_arm",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "south": "endpoint"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_endpoint",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "west": "pipe"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_arm",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "west": "endpoint"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_endpoint",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "up": "pipe"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_arm",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "up": "endpoint"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_endpoint",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "down": "pipe"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_arm",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "down": "endpoint"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_endpoint",
+        "x": 90
+      }
+    }
+  ]
+}

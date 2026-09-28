@@ -1,0 +1,30 @@
+package com.knozyy.flowline.registry;
+
+import com.knozyy.flowline.Flowline;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
+
+public final class ModCreativeTabs {
+    public static final DeferredRegister<CreativeModeTab> TABS =
+            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Flowline.MODID);
+
+    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> MAIN = TABS.register("main",
+            () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.flowline"))
+                    .icon(() -> new ItemStack(ModItems.ITEM_PIPE.get()))
+                    .displayItems((params, out) -> {
+                        out.accept(ModItems.ITEM_PIPE.get());
+                        out.accept(ModItems.FLUID_PIPE.get());
+                        out.accept(ModItems.ENERGY_PIPE.get());
+                        out.accept(ModItems.WRENCH.get());
+                        out.accept(ModItems.FILTER.get());
+                        ModItems.SPEED_UPGRADES.forEach(u -> out.accept(u.get()));
+                    })
+                    .build());
+
+    private ModCreativeTabs() {}
+}

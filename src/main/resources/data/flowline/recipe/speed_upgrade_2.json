@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "GGG",
+    "GUG",
+    "GGG"
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "U": {
+      "item": "flowline:speed_upgrade_1"
+    }
+  },
+  "result": {
+    "id": "flowline:speed_upgrade_2",
+    "count": 1
+  }
+}
