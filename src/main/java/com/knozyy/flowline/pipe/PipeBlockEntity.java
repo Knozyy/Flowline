@@ -1,6 +1,7 @@
 package com.knozyy.flowline.pipe;
 
 import com.knozyy.flowline.item.UpgradeItem;
+import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -16,14 +17,15 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class PipeBlockEntity extends BlockEntity {
     private final SideConfig[] sides = new SideConfig[6];
     /** Bit per {@link Direction#ordinal()}: the wrench disconnected that side. */
     private int disconnected = 0;
-    /** One upgrade per side, indexed by {@link Direction#ordinal()}. Edited through the side's GUI. */
-    private final SimpleContainer upgrades = new SimpleContainer(6) {
+    /** {@link SideConfig#UPGRADE_SLOTS} upgrades per side; slot = side ordinal * UPGRADE_SLOTS + index. */
+    private final SimpleContainer upgrades = new SimpleContainer(6 * SideConfig.UPGRADE_SLOTS) {
         @Override
         public int getMaxStackSize() {
             return 1;
@@ -51,36 +53,75 @@ public class PipeBlockEntity extends BlockEntity {
         return sides[dir.ordinal()];
     }
 
+    public PipeType type() {
+        return ((PipeBlock) getBlockState().getBlock()).type();
+    }
+
+    // ---- upgrades -----------------------------------------------------------------------------------------
+
     public Container upgrades() {
         return upgrades;
     }
 
-    public ItemStack getUpgrade(Direction dir) {
-        return upgrades.getItem(dir.ordinal());
+    public static int upgradeSlot(Direction dir, int index) {
+        return dir.ordinal() * SideConfig.UPGRADE_SLOTS + index;
     }
 
-    /** @return the upgrade that was installed before. */
-    public ItemStack setUpgrade(Direction dir, ItemStack upgrade) {
-        ItemStack old = upgrades.getItem(dir.ordinal());
-        upgrades.setItem(dir.ordinal(), upgrade);
-        return old;
+    public ItemStack getUpgrade(Direction dir, int index) {
+        return upgrades.getItem(upgradeSlot(dir, index));
     }
 
-    /** Takes the upgrade out of a side, e.g. when it stops extracting. */
-    public ItemStack removeUpgrade(Direction dir) {
-        return upgrades.removeItem(dir.ordinal(), 1);
+    /** Puts one upgrade into the first free slot of a side. @return false if all slots are taken. */
+    public boolean installUpgrade(Direction dir, ItemStack upgrade) {
+        for (int i = 0; i < SideConfig.UPGRADE_SLOTS; i++) {
+            if (getUpgrade(dir, i).isEmpty()) {
+                upgrades.setItem(upgradeSlot(dir, i), upgrade.copyWithCount(1));
+                return true;
+            }
+        }
+        return false;
     }
 
-    /** The speed tier of each side mirrors the upgrade item in its slot. */
+    public int installedUpgrades(Direction dir) {
+        int count = 0;
+        for (int i = 0; i < SideConfig.UPGRADE_SLOTS; i++) {
+            if (!getUpgrade(dir, i).isEmpty()) count++;
+        }
+        return count;
+    }
+
+    /** Takes every upgrade out of a side, e.g. when it stops extracting. */
+    public List<ItemStack> removeAllUpgrades(Direction dir) {
+        List<ItemStack> removed = new ArrayList<>();
+        for (int i = 0; i < SideConfig.UPGRADE_SLOTS; i++) {
+            ItemStack stack = upgrades.removeItem(upgradeSlot(dir, i), 1);
+            if (!stack.isEmpty()) removed.add(stack);
+        }
+        return removed;
+    }
+
+    /** Each side's Speed and Stack counts mirror the upgrade items in its slots. */
     private void syncUpgrades() {
         for (Direction dir : Direction.values()) {
-            sides[dir.ordinal()].speed = UpgradeItem.tierOf(upgrades.getItem(dir.ordinal()));
+            SideConfig cfg = sides[dir.ordinal()];
+            int speed = 0;
+            int stack = 0;
+            for (int i = 0; i < SideConfig.UPGRADE_SLOTS; i++) {
+                UpgradeType type = UpgradeItem.typeOf(getUpgrade(dir, i));
+                if (type != null) {
+                    speed += type.speed;
+                    stack += type.stack;
+                }
+            }
+            if (speed != cfg.speedCount || stack != cfg.stackCount) {
+                cfg.speedCount = speed;
+                cfg.stackCount = stack;
+                cfg.wake();
+            }
         }
     }
 
-    public PipeType type() {
-        return ((PipeBlock) getBlockState().getBlock()).type();
-    }
+    // ---- connections --------------------------------------------------------------------------------------
 
     public boolean isDisconnected(Direction dir) {
         return (disconnected & (1 << dir.ordinal())) != 0;
@@ -95,27 +136,62 @@ public class PipeBlockEntity extends BlockEntity {
         }
     }
 
+    // ---- ticking ------------------------------------------------------------------------------------------
+
+    /** Something next to the pipe changed: let sleeping or slowed-down sides look again soon. */
+    public void wake() {
+        for (SideConfig cfg : sides) cfg.wake();
+    }
+
     public void serverTick(ServerLevel level) {
         // The level's state, not the cached one: connection updates must be visible here immediately.
         BlockState state = level.getBlockState(worldPosition);
         if (!(state.getBlock() instanceof PipeBlock)) return;
-        long time = level.getGameTime();
+        long version = PipeNetwork.version();
         Boolean powered = null;
+
         for (Direction dir : Direction.values()) {
             SideConfig cfg = sides[dir.ordinal()];
-            if (cfg.mode != SideMode.EXTRACT) continue;
-            if (state.getValue(PipeBlock.prop(dir)) != Conn.ENDPOINT) continue;
-            if (time % cfg.speed.interval != 0) continue;
+            if (cfg.mode != SideMode.EXTRACT || state.getValue(PipeBlock.prop(dir)) != Conn.ENDPOINT) {
+                if (cfg.interval >= 0) cfg.resetRuntime();
+                continue;
+            }
+            if (cfg.sleeping) {
+                if (cfg.sleepVersion == version) continue;
+                cfg.sleeping = false;
+                cfg.interval = Pacing.start(cfg.speedCount);
+                cfg.cooldown = 1;
+            }
+            if (cfg.interval < 0) {
+                // First run: stagger sides so pipes placed together do not all work on the same tick.
+                cfg.interval = Pacing.start(cfg.speedCount);
+                cfg.cooldown = 1 + level.random.nextInt(cfg.interval);
+            }
+            if (--cfg.cooldown > 0) continue;
+
+            int moved = 0;
+            boolean blocked = false;
             if (cfg.redstone != RedstoneMode.IGNORED) {
                 if (powered == null) powered = level.hasNeighborSignal(worldPosition);
-                if (!cfg.redstone.allows(powered)) continue;
+                blocked = !cfg.redstone.allows(powered);
             }
-
-            List<PipeNetwork.Target> targets = PipeNetwork.collectTargets(level, worldPosition, dir, type(), cfg);
-            if (targets.isEmpty()) continue;
-            type().transfer(level, worldPosition.relative(dir), dir.getOpposite(), cfg, targets);
+            if (!blocked) {
+                List<PipeNetwork.Target> targets = PipeNetwork.targets(level, worldPosition, dir, type(), cfg);
+                if (targets.isEmpty()) {
+                    cfg.sleeping = true;
+                    cfg.sleepVersion = version;
+                    continue;
+                }
+                moved = type().transfer(level, worldPosition.relative(dir), dir.getOpposite(), cfg, targets);
+            }
+            cfg.interval = moved > 0
+                    ? Pacing.afterWork(cfg.interval, cfg.speedCount)
+                    : Pacing.afterIdle(cfg.interval, cfg.speedCount);
+            cfg.cooldown = cfg.interval;
         }
     }
+
+    // ---- persistence --------------------------------------------------------------------------------------
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {

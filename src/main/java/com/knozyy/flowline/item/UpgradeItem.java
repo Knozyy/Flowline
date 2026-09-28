@@ -2,8 +2,9 @@ package com.knozyy.flowline.item;
 
 import com.knozyy.flowline.pipe.Conn;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
+import com.knozyy.flowline.pipe.SideConfig;
 import com.knozyy.flowline.pipe.SideMode;
-import com.knozyy.flowline.pipe.SpeedTier;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
@@ -11,23 +12,39 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.Locale;
 
 /**
- * Upgrade for an extracting side: faster transfers and access to the filter. Installed through the side's GUI
- * slot, or by right-clicking the side (which swaps out and returns the previous upgrade).
+ * Upgrade for an extracting side (see {@link UpgradeType}). Up to six per side, installed through the side's GUI
+ * or by right-clicking the side.
  */
 public class UpgradeItem extends Item implements PipeInteractable {
-    private final SpeedTier tier;
+    private final UpgradeType type;
 
-    /** Tier of the upgrade in {@code stack}, or {@link SpeedTier#BASE} if it is not an upgrade. */
-    public static SpeedTier tierOf(ItemStack stack) {
-        return stack.getItem() instanceof UpgradeItem upgrade ? upgrade.tier : SpeedTier.BASE;
+    /** Type of the upgrade in {@code stack}, or null if it is not an upgrade. */
+    @Nullable
+    public static UpgradeType typeOf(ItemStack stack) {
+        return stack.getItem() instanceof UpgradeItem upgrade ? upgrade.type : null;
     }
 
-    public UpgradeItem(Properties properties, SpeedTier tier) {
+    public UpgradeItem(Properties properties, UpgradeType type) {
         super(properties);
-        this.tier = tier;
+        this.type = type;
+    }
+
+    public UpgradeType type() {
+        return type;
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+        String key = "item.flowline." + type.name().toLowerCase(Locale.ROOT) + "_upgrade.desc";
+        tooltip.add(Component.translatable(key).withStyle(ChatFormatting.GRAY));
     }
 
     @Override
@@ -46,13 +63,12 @@ public class UpgradeItem extends Item implements PipeInteractable {
             player.displayClientMessage(Component.translatable("message.flowline.upgrade_needs_extract"), true);
             return;
         }
-        if (pipe.getUpgrade(side).is(this)) {
-            player.displayClientMessage(Component.translatable("message.flowline.upgrade_already"), true);
+        if (!pipe.installUpgrade(side, stack)) {
+            player.displayClientMessage(Component.translatable("message.flowline.upgrade_slots_full"), true);
             return;
         }
-        ItemStack old = pipe.setUpgrade(side, stack.copyWithCount(1));
         if (!player.getAbilities().instabuild) stack.shrink(1);
-        if (!old.isEmpty()) player.getInventory().placeItemBackInInventory(old);
-        player.displayClientMessage(Component.translatable("message.flowline.upgrade_installed", tier.multiplier), true);
+        player.displayClientMessage(Component.translatable("message.flowline.upgrade_installed",
+                pipe.installedUpgrades(side), SideConfig.UPGRADE_SLOTS), true);
     }
 }

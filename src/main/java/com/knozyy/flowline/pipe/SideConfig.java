@@ -15,11 +15,11 @@ import java.util.List;
 public class SideConfig {
     /** Size of the filter; matches the number of ghost slots in the configuration GUI. */
     public static final int MAX_FILTER = 9;
+    /** Upgrade slots per side. */
+    public static final int UPGRADE_SLOTS = 6;
 
     public SideMode mode = SideMode.INSERT;
     public Distribution distribution = Distribution.NEAREST;
-    /** Mirrors the upgrade installed on this side; set by the block entity, never saved on its own. */
-    public SpeedTier speed = SpeedTier.BASE;
     public RedstoneMode redstone = RedstoneMode.IGNORED;
     public boolean whitelist = false;
     /** Also compare data components (NBT): enchantments, damage, custom names, fluid data... */
@@ -32,11 +32,43 @@ public class SideConfig {
     /** Rotating cursor for {@link Distribution#ROUND_ROBIN}. Not persisted. */
     public int roundRobin = 0;
 
+    // ---- runtime state, derived or reset on load, never saved ---------------------------------------------
+
+    /** Speed and Stack contributions of the installed upgrades; kept in sync by the block entity. */
+    public int speedCount = 0;
+    public int stackCount = 0;
+    /** Current ticks between operations; -1 until the side runs for the first time. See {@link Pacing}. */
+    public int interval = -1;
+    /** Ticks left until the next operation. */
+    public int cooldown = 0;
+    /** No target in the network: skip work until {@link PipeNetwork#version()} changes. */
+    public boolean sleeping = false;
+    public long sleepVersion = -1;
+    /** Insert sides reachable from this side, in base order; rebuilt when the network version changes. */
+    public List<PipeNetwork.Target> cachedTargets = null;
+    public long cachedVersion = -1;
+
+    /** Forget pacing and cached targets, e.g. when the side stops extracting. */
+    public void resetRuntime() {
+        interval = -1;
+        cooldown = 0;
+        sleeping = false;
+        cachedTargets = null;
+    }
+
+    /** Leave sleep and run again soon, at the starting interval at the latest. */
+    public void wake() {
+        sleeping = false;
+        if (interval < 0) return;
+        int start = Pacing.start(speedCount);
+        if (interval > start) interval = start;
+        if (cooldown > interval) cooldown = interval;
+    }
+
     // ---- matching -----------------------------------------------------------------------------------------
 
-    /** The filter only works with an upgrade installed. */
     public boolean filterActive() {
-        return speed.isUpgraded() && !filter.isEmpty();
+        return !filter.isEmpty();
     }
 
     /** Inactive filters allow everything, in both whitelist and blacklist mode. */

@@ -23,7 +23,7 @@ public enum PipeType implements StringRepresentable {
         this.name = name;
     }
 
-    /** Amount moved per operation at {@link SpeedTier#BASE}: items, mB or FE. Read from the config. */
+    /** Amount moved per operation without Stack upgrades: items, mB or FE. Read from the config. */
     public int baseAmount() {
         return switch (this) {
             case ITEM -> FlowlineConfig.ITEMS_PER_OPERATION.get();
@@ -46,13 +46,14 @@ public enum PipeType implements StringRepresentable {
         };
     }
 
-    public void transfer(Level level, BlockPos sourcePos, Direction sourceAccess, SideConfig cfg,
-                         List<PipeNetwork.Target> targets) {
-        int amount = baseAmount() * cfg.speed.multiplier;
-        switch (this) {
+    /** @return how much was moved (items, mB or FE); 0 means the operation found no work. */
+    public int transfer(Level level, BlockPos sourcePos, Direction sourceAccess, SideConfig cfg,
+                        List<PipeNetwork.Target> targets) {
+        int amount = baseAmount() * Pacing.stackMultiplier(cfg.stackCount);
+        return switch (this) {
             case ITEM -> ItemTransfer.run(level, sourcePos, sourceAccess, cfg, targets, amount);
             case FLUID -> FluidTransfer.run(level, sourcePos, sourceAccess, cfg, targets, amount);
             case ENERGY -> EnergyTransfer.run(level, sourcePos, sourceAccess, targets, amount);
-        }
+        };
     }
 }

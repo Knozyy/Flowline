@@ -116,13 +116,8 @@ WRENCH = [
 write_png(f"assets/{MODID}/textures/item/wrench.png",
           ascii_icon(WRENCH, {"X": GREY, "H": (0xC0, 0x50, 0x3C)}))
 
-UPGRADES = (
-    ("basic_upgrade", 1, (0xC8, 0xC8, 0xD0)),
-    ("regular_upgrade", 2, (0xF0, 0xC8, 0x3A)),
-    ("advanced_upgrade", 3, (0x4A, 0xE6, 0xF0)),
-    ("knozy_upgrade", 4, (0xD2, 0x4A, 0xF5)),
-)
-for up_name, tier, accent in UPGRADES:
+def upgrade_chip(symbol):
+    """Circuit chip with pins; `symbol` is a set of (x, y) pixels drawn in the accent colour."""
     art = [list("................") for _ in range(16)]
     for y in range(2, 14):
         for x in range(3, 13):
@@ -130,14 +125,29 @@ for up_name, tier, accent in UPGRADES:
     for y in (3, 6, 9, 12):                    # pins
         art[y][2] = "P"
         art[y][13] = "P"
-    for i, y in enumerate((4, 6, 8, 10)):      # tier bars, lit from the bottom up
-        lit = i >= 4 - tier
-        for x in range(5, 11):
-            art[y][x] = "A" if lit else "D"
-    art = ["".join(r) for r in art]
+    for x, y in symbol:
+        art[y][x] = "A"
+    return ["".join(r) for r in art]
+
+
+def chevrons(x0s, y0, height):
+    half = height // 2
+    return {(x0 + half - abs(half - dy), y0 + dy) for x0 in x0s for dy in range(height)}
+
+
+def bars(rows):
+    return {(x, y) for y, (a, b) in rows for x in range(a, b + 1)}
+
+
+UPGRADE_ART = {
+    "speed_upgrade": (chevrons((4, 8), 4, 7), (0x4A, 0xE6, 0xF0)),
+    "stack_upgrade": (bars([(4, (6, 11)), (5, (6, 11)), (7, (5, 10)), (8, (5, 10)), (10, (4, 9)), (11, (4, 9))]),
+                      (0xF0, 0x9A, 0x3A)),
+    "knozy_upgrade": (chevrons((5, 8), 3, 5) | bars([(9, (4, 11)), (11, (4, 11))]), (0xD2, 0x4A, 0xF5)),
+}
+for up_name, (symbol, accent) in UPGRADE_ART.items():
     write_png(f"assets/{MODID}/textures/item/{up_name}.png",
-              ascii_icon(art, {"B": (0x3A, 0x4A, 0x5A), "P": (0xB0, 0xB0, 0xB8),
-                               "A": accent, "D": (0x22, 0x2A, 0x33)}))
+              ascii_icon(upgrade_chip(symbol), {"B": (0x3A, 0x4A, 0x5A), "P": (0xB0, 0xB0, 0xB8), "A": accent}))
 
 # ---------------------------------------------------------------- models
 for name in TYPES:
@@ -211,7 +221,7 @@ for name in TYPES:
         }],
     })
 
-for name in ("wrench", "basic_upgrade", "regular_upgrade", "advanced_upgrade", "knozy_upgrade"):
+for name in ("wrench", "speed_upgrade", "stack_upgrade", "knozy_upgrade"):
     write_json(f"assets/{MODID}/models/item/{name}.json", {
         "parent": "minecraft:item/generated",
         "textures": {"layer0": f"{MODID}:item/{name}"},
@@ -250,10 +260,12 @@ shapeless("item_pipe", ["minecraft:iron_ingot"] * 3 + ["minecraft:hopper"], f"{M
 shapeless("fluid_pipe", ["minecraft:iron_ingot"] * 3 + ["minecraft:bucket"], f"{MODID}:fluid_pipe", 4)
 shapeless("energy_pipe", ["minecraft:iron_ingot"] * 3 + ["minecraft:redstone_block"], f"{MODID}:energy_pipe", 4)
 shaped("wrench", ["I I", " S ", " S "], {"I": "minecraft:iron_ingot", "S": "minecraft:stick"}, f"{MODID}:wrench")
-shaped("basic_upgrade", ["III", "IRI", "III"], {"I": "minecraft:iron_ingot", "R": "minecraft:redstone"}, f"{MODID}:basic_upgrade")
-shaped("regular_upgrade", ["GGG", "GUG", "GGG"], {"G": "minecraft:gold_ingot", "U": f"{MODID}:basic_upgrade"}, f"{MODID}:regular_upgrade")
-shaped("advanced_upgrade", ["DDD", "DUD", "DDD"], {"D": "minecraft:diamond", "U": f"{MODID}:regular_upgrade"}, f"{MODID}:advanced_upgrade")
-shaped("knozy_upgrade", [" N ", "NUN", " N "], {"N": "minecraft:netherite_ingot", "U": f"{MODID}:advanced_upgrade"}, f"{MODID}:knozy_upgrade")
+shaped("speed_upgrade", ["ISI", "RIR", "ISI"],
+       {"I": "minecraft:iron_ingot", "S": "minecraft:sugar", "R": "minecraft:redstone"}, f"{MODID}:speed_upgrade")
+shaped("stack_upgrade", ["IRI", "ICI", "IRI"],
+       {"I": "minecraft:iron_ingot", "C": "minecraft:chest", "R": "minecraft:redstone"}, f"{MODID}:stack_upgrade")
+shapeless("knozy_upgrade", [f"{MODID}:speed_upgrade", f"{MODID}:stack_upgrade", "minecraft:netherite_ingot"],
+          f"{MODID}:knozy_upgrade")
 
 # ---------------------------------------------------------------- lang
 def lang(code, tr):
@@ -266,30 +278,36 @@ en = {
     "block.flowline.fluid_pipe": "Fluid Pipe",
     "block.flowline.energy_pipe": "Energy Pipe",
     "item.flowline.wrench": "Flowline Wrench",
-    "item.flowline.basic_upgrade": "Basic Upgrade",
-    "item.flowline.regular_upgrade": "Regular Upgrade",
-    "item.flowline.advanced_upgrade": "Advanced Upgrade",
+    "item.flowline.speed_upgrade": "Speed Upgrade",
+    "item.flowline.speed_upgrade.desc": "Starts the side at a shorter interval.",
+    "item.flowline.stack_upgrade": "Stack Upgrade",
+    "item.flowline.stack_upgrade.desc": "Moves more per operation.",
     "item.flowline.knozy_upgrade": "Knozy Upgrade",
+    "item.flowline.knozy_upgrade.desc": "Counts as a Speed and a Stack Upgrade.",
+    "message.flowline.upgrade_installed": "Upgrade installed (%s/%s)",
+    "message.flowline.upgrade_slots_full": "All upgrade slots on this side are full.",
+    "gui.flowline.upgrade_slot.desc": "Speed: shorter start interval. Stack: more per operation. Knozy: both.",
+    "gui.flowline.pacing.title": "Pacing",
+    "gui.flowline.pacing.counts": "Speed: %s · Stack: %s",
+    "gui.flowline.pacing.amount": "Amount per operation: x%s",
+    "gui.flowline.pacing.interval": "Interval: %s ticks (start %s, min %s)",
+    "gui.flowline.pacing.hint": "Speeds up while moving, slows down when idle.",
+    "gui.flowline.pacing.sleeping": "Sleeping: no targets. Wakes up when the pipe network changes.",
     "message.flowline.no_endpoint": "Nothing to configure on this side.",
     "message.flowline.mode_set": "%s: %s",
-    "message.flowline.upgrade_already": "This upgrade is already installed on this side.",
     "message.flowline.upgrade_needs_extract": "Upgrades only go on Extract sides (sneak + right-click with the wrench).",
     "message.flowline.gui_needs_extract": "This side is Insert. Sneak + right-click it with the wrench to make it Extract.",
-    "message.flowline.upgrade_installed": "Upgrade installed (speed x%s, filter unlocked)",
     "gui.flowline.pipe_config": "%s - %s",
     "gui.flowline.distribution": "Distribution: %s",
     "gui.flowline.side_line": "%s side · %s",
     "gui.flowline.section.settings": "Settings",
     "gui.flowline.section.filter": "Filter",
     "gui.flowline.section.upgrade": "Upgrade",
-    "gui.flowline.interval": "every %s ticks",
     "gui.flowline.no_filter": "No filter",
-    "gui.flowline.needs_upgrade": "Requires an upgrade",
     "gui.flowline.filter_mode": "Filter mode: %s",
     "gui.flowline.nbt": "NBT: %s",
     "gui.flowline.clear": "Clear filter",
     "gui.flowline.upgrade_slot": "Upgrade slot",
-    "gui.flowline.upgrade_slot.desc": "Faster transfers and unlocks the filter.",
     "gui.flowline.whitelist": "Whitelist",
     "gui.flowline.whitelist.desc": "Only listed entries pass.",
     "gui.flowline.blacklist": "Blacklist",
@@ -305,11 +323,6 @@ en = {
     "distribution.flowline.farthest.desc": "Fills the farthest target first.",
     "distribution.flowline.round_robin.desc": "Takes turns between targets.",
     "distribution.flowline.random.desc": "Picks a random target each time.",
-    "tier.flowline.none": "None",
-    "tier.flowline.basic": "Basic",
-    "tier.flowline.regular": "Regular",
-    "tier.flowline.advanced": "Advanced",
-    "tier.flowline.knozy": "Knozy",
     "gui.flowline.redstone": "Redstone: %s",
     "message.flowline.connected": "Side connected",
     "message.flowline.disconnected": "Side disconnected",
@@ -330,30 +343,36 @@ tr = {
     "block.flowline.fluid_pipe": "Sıvı Borusu",
     "block.flowline.energy_pipe": "Enerji Borusu",
     "item.flowline.wrench": "Flowline Anahtarı",
-    "item.flowline.basic_upgrade": "Basic Upgrade",
-    "item.flowline.regular_upgrade": "Regular Upgrade",
-    "item.flowline.advanced_upgrade": "Advanced Upgrade",
+    "item.flowline.speed_upgrade": "Speed Upgrade",
+    "item.flowline.speed_upgrade.desc": "Tarafı daha kısa bir aralıkla başlatır.",
+    "item.flowline.stack_upgrade": "Stack Upgrade",
+    "item.flowline.stack_upgrade.desc": "Her işlemde daha fazla taşır.",
     "item.flowline.knozy_upgrade": "Knozy Upgrade",
+    "item.flowline.knozy_upgrade.desc": "Hem Speed hem Stack Upgrade sayılır.",
+    "message.flowline.upgrade_installed": "Yükseltme takıldı (%s/%s)",
+    "message.flowline.upgrade_slots_full": "Bu taraftaki tüm yükseltme yuvaları dolu.",
+    "gui.flowline.upgrade_slot.desc": "Speed: daha kısa başlangıç aralığı. Stack: işlem başına daha fazla. Knozy: ikisi birden.",
+    "gui.flowline.pacing.title": "Hız",
+    "gui.flowline.pacing.counts": "Speed: %s · Stack: %s",
+    "gui.flowline.pacing.amount": "İşlem başına miktar: x%s",
+    "gui.flowline.pacing.interval": "Aralık: %s tick (başlangıç %s, en az %s)",
+    "gui.flowline.pacing.hint": "Taşıdıkça hızlanır, boştayken yavaşlar.",
+    "gui.flowline.pacing.sleeping": "Uyuyor: hedef yok. Boru ağı değişince uyanır.",
     "message.flowline.no_endpoint": "Bu tarafta ayarlanacak bir şey yok.",
     "message.flowline.mode_set": "%s: %s",
-    "message.flowline.upgrade_already": "Bu yükseltme bu tarafta zaten takılı.",
     "message.flowline.upgrade_needs_extract": "Yükseltmeler sadece Çek tarafına takılır (anahtarla Shift + sağ tık).",
     "message.flowline.gui_needs_extract": "Bu taraf Ekle modunda. Çek yapmak için anahtarla Shift + sağ tıkla.",
-    "message.flowline.upgrade_installed": "Yükseltme takıldı (hız x%s, filtre açıldı)",
     "gui.flowline.pipe_config": "%s - %s",
     "gui.flowline.distribution": "Dağıtım: %s",
     "gui.flowline.side_line": "%s tarafı · %s",
     "gui.flowline.section.settings": "Ayarlar",
     "gui.flowline.section.filter": "Filtre",
     "gui.flowline.section.upgrade": "Yükseltme",
-    "gui.flowline.interval": "her %s tickte",
     "gui.flowline.no_filter": "Filtre yok",
-    "gui.flowline.needs_upgrade": "Yükseltme gerekli",
     "gui.flowline.filter_mode": "Filtre modu: %s",
     "gui.flowline.nbt": "NBT: %s",
     "gui.flowline.clear": "Filtreyi temizle",
     "gui.flowline.upgrade_slot": "Yükseltme yuvası",
-    "gui.flowline.upgrade_slot.desc": "Taşımayı hızlandırır ve filtreyi açar.",
     "gui.flowline.whitelist": "Beyaz liste",
     "gui.flowline.whitelist.desc": "Sadece listedekiler geçer.",
     "gui.flowline.blacklist": "Kara liste",
@@ -369,11 +388,6 @@ tr = {
     "distribution.flowline.farthest.desc": "Önce en uzak hedefi doldurur.",
     "distribution.flowline.round_robin.desc": "Hedefler arasında sırayla dağıtır.",
     "distribution.flowline.random.desc": "Her seferinde rastgele bir hedef seçer.",
-    "tier.flowline.none": "Yok",
-    "tier.flowline.basic": "Basic",
-    "tier.flowline.regular": "Regular",
-    "tier.flowline.advanced": "Advanced",
-    "tier.flowline.knozy": "Knozy",
     "gui.flowline.redstone": "Redstone: %s",
     "message.flowline.connected": "Bağlantı açıldı",
     "message.flowline.disconnected": "Bağlantı kesildi",
@@ -545,7 +559,6 @@ GUI_ICONS = {
     "match_components": tag(True),
     "ignore_components": tag(False),
     "clear": trash(),
-    "lock": lock(),
 }
 for icon_name, canvas in GUI_ICONS.items():
     write_png(f"assets/{MODID}/textures/gui/icon/{icon_name}.png", canvas.pixels())

@@ -15,9 +15,14 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-/** Stateless graph search over connected pipes. Networks are recomputed on every transfer. */
+/**
+ * Graph search over connected pipes. Extracting sides cache their target lists; any change that can alter a
+ * network (connections, modes, pipes added or removed) bumps a global {@link #version()} which invalidates every
+ * cache and wakes sleeping sides.
+ */
 public final class PipeNetwork {
     private static final Random RANDOM = new Random();
+    private static long version = 0;
 
     private PipeNetwork() {}
 
@@ -33,8 +38,26 @@ public final class PipeNetwork {
         }
     }
 
-    public static List<Target> collectTargets(ServerLevel level, BlockPos origin, Direction extractSide,
-                                              PipeType type, SideConfig cfg) {
+    public static long version() {
+        return version;
+    }
+
+    /** Call whenever something that affects target lists changes. */
+    public static void invalidate() {
+        version++;
+    }
+
+    /** Targets for an extracting side in distribution order; uses the side's cache when still valid. */
+    public static List<Target> targets(ServerLevel level, BlockPos origin, Direction extractSide, PipeType type,
+                                       SideConfig cfg) {
+        if (cfg.cachedTargets == null || cfg.cachedVersion != version) {
+            cfg.cachedTargets = List.copyOf(scan(level, origin, extractSide, type));
+            cfg.cachedVersion = version;
+        }
+        return order(new ArrayList<>(cfg.cachedTargets), cfg);
+    }
+
+    private static List<Target> scan(ServerLevel level, BlockPos origin, Direction extractSide, PipeType type) {
         List<Target> targets = new ArrayList<>();
         Set<BlockPos> visited = new HashSet<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
@@ -67,14 +90,14 @@ public final class PipeNetwork {
                 }
             }
         }
-        return order(targets, cfg);
-    }
-
-    private static List<Target> order(List<Target> targets, SideConfig cfg) {
-        // Deterministic base order so round-robin is stable between ticks.
+        // Deterministic base order so round-robin is stable between operations.
         targets.sort(Comparator.comparingInt(Target::distance)
                 .thenComparingLong(t -> t.pipePos().asLong())
                 .thenComparingInt(t -> t.side().ordinal()));
+        return targets;
+    }
+
+    private static List<Target> order(List<Target> targets, SideConfig cfg) {
         switch (cfg.distribution) {
             case NEAREST -> {}
             case FARTHEST -> java.util.Collections.reverse(targets);

@@ -17,17 +17,19 @@ import java.util.List;
 public final class ItemTransfer {
     private ItemTransfer() {}
 
-    public static void run(Level level, BlockPos sourcePos, Direction sourceAccess, SideConfig cfg,
-                           List<Target> targets, int budget) {
+    /** @return number of items moved. */
+    public static int run(Level level, BlockPos sourcePos, Direction sourceAccess, SideConfig cfg,
+                          List<Target> targets, int budget) {
         IItemHandler source = level.getCapability(Capabilities.ItemHandler.BLOCK, sourcePos, sourceAccess);
-        if (source == null) return;
+        if (source == null) return 0;
+        int total = 0;
 
         List<IItemHandler> destinations = new ArrayList<>();
         for (Target t : targets) {
             IItemHandler h = level.getCapability(Capabilities.ItemHandler.BLOCK, t.endpointPos(), t.access());
             if (h != null && h != source) destinations.add(h);
         }
-        if (destinations.isEmpty()) return;
+        if (destinations.isEmpty()) return 0;
 
         for (int slot = 0; slot < source.getSlots() && budget > 0; slot++) {
             ItemStack offered = source.extractItem(slot, budget, true);
@@ -48,10 +50,12 @@ public final class ItemTransfer {
                     if (!rest.isEmpty()) Block.popResource(level, sourcePos, rest);
                 }
                 int moved = extracted.getCount() - rest.getCount();
+                total += moved;
                 budget -= moved;
                 offered.shrink(moved);
                 if (offered.isEmpty() || budget <= 0) break;
             }
         }
+        return total;
     }
 }

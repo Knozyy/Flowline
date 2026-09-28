@@ -9,17 +9,31 @@ modes, filters, distribution modes and speed upgrades.
 | --- | --- |
 | Item / Fluid / Energy Pipe | Connects to pipes of the same type and to any block exposing the matching capability. |
 | Flowline Wrench | **Sneak + right-click** an attached side: toggle **Insert ↔ Extract**. Right-click any side: cut / restore the connection. |
-| Empty hand | Right-click an **Extract** side: opens its config screen (upgrade slot, distribution, redstone, filter). |
-| Basic / Regular / Advanced / Knozy Upgrade | Put it in the upgrade slot of an Extract side's screen (or right-click the side to swap it in). Speeds the side up (x2 / x4 / x8 / x16) and **unlocks its filter**. Returned when the side goes back to Insert, dropped when the pipe is broken. |
+| Empty hand | Right-click an **Extract** side: opens its config screen (upgrade slots, distribution, redstone, filter). |
+| Speed / Stack / Knozy Upgrade | Six upgrade slots per Extract side (GUI, or right-click the side). **Speed** lowers the starting interval, **Stack** multiplies the amount per operation, **Knozy** counts as both. Returned when the side goes back to Insert, dropped when the pipe is broken. |
 
 Every side defaults to **Insert**; sneak-click the side facing your source chest/tank/generator with the wrench to make it **Extract**.
-Extracting sides search the connected pipe network (BFS, capped by `maxNetworkSize`) for Insert sides and push into them.
+Extracting sides send to the Insert sides of their pipe network (target lists are cached and rebuilt only when
+the network changes).
 
-The filter (upgraded sides only, not on energy pipes) holds up to 9 samples: click a slot with an item (or a
-filled bucket/tank for fluid pipes) to add it, click with an empty hand to clear it. With **NBT: match** it also compares data components (enchantments,
-damage, names, fluid data); with **NBT: ignore** only the item/fluid type counts.
+### Pacing (TPS friendly)
 
-Config (`config/flowline-common.toml`): per-operation amounts for items / fluids / energy and the max network size.
+Each Extract side runs on an adaptive interval, similar to AE2's tick rate modulation:
+
+- it starts at **30 ticks** (each Speed upgrade removes 4, never below the minimum),
+- every operation that moves something makes it **2 ticks faster**, down to **5 ticks**,
+- every operation that moves nothing makes it **5 ticks slower**, up to **100 ticks**,
+- a side with **no target at all sleeps** and costs nothing until the pipe network changes,
+- a neighbouring block change (e.g. items arriving in the source chest) wakes it back to its starting interval,
+- sides are staggered so pipes placed together do not all run on the same tick.
+
+The badge in the GUI header shows the amount multiplier and the current interval (hover for details).
+
+The filter (not on energy pipes) holds up to 9 samples: click a slot with an item (or a filled bucket/tank for fluid
+pipes) to add it, click with an empty hand to clear it. **NBT: match** also compares data components.
+
+Config (`config/flowline-common.toml`): per-operation amounts, Stack multipliers
+(`[1, 8, 16, 32, 64, 96, 128]` by number of Stack upgrades), every pacing value above, and the max network size.
 
 ## Building
 

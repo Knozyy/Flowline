@@ -2,9 +2,7 @@ package com.knozyy.flowline.client;
 
 import com.knozyy.flowline.menu.PipeMenu;
 import com.knozyy.flowline.pipe.PipeType;
-import com.knozyy.flowline.pipe.SpeedTier;
 import com.knozyy.flowline.registry.ModItems;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -40,6 +38,9 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private static final int UPGRADE_L = 122, UPGRADE_R = 170;
 
     private final int accent;
+    /** Pacing badge in the header, relative to the screen origin; recomputed every frame. */
+    private int badgeX, badgeW;
+    private static final int BADGE_Y = 8, BADGE_H = 12;
 
     private IconButton redstoneButton;
     private IconButton distributionButton;
@@ -120,25 +121,17 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             if (!slot.isActive()) continue;
             int x = l + slot.x;
             int y = t + slot.y;
-            boolean upgrade = slot == menu.upgradeSlot();
-            graphics.fill(x - 1, y - 1, x + 17, y + 17, upgrade ? accent : SLOT_EDGE);
+            boolean upgrade = slot instanceof PipeMenu.UpgradeSlot;
+            graphics.fill(x - 1, y - 1, x + 17, y + 17, upgrade && slot.hasItem() ? accent : SLOT_EDGE);
             graphics.fill(x, y, x + 16, y + 16, SLOT);
         }
 
         // header icon
         graphics.renderItem(pipeStack(), l + 6, t + 6);
 
-        // locked / missing filter
         if (!menu.hasFilter()) {
             int cx = l + (FILTER_L + FILTER_R) / 2;
-            if (menu.type == PipeType.ENERGY) {
-                smallCentered(graphics, Component.translatable("gui.flowline.no_filter"), cx, t + 66, MUTED);
-            } else {
-                RenderSystem.enableBlend();
-                graphics.blit(IconButton.icon("lock"), cx - 8, t + 54, 0, 0, 16, 16, 16, 16);
-                RenderSystem.disableBlend();
-                smallCentered(graphics, Component.translatable("gui.flowline.needs_upgrade"), cx, t + 74, MUTED);
-            }
+            smallCentered(graphics, Component.translatable("gui.flowline.no_filter"), cx, t + 66, MUTED);
         }
     }
 
@@ -158,27 +151,19 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                 Component.translatable("mode.flowline." + key(menu.mode())));
         small(graphics, sub, 26, 18, MUTED);
 
-        // speed badge
-        String speed = "x" + menu.speed().multiplier;
-        int w = font.width(speed) + 8;
-        int bx = imageWidth - 7 - w;
-        graphics.fill(bx, 8, bx + w, 20, menu.speed().isUpgraded() ? accent : PANEL_EDGE);
-        graphics.drawString(font, speed, bx + 4, 10, TEXT, false);
+        // pacing badge: stack multiplier and current interval
+        String badge = "x" + menu.multiplier() + " · " + (menu.sleeping() ? "zZ" : menu.interval() + "t");
+        badgeW = font.width(badge) + 8;
+        badgeX = imageWidth - 7 - badgeW;
+        boolean boosted = menu.speedCount() > 0 || menu.stackCount() > 0;
+        graphics.fill(badgeX, BADGE_Y, badgeX + badgeW, BADGE_Y + BADGE_H, boosted ? accent : PANEL_EDGE);
+        graphics.drawString(font, badge, badgeX + 4, BADGE_Y + 2, TEXT, false);
 
         // panel captions
         small(graphics, caption("gui.flowline.section.settings"), SETTINGS_L + 4, PANEL_TOP + 4, MUTED);
         small(graphics, caption("gui.flowline.section.filter"), FILTER_L + 4, PANEL_TOP + 4, MUTED);
         int ucx = (UPGRADE_L + UPGRADE_R) / 2;
         smallCentered(graphics, caption("gui.flowline.section.upgrade"), ucx, PANEL_TOP + 4, MUTED);
-
-        // upgrade panel: tier and interval
-        SpeedTier tier = menu.speed();
-        Component tierName = tier.isUpgraded()
-                ? Component.translatable("tier.flowline." + key(tier))
-                : Component.translatable("tier.flowline.none");
-        smallCentered(graphics, tierName, ucx, PipeMenu.UPGRADE_Y + 22, tier.isUpgraded() ? TEXT : MUTED);
-        smallCentered(graphics, Component.translatable("gui.flowline.interval", tier.interval), ucx,
-                PipeMenu.UPGRADE_Y + 32, MUTED);
 
         small(graphics, playerInventoryTitle, 8, inventoryLabelY, MUTED);
     }
@@ -211,26 +196,42 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             lines = describe("gui.flowline.nbt", "gui.flowline." + k, matchButton.active);
         } else if (clearButton.visible && clearButton.isHovered()) {
             lines = new ArrayList<>(List.of(Component.translatable("gui.flowline.clear")));
-            if (!clearButton.active) lines.add(needsUpgrade());
-        } else if (!menu.upgradeSlot().hasItem() && menu.getCarried().isEmpty()
-                && isHovering(menu.upgradeSlot().x, menu.upgradeSlot().y, 16, 16, mouseX, mouseY)) {
+            if (!clearButton.active) lines.add(unavailable());
+        } else if (isHovering(badgeX, BADGE_Y, badgeW, BADGE_H, mouseX, mouseY)) {
+            lines = pacingTooltip();
+        } else if (hoveredSlot instanceof PipeMenu.UpgradeSlot && !hoveredSlot.hasItem() && menu.getCarried().isEmpty()) {
             lines = List.of(Component.translatable("gui.flowline.upgrade_slot"),
                     Component.translatable("gui.flowline.upgrade_slot.desc").withStyle(ChatFormatting.GRAY));
         }
         if (lines != null) graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
     }
 
-    /** "Label: Value", a grey description line and, when locked, why. */
+    private List<Component> pacingTooltip() {
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable("gui.flowline.pacing.title"));
+        lines.add(Component.translatable("gui.flowline.pacing.counts", menu.speedCount(), menu.stackCount())
+                .withStyle(ChatFormatting.GRAY));
+        lines.add(Component.translatable("gui.flowline.pacing.amount", menu.multiplier())
+                .withStyle(ChatFormatting.GRAY));
+        lines.add(Component.translatable("gui.flowline.pacing.interval", menu.interval(), menu.startInterval(),
+                menu.minInterval()).withStyle(ChatFormatting.GRAY));
+        lines.add(menu.sleeping()
+                ? Component.translatable("gui.flowline.pacing.sleeping").withStyle(ChatFormatting.GOLD)
+                : Component.translatable("gui.flowline.pacing.hint").withStyle(ChatFormatting.DARK_GRAY));
+        return lines;
+    }
+
+    /** "Label: Value", a grey description line and, when disabled, why. */
     private List<Component> describe(String labelKey, String valueKey, boolean enabled) {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable(labelKey, Component.translatable(valueKey).withColor(accent)));
         lines.add(Component.translatable(valueKey + ".desc").withStyle(ChatFormatting.GRAY));
-        if (!enabled) lines.add(needsUpgrade());
+        if (!enabled) lines.add(unavailable());
         return lines;
     }
 
-    private static Component needsUpgrade() {
-        return Component.translatable("gui.flowline.needs_upgrade").withStyle(ChatFormatting.RED);
+    private static Component unavailable() {
+        return Component.translatable("gui.flowline.no_filter").withStyle(ChatFormatting.RED);
     }
 
     // ---- small text ---------------------------------------------------------------------------------------

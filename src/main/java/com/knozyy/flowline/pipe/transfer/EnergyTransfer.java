@@ -12,12 +12,14 @@ import java.util.List;
 public final class EnergyTransfer {
     private EnergyTransfer() {}
 
-    public static void run(Level level, BlockPos sourcePos, Direction sourceAccess,
-                           List<Target> targets, int budget) {
+    /** @return FE moved. */
+    public static int run(Level level, BlockPos sourcePos, Direction sourceAccess,
+                          List<Target> targets, int budget) {
         IEnergyStorage source = level.getCapability(Capabilities.EnergyStorage.BLOCK, sourcePos, sourceAccess);
-        if (source == null || !source.canExtract()) return;
+        if (source == null || !source.canExtract()) return 0;
 
-        int remaining = Math.min(budget, source.extractEnergy(budget, true));
+        int available = Math.min(budget, source.extractEnergy(budget, true));
+        int remaining = available;
         for (Target t : targets) {
             if (remaining <= 0) break;
             IEnergyStorage dest = level.getCapability(Capabilities.EnergyStorage.BLOCK, t.endpointPos(), t.access());
@@ -29,5 +31,6 @@ public final class EnergyTransfer {
             if (extracted <= 0) break;
             remaining -= dest.receiveEnergy(extracted, false);
         }
+        return available - remaining;
     }
 }

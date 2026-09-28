@@ -21,6 +21,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
@@ -152,6 +153,7 @@ public class PipeBlock extends Block implements EntityBlock {
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
             Containers.dropContents(level, pos, be.upgrades());
+            PipeNetwork.invalidate();
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
@@ -161,12 +163,22 @@ public class PipeBlock extends Block implements EntityBlock {
                                    BlockPos neighborPos, boolean movedByPiston) {
         super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
         refresh(state, level, pos);
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be) be.wake();
+    }
+
+    /** A neighbouring block entity changed (e.g. a chest's contents): extracting sides should look again soon. */
+    @Override
+    public void onNeighborChange(BlockState state, LevelReader level, BlockPos pos, BlockPos neighbor) {
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof PipeBlockEntity be) be.wake();
     }
 
     private void refresh(BlockState state, Level level, BlockPos pos) {
         if (level.isClientSide) return;
         BlockState updated = withConnections(level, pos, state);
-        if (updated != state) level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        if (updated != state) {
+            level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+            PipeNetwork.invalidate();
+        }
     }
 
     /** Recomputes the connection properties of the pipe at {@code pos}, if there is one. */
@@ -264,15 +276,16 @@ public class PipeBlock extends Block implements EntityBlock {
 
     /**
      * Switches a side between insert and extract and tells the player which one it is now. Upgrades only work on
-     * extracting sides, so switching to insert hands the installed upgrade back.
+     * extracting sides, so switching to insert hands the installed upgrades back.
      */
     public static void toggleMode(PipeBlockEntity be, Direction side, Player player) {
         SideConfig cfg = be.side(side);
         cfg.mode = cfg.mode.toggle();
-        if (cfg.mode == SideMode.INSERT && !be.getUpgrade(side).isEmpty()) {
-            player.getInventory().placeItemBackInInventory(be.removeUpgrade(side));
+        if (cfg.mode == SideMode.INSERT) {
+            be.removeAllUpgrades(side).forEach(player.getInventory()::placeItemBackInInventory);
         }
         be.setChanged();
+        PipeNetwork.invalidate();
         player.displayClientMessage(Component.translatable("message.flowline.mode_set",
                 Component.translatable("direction.flowline." + side.getName()),
                 Component.translatable("mode.flowline." + cfg.mode.name().toLowerCase())), true);

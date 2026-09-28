@@ -1,12 +1,13 @@
 package com.knozyy.flowline.test;
 
 import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.item.UpgradeType;
+import com.knozyy.flowline.pipe.Pacing;
 import com.knozyy.flowline.pipe.PipeBlock;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
 import com.knozyy.flowline.pipe.RedstoneMode;
 import com.knozyy.flowline.pipe.SideConfig;
 import com.knozyy.flowline.pipe.SideMode;
-import com.knozyy.flowline.pipe.SpeedTier;
 import com.knozyy.flowline.registry.ModBlocks;
 import com.knozyy.flowline.registry.ModItems;
 import net.minecraft.core.BlockPos;
@@ -21,8 +22,10 @@ import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
+import java.util.List;
+
 /**
- * In-world tests, run headless by {@code ./gradlew runGameTestServer} (and in CI).
+ * In-world tests, run headless by {@code ./gradlew runGameTestServer} (and in CI). They assume the default config.
  * Layout: source chest at x=0, item pipes at x=1..n, target chest at x=n+1, all on y=1, z=1.
  */
 @GameTestHolder(Flowline.MODID)
@@ -46,8 +49,12 @@ public class PipeGameTests {
         return first;
     }
 
-    private static ItemStack upgrade(SpeedTier tier) {
-        return new ItemStack(ModItems.SPEED_UPGRADES.get(tier.ordinal() - 1).get());
+    private static ItemStack upgrade(UpgradeType type) {
+        return new ItemStack(ModItems.upgrade(type));
+    }
+
+    private static void install(PipeBlockEntity pipe, UpgradeType... types) {
+        for (UpgradeType type : types) pipe.installUpgrade(Direction.WEST, upgrade(type));
     }
 
     private static ChestBlockEntity chest(GameTestHelper helper, BlockPos pos) {
@@ -58,9 +65,11 @@ public class PipeGameTests {
         return chest(helper, pos).countItem(item);
     }
 
+    // ---- transport ----------------------------------------------------------------------------------------
+
     @GameTest(template = TEMPLATE, timeoutTicks = 200)
     public static void itemsFlowThroughPipes(GameTestHelper helper) {
-        line(helper, 3);
+        install(line(helper, 3), UpgradeType.STACK, UpgradeType.STACK);
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 16));
 
         helper.succeedWhen(() -> {
@@ -72,7 +81,7 @@ public class PipeGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 200)
     public static void whitelistOnlyMovesListedItems(GameTestHelper helper) {
         PipeBlockEntity pipe = line(helper, 1);
-        pipe.setUpgrade(Direction.WEST, upgrade(SpeedTier.BASIC));
+        install(pipe, UpgradeType.STACK);
         SideConfig cfg = pipe.side(Direction.WEST);
         cfg.whitelist = true;
         cfg.filter.add(new ItemStack(Items.DIAMOND));
@@ -92,7 +101,7 @@ public class PipeGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 200)
     public static void blacklistBlocksListedItems(GameTestHelper helper) {
         PipeBlockEntity pipe = line(helper, 1);
-        pipe.setUpgrade(Direction.WEST, upgrade(SpeedTier.BASIC));
+        install(pipe, UpgradeType.STACK);
         SideConfig cfg = pipe.side(Direction.WEST);
         cfg.whitelist = false;
         cfg.filter.add(new ItemStack(Items.DIRT));
@@ -109,19 +118,27 @@ public class PipeGameTests {
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 200)
-    public static void filterNeedsAnUpgrade(GameTestHelper helper) {
+    public static void filterWorksWithoutUpgrades(GameTestHelper helper) {
         SideConfig cfg = line(helper, 1).side(Direction.WEST);
         cfg.whitelist = true;
         cfg.filter.add(new ItemStack(Items.DIAMOND));
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 4));
+        chest(helper, SOURCE).setItem(1, new ItemStack(Items.DIAMOND, 1));
 
-        helper.succeedWhen(() -> helper.assertTrue(count(helper, target(1), Items.DIRT) == 4,
-                "without an upgrade the filter is inactive, so dirt should move"));
+        helper.startSequence()
+                .thenIdle(120)
+                .thenExecute(() -> {
+                    helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 1, "the diamond should be moved");
+                    helper.assertTrue(count(helper, target(1), Items.DIRT) == 0, "dirt must not be moved");
+                })
+                .thenSucceed();
     }
 
-    @GameTest(template = TEMPLATE, timeoutTicks = 200)
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
     public static void redstoneSignalGatesExtraction(GameTestHelper helper) {
-        line(helper, 1).side(Direction.WEST).redstone = RedstoneMode.REQUIRE_SIGNAL;
+        PipeBlockEntity pipe = line(helper, 1);
+        install(pipe, UpgradeType.STACK);
+        pipe.side(Direction.WEST).redstone = RedstoneMode.REQUIRE_SIGNAL;
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 4));
 
         helper.startSequence()
@@ -135,9 +152,9 @@ public class PipeGameTests {
                 .thenSucceed();
     }
 
-    @GameTest(template = TEMPLATE, timeoutTicks = 200)
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
     public static void wrenchDisconnectStopsFlow(GameTestHelper helper) {
-        line(helper, 2);
+        install(line(helper, 2), UpgradeType.STACK);
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 4));
         Boolean connected = PipeBlock.toggleConnection(helper.getLevel(), helper.absolutePos(FIRST_PIPE), Direction.EAST);
         helper.assertTrue(Boolean.FALSE.equals(connected), "first toggle should cut the pipe connection");
@@ -155,21 +172,77 @@ public class PipeGameTests {
                 .thenSucceed();
     }
 
+    // ---- upgrades -----------------------------------------------------------------------------------------
+
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
-    public static void upgradeSlotSetsSpeed(GameTestHelper helper) {
+    public static void upgradesCountPerSide(GameTestHelper helper) {
         PipeBlockEntity pipe = line(helper, 1);
-        pipe.setUpgrade(Direction.WEST, upgrade(SpeedTier.KNOZY));
-        helper.assertTrue(pipe.side(Direction.WEST).speed == SpeedTier.KNOZY, "installing sets the speed");
-        ItemStack removed = pipe.removeUpgrade(Direction.WEST);
-        helper.assertTrue(removed.is(ModItems.SPEED_UPGRADES.get(3).get()), "removing returns the upgrade");
-        helper.assertTrue(pipe.side(Direction.WEST).speed == SpeedTier.BASE, "removing resets the speed");
+        install(pipe, UpgradeType.STACK, UpgradeType.STACK, UpgradeType.KNOZY);
+        SideConfig cfg = pipe.side(Direction.WEST);
+        helper.assertTrue(cfg.stackCount == 3, "2 Stack + 1 Knozy = 3 stack, got " + cfg.stackCount);
+        helper.assertTrue(cfg.speedCount == 1, "1 Knozy = 1 speed, got " + cfg.speedCount);
+
+        for (int i = 3; i < SideConfig.UPGRADE_SLOTS; i++) install(pipe, UpgradeType.SPEED);
+        helper.assertTrue(!pipe.installUpgrade(Direction.WEST, upgrade(UpgradeType.SPEED)), "a 7th upgrade must not fit");
+
+        List<ItemStack> removed = pipe.removeAllUpgrades(Direction.WEST);
+        helper.assertTrue(removed.size() == SideConfig.UPGRADE_SLOTS, "removing returns all six upgrades");
+        helper.assertTrue(cfg.stackCount == 0 && cfg.speedCount == 0, "removing resets the counts");
         helper.succeed();
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void brokenPipeDropsUpgrades(GameTestHelper helper) {
-        line(helper, 1).setUpgrade(Direction.WEST, upgrade(SpeedTier.REGULAR));
+        install(line(helper, 1), UpgradeType.SPEED, UpgradeType.STACK);
         helper.destroyBlock(FIRST_PIPE);
-        helper.succeedWhen(() -> helper.assertItemEntityPresent(ModItems.SPEED_UPGRADES.get(1).get(), FIRST_PIPE, 2.0));
+        helper.succeedWhen(() -> {
+            helper.assertItemEntityPresent(ModItems.SPEED_UPGRADE.get(), FIRST_PIPE, 2.0);
+            helper.assertItemEntityPresent(ModItems.STACK_UPGRADE.get(), FIRST_PIPE, 2.0);
+        });
+    }
+
+    // ---- pacing -------------------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void speedLowersStart(GameTestHelper helper) {
+        helper.assertTrue(Pacing.start(0) == 30, "default start is 30 ticks, got " + Pacing.start(0));
+        helper.assertTrue(Pacing.start(2) == 22, "two Speed upgrades start at 22 ticks, got " + Pacing.start(2));
+        helper.assertTrue(Pacing.start(6) == Pacing.min(), "never below the minimum interval");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 500)
+    public static void intervalAccelerates(GameTestHelper helper) {
+        SideConfig cfg = line(helper, 1).side(Direction.WEST);
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 64));
+        helper.succeedWhen(() -> helper.assertTrue(cfg.interval == Pacing.min(),
+                "steady work should bring the interval down to the minimum, now " + cfg.interval));
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 150)
+    public static void intervalSlowsWhenIdle(GameTestHelper helper) {
+        SideConfig cfg = line(helper, 1).side(Direction.WEST);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(cfg.interval > Pacing.start(0), "an empty source should slow the side down");
+            helper.assertTrue(!cfg.sleeping, "an empty source is polled slowly, not slept on");
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void sleepsWithoutTargets(GameTestHelper helper) {
+        helper.setBlock(SOURCE, Blocks.CHEST);
+        helper.setBlock(FIRST_PIPE, ModBlocks.ITEM_PIPE.get());
+        PipeBlockEntity pipe = helper.getBlockEntity(FIRST_PIPE);
+        pipe.side(Direction.WEST).mode = SideMode.EXTRACT;
+        install(pipe, UpgradeType.STACK);
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 4));
+        SideConfig cfg = pipe.side(Direction.WEST);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(cfg.sleeping, "no target: the side should sleep"))
+                .thenExecute(() -> helper.setBlock(target(1), Blocks.CHEST))
+                .thenWaitUntil(() -> helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 4,
+                        "a new target should wake the side up"))
+                .thenSucceed();
     }
 }

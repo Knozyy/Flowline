@@ -2,8 +2,8 @@ package com.knozyy.flowline.registry;
 
 import com.knozyy.flowline.Flowline;
 import com.knozyy.flowline.item.UpgradeItem;
+import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.item.WrenchItem;
-import com.knozyy.flowline.pipe.SpeedTier;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -20,15 +20,23 @@ public final class ModItems {
 
     public static final DeferredItem<WrenchItem> WRENCH =
             ITEMS.registerItem("wrench", WrenchItem::new, new Item.Properties().stacksTo(1));
-    /** Indexed by {@code tier.ordinal() - 1}: basic, regular, advanced, knozy. */
-    public static final List<DeferredItem<UpgradeItem>> SPEED_UPGRADES = List.of(
-            upgrade("basic_upgrade", SpeedTier.BASIC),
-            upgrade("regular_upgrade", SpeedTier.REGULAR),
-            upgrade("advanced_upgrade", SpeedTier.ADVANCED),
-            upgrade("knozy_upgrade", SpeedTier.KNOZY));
 
-    private static DeferredItem<UpgradeItem> upgrade(String name, SpeedTier tier) {
-        return ITEMS.registerItem(name, props -> new UpgradeItem(props, tier), new Item.Properties());
+    public static final DeferredItem<UpgradeItem> SPEED_UPGRADE = upgrade("speed_upgrade", UpgradeType.SPEED);
+    public static final DeferredItem<UpgradeItem> STACK_UPGRADE = upgrade("stack_upgrade", UpgradeType.STACK);
+    public static final DeferredItem<UpgradeItem> KNOZY_UPGRADE = upgrade("knozy_upgrade", UpgradeType.KNOZY);
+
+    public static final List<DeferredItem<UpgradeItem>> UPGRADES = List.of(SPEED_UPGRADE, STACK_UPGRADE, KNOZY_UPGRADE);
+
+    private static DeferredItem<UpgradeItem> upgrade(String name, UpgradeType type) {
+        return ITEMS.registerItem(name, props -> new UpgradeItem(props, type), new Item.Properties());
+    }
+
+    public static UpgradeItem upgrade(UpgradeType type) {
+        return switch (type) {
+            case SPEED -> SPEED_UPGRADE.get();
+            case STACK -> STACK_UPGRADE.get();
+            case KNOZY -> KNOZY_UPGRADE.get();
+        };
     }
 
     private ModItems() {}

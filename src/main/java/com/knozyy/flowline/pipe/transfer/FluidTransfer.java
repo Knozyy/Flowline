@@ -13,14 +13,15 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 public final class FluidTransfer {
     private FluidTransfer() {}
 
-    public static void run(Level level, BlockPos sourcePos, Direction sourceAccess, SideConfig cfg,
-                           java.util.List<Target> targets, int budget) {
+    /** @return millibuckets moved. */
+    public static int run(Level level, BlockPos sourcePos, Direction sourceAccess, SideConfig cfg,
+                          java.util.List<Target> targets, int budget) {
         IFluidHandler source = level.getCapability(Capabilities.FluidHandler.BLOCK, sourcePos, sourceAccess);
-        if (source == null) return;
+        if (source == null) return 0;
 
         FluidStack offered = source.drain(budget, IFluidHandler.FluidAction.SIMULATE);
-        if (offered.isEmpty()) return;
-        if (!cfg.allowsFluid(offered)) return;
+        if (offered.isEmpty()) return 0;
+        if (!cfg.allowsFluid(offered)) return 0;
 
         int remaining = budget;
         for (Target t : targets) {
@@ -36,5 +37,6 @@ public final class FluidTransfer {
             offered = source.drain(remaining, IFluidHandler.FluidAction.SIMULATE);
             if (offered.isEmpty() || !cfg.allowsFluid(offered)) break;
         }
+        return budget - remaining;
     }
 }

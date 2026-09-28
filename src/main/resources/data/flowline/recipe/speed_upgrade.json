@@ -2,20 +2,23 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "pattern": [
-    "III",
-    "IRI",
-    "III"
+    "ISI",
+    "RIR",
+    "ISI"
   ],
   "key": {
     "I": {
       "item": "minecraft:iron_ingot"
+    },
+    "S": {
+      "item": "minecraft:sugar"
     },
     "R": {
       "item": "minecraft:redstone"
     }
   },
   "result": {
-    "id": "flowline:basic_upgrade",
+    "id": "flowline:speed_upgrade",
     "count": 1
   }
 }
