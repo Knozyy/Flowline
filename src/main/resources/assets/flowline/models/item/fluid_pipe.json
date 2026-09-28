@@ -4,19 +4,6 @@
     "pipe": "flowline:block/fluid_pipe",
     "particle": "flowline:block/fluid_pipe"
   },
-  "display": {
-    "gui": {
-      "rotation": [
-        30,
-        45,
-        0
-      ],
-      "scale": 1.2
-    },
-    "fixed": {
-      "scale": 1.2
-    }
-  },
   "elements": [
     {
       "from": [

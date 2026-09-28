@@ -199,10 +199,6 @@ for name in TYPES:
     write_json(f"assets/{MODID}/models/item/{name}_pipe.json", {
         "parent": "minecraft:block/block",
         "textures": {"pipe": tex, "particle": tex},
-        "display": {
-            "gui": {"rotation": [30, 45, 0], "scale": 1.2},
-            "fixed": {"scale": 1.2},
-        },
         "elements": [
             {"from": [5, 5, 0], "to": [11, 11, 16],
              "faces": {d: {"uv": [5, 5, 11, 11], "texture": "#pipe"} for d in ("down", "up", "north", "south", "west", "east")}},
