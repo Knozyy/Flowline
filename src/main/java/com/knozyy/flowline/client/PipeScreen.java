@@ -2,31 +2,21 @@ package com.knozyy.flowline.client;
 
 import com.knozyy.flowline.filter.FilterEntry;
 import com.knozyy.flowline.menu.PipeMenu;
-import com.knozyy.flowline.network.SetFilterEntryPayload;
 import com.knozyy.flowline.pipe.PipeType;
 import com.knozyy.flowline.registry.ModItems;
 import net.minecraft.ChatFormatting;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 /**
  * Dark, panel-based configuration screen drawn without a background texture: a header with the pipe and side,
@@ -60,24 +50,6 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private IconButton prevPageButton;
     private IconButton nextPageButton;
 
-    // ---- rule editor (drawn over the three panels) ----
-    private static final int EDITOR_L = 6, EDITOR_R = 170, EDITOR_T = 28, EDITOR_B = 100;
-    private final List<AbstractWidget> editorWidgets = new ArrayList<>();
-    private EditBox targetBox;
-    private EditBox nbtBox;
-    private IconButton exactButton;
-    private IconButton invertButton;
-    private IconButton deleteButton;
-    private Button saveButton;
-    /** Filter position being edited (whole filter, not just the page); -1 when the editor is closed. */
-    private int editIndex = -1;
-    private String draftTarget = "";
-    private String draftNbt = "";
-    private boolean draftExact = false;
-    private boolean draftInvert = false;
-    @Nullable
-    private String editorError = null;
-
     public PipeScreen(PipeMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 176;
@@ -106,46 +78,6 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         nextPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 13, topPos + PANEL_TOP + 2, 10,
                 () -> "page_next", accent, b -> press(PipeMenu.BTN_NEXT_PAGE)));
 
-        editorWidgets.clear();
-        targetBox = editorWidget(new EditBox(font, leftPos + 30, topPos + 41, 136, 14, Component.empty()));
-        targetBox.setMaxLength(256);
-        targetBox.setHint(Component.translatable("gui.flowline.editor.target_hint").withStyle(ChatFormatting.DARK_GRAY));
-        targetBox.setValue(draftTarget);
-        targetBox.setResponder(value -> {
-            draftTarget = value;
-            validate();
-        });
-        nbtBox = editorWidget(new EditBox(font, leftPos + 10, topPos + 64, 156, 14, Component.empty()));
-        nbtBox.setMaxLength(4096);
-        nbtBox.setHint(Component.translatable("gui.flowline.editor.nbt_hint").withStyle(ChatFormatting.DARK_GRAY));
-        nbtBox.setValue(draftNbt);
-        nbtBox.setResponder(value -> {
-            draftNbt = value;
-            validate();
-        });
-        int row = topPos + 82;
-        exactButton = editorWidget(new IconButton(leftPos + 10, row, 14,
-                () -> draftExact ? "match_components" : "ignore_components", accent, b -> {
-            draftExact = !draftExact;
-            validate();
-        }));
-        invertButton = editorWidget(new IconButton(leftPos + 26, row, 14,
-                () -> draftInvert ? "blacklist" : "whitelist", accent, b -> draftInvert = !draftInvert));
-        deleteButton = editorWidget(new IconButton(leftPos + 42, row, 14, () -> "clear", accent, b -> {
-            send(null);
-            closeEditor();
-        }));
-        editorWidget(Button.builder(Component.translatable("gui.flowline.editor.cancel"), b -> closeEditor())
-                .bounds(leftPos + 94, row, 34, 14).build());
-        saveButton = editorWidget(Button.builder(Component.translatable("gui.flowline.editor.save"), b -> save())
-                .bounds(leftPos + 130, row, 36, 14).build());
-        setEditorVisible(editIndex >= 0);
-        if (editIndex >= 0) validate();
-    }
-
-    private <T extends AbstractWidget> T editorWidget(T widget) {
-        editorWidgets.add(widget);
-        return addRenderableWidget(widget);
     }
 
     private void press(int id) {
@@ -158,127 +90,24 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         return value.name().toLowerCase(Locale.ROOT);
     }
 
-    // ---- rule editor --------------------------------------------------------------------------------------
-
-    private void openEditor(PipeMenu.GhostSlot slot) {
-        FilterEntry entry = menu.clientEntry(slot.getContainerSlot());
-        editIndex = slot.filterIndex();
-        draftTarget = entry == null ? "" : entry.target();
-        draftNbt = entry == null ? "" : entry.nbt().map(CompoundTag::toString).orElse("");
-        draftExact = entry != null && entry.exactNbt();
-        draftInvert = entry != null && entry.invert();
-        targetBox.setValue(draftTarget);
-        nbtBox.setValue(draftNbt);
-        deleteButton.active = entry != null;
-        setEditorVisible(true);
-        setFocused(targetBox);
-        validate();
-    }
-
-    private void closeEditor() {
-        editIndex = -1;
-        setEditorVisible(false);
-        setFocused(null);
-    }
-
-    private void setEditorVisible(boolean open) {
-        menu.editorOpen = open;
-        for (AbstractWidget widget : editorWidgets) widget.visible = open;
-        redstoneButton.visible = !open;
-        distributionButton.visible = !open;
-    }
-
-    /** Fills the editor from a stack: its id and, if it has any, its data components. */
-    private void fillFrom(ItemStack stack) {
-        FilterEntry entry = FilterEntry.fromStack(menu.type, stack, menu.registries());
-        if (entry == null) return;
-        targetBox.setValue(entry.target());
-        nbtBox.setValue(entry.nbt().map(CompoundTag::toString).orElse(""));
-    }
-
-    /** The rule as typed, or null if the NBT text does not parse. */
-    @Nullable
-    private FilterEntry draft() {
-        try {
-            return new FilterEntry(draftTarget.trim(), FilterEntry.parseNbt(draftNbt), draftExact, draftInvert);
-        } catch (CommandSyntaxException e) {
-            return null;
-        }
-    }
-
-    private void validate() {
-        FilterEntry entry = draft();
-        String problem = entry == null ? "gui.flowline.editor.error.nbt" : entry.problem(menu.type);
-        editorError = problem;
-        boolean targetBad = problem != null && !problem.endsWith(".nbt") && !problem.endsWith(".empty");
-        targetBox.setTextColor(targetBad ? 0xFF6B6B : 0xE0E0E0);
-        nbtBox.setTextColor(entry == null ? 0xFF6B6B : 0xE0E0E0);
-        exactButton.active = entry != null && entry.nbt().isPresent();
-        saveButton.active = problem == null;
-    }
-
-    private void save() {
-        FilterEntry entry = draft();
-        if (entry == null || entry.problem(menu.type) != null) return;
-        send(entry);
-        closeEditor();
-    }
-
-    private void send(@Nullable FilterEntry entry) {
-        if (editIndex >= 0) {
-            PacketDistributor.sendToServer(new SetFilterEntryPayload(menu.containerId, editIndex, Optional.ofNullable(entry)));
-        }
-    }
-
     // ---- input --------------------------------------------------------------------------------------------
 
+    /** A left click on a filter slot with an empty hand opens the rule library for that slot. */
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (menu.editorOpen) {
-            // clicking an inventory item copies it into the editor instead of picking it up
-            if (hoveredSlot != null && hoveredSlot.container instanceof Inventory && hoveredSlot.hasItem()
-                    && menu.getCarried().isEmpty()) {
-                fillFrom(hoveredSlot.getItem());
-                return true;
-            }
-            for (GuiEventListener child : children()) {
-                if (child.mouseClicked(mouseX, mouseY, button)) {
-                    setFocused(child);
-                    if (button == 0) setDragging(true);
-                    return true;
-                }
-            }
-            setFocused(null);
-            return true;
-        }
-        if (button == 0 && hoveredSlot instanceof PipeMenu.GhostSlot ghost && menu.getCarried().isEmpty()) {
-            openEditor(ghost);
+        if (button == 0 && hoveredSlot instanceof PipeMenu.GhostSlot ghost && menu.getCarried().isEmpty()
+                && minecraft != null) {
+            minecraft.setScreen(new RuleEditorScreen(this, menu, ghost.filterIndex(),
+                    menu.clientEntry(ghost.getContainerSlot()), accent));
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (menu.editorOpen) {
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-                closeEditor();
-            } else if ((keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) && saveButton.active) {
-                save();
-            } else if (keyCode == GLFW.GLFW_KEY_TAB) {
-                setFocused(getFocused() == targetBox ? nbtBox : targetBox);
-            } else if (getFocused() != null) {
-                getFocused().keyPressed(keyCode, scanCode, modifiers);
-            }
-            return true;   // never let typing close the screen
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
     /** Mouse wheel over the filter panel flips filter pages. */
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (!menu.editorOpen && menu.hasFilter() && menu.pageCount() > 1 && scrollY != 0
+        if (menu.hasFilter() && menu.pageCount() > 1 && scrollY != 0
                 && isHovering(FILTER_L, PANEL_TOP, FILTER_R - FILTER_L, PANEL_BOTTOM - PANEL_TOP, mouseX, mouseY)) {
             int target = menu.page() + (scrollY < 0 ? 1 : -1);
             if (target >= 0 && target < menu.pageCount()) {
@@ -293,10 +122,9 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        boolean editing = menu.editorOpen;
         boolean filter = menu.hasFilter();
-        clearButton.visible = !editing && filter;
-        boolean paged = !editing && filter && menu.pageCount() > 1;
+        clearButton.visible = filter;
+        boolean paged = filter && menu.pageCount() > 1;
         prevPageButton.visible = paged;
         nextPageButton.visible = paged;
         prevPageButton.active = menu.page() > 0;
@@ -344,32 +172,6 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                 graphics.fill(x, y, x + 2, y + 3, i == menu.page() ? accent : PANEL_EDGE);
             }
         }
-
-        if (menu.editorOpen) renderEditorBg(graphics);
-    }
-
-    private void renderEditorBg(GuiGraphics graphics) {
-        int l = leftPos + EDITOR_L, r = leftPos + EDITOR_R, t = topPos + EDITOR_T, b = topPos + EDITOR_B;
-        graphics.fill(l, t, r, b, accent);
-        graphics.fill(l + 1, t + 1, r - 1, b - 1, PANEL);
-        small(graphics, Component.literal(Component.translatable("gui.flowline.editor.title", editIndex + 1)
-                .getString().toUpperCase(Locale.ROOT)), l + 4, t + 3, MUTED);
-
-        // preview of what the rule matches
-        int px = leftPos + 10, py = topPos + 40;
-        graphics.fill(px - 1, py - 1, px + 17, py + 17, SLOT_EDGE);
-        graphics.fill(px, py, px + 16, py + 16, SLOT);
-        FilterEntry entry = draft();
-        if (entry != null && (!entry.target().isEmpty() || entry.nbt().isPresent())) {
-            graphics.renderItem(entry.displayStack(menu.type, menu.registries()), px, py);
-        }
-
-        small(graphics, Component.translatable("gui.flowline.editor.nbt_label"), leftPos + 10, topPos + 58, MUTED);
-        if (editorError != null) {
-            small(graphics, Component.translatable(editorError), leftPos + 30, topPos + 58, 0xFFFF6B6B);
-        } else {
-            small(graphics, Component.translatable("gui.flowline.editor.copy_hint"), leftPos + 30, topPos + 58, MUTED);
-        }
     }
 
     private void panel(GuiGraphics graphics, int left, int right) {
@@ -397,7 +199,6 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         graphics.drawString(font, badge, badgeX + 4, BADGE_Y + 2, TEXT, false);
 
         small(graphics, playerInventoryTitle, 8, inventoryLabelY, MUTED);
-        if (menu.editorOpen) return;
 
         // panel captions
         small(graphics, caption("gui.flowline.section.settings"), SETTINGS_L + 4, PANEL_TOP + 4, MUTED);
@@ -417,7 +218,10 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             FilterEntry entry = menu.clientEntry(ghost.getContainerSlot());
             if (entry == null) continue;
             int x = slot.x, y = slot.y;
-            if (entry.isTag()) small(graphics, Component.literal("#"), x, y, 0xFF7FD3FF);
+            if (!entry.tags().isEmpty()) {
+                small(graphics, Component.literal("#" + (entry.tags().size() > 1 ? entry.tags().size() : "")), x, y,
+                        0xFF7FD3FF);
+            }
             if (entry.nbt().isPresent()) graphics.fill(x + 13, y, x + 16, y + 3, 0xFFB86BFF);
             if (entry.invert()) graphics.fill(x, y + 14, x + 16, y + 16, 0xFFE04848);
         }
@@ -455,13 +259,23 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             lines.add(Component.translatable("gui.flowline.rule.empty_hint").withStyle(ChatFormatting.GRAY));
             return lines;
         }
-        if (entry.target().isEmpty()) {
-            lines.add(Component.translatable("gui.flowline.rule.any"));
-        } else if (entry.isTag()) {
-            lines.add(Component.translatable("gui.flowline.rule.tag", Component.literal(entry.target()).withColor(accent)));
-        } else {
+        if (entry.item().isPresent()) {
             lines.add(entry.displayStack(menu.type, menu.registries()).getHoverName().copy());
-            lines.add(Component.literal(entry.target()).withStyle(ChatFormatting.DARK_GRAY));
+            lines.add(Component.literal(entry.item().get()).withStyle(ChatFormatting.DARK_GRAY));
+        } else if (entry.tags().isEmpty()) {
+            lines.add(Component.translatable("gui.flowline.rule.any"));
+        }
+        if (!entry.tags().isEmpty()) {
+            lines.add(Component.translatable(entry.allTags() ? "gui.flowline.rule.tags_all" : "gui.flowline.rule.tags_any")
+                    .withStyle(ChatFormatting.GRAY));
+            int shown = Math.min(6, entry.tags().size());
+            for (int i = 0; i < shown; i++) {
+                lines.add(Component.literal("  #" + entry.tags().get(i)).withColor(accent));
+            }
+            if (entry.tags().size() > shown) {
+                lines.add(Component.translatable("gui.flowline.rule.more", entry.tags().size() - shown)
+                        .withStyle(ChatFormatting.DARK_GRAY));
+            }
         }
         entry.nbt().ifPresent(nbt -> {
             String text = nbt.toString();
@@ -478,17 +292,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
 
     private void renderButtonTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
         List<Component> lines = null;
-        if (menu.editorOpen) {
-            if (exactButton.isHovered()) {
-                lines = describe("gui.flowline.editor.nbt_mode",
-                        draftExact ? "gui.flowline.editor.exact" : "gui.flowline.editor.contains", exactButton.active);
-            } else if (invertButton.isHovered()) {
-                lines = describe("gui.flowline.editor.rule_mode",
-                        draftInvert ? "gui.flowline.editor.block" : "gui.flowline.editor.allow", true);
-            } else if (deleteButton.isHovered()) {
-                lines = List.of(Component.translatable("gui.flowline.editor.delete"));
-            }
-        } else if (redstoneButton.isHovered()) {
+        if (redstoneButton.isHovered()) {
             lines = describe("gui.flowline.redstone", "redstone.flowline." + key(menu.redstone()), true);
         } else if (distributionButton.isHovered()) {
             lines = describe("gui.flowline.distribution", "distribution.flowline." + key(menu.distribution()), true);
@@ -529,7 +333,6 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable(labelKey, Component.translatable(valueKey).withColor(accent)));
         lines.add(Component.translatable(valueKey + ".desc").withStyle(ChatFormatting.GRAY));
-        if (!enabled) lines.add(Component.translatable("gui.flowline.editor.needs_nbt").withStyle(ChatFormatting.RED));
         return lines;
     }
 

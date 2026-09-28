@@ -17,6 +17,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -61,12 +62,12 @@ public class PipeGameTests {
         for (UpgradeType type : types) pipe.installUpgrade(Direction.WEST, upgrade(type));
     }
 
-    private static FilterEntry allow(String target) {
-        return new FilterEntry(target, Optional.empty(), false, false);
+    private static FilterEntry allow(String item) {
+        return FilterEntry.ofItem(item);
     }
 
-    private static FilterEntry block(String target) {
-        return new FilterEntry(target, Optional.empty(), false, true);
+    private static FilterEntry block(String item) {
+        return FilterEntry.ofItem(item).withInvert(true);
     }
 
     private static ChestBlockEntity chest(GameTestHelper helper, BlockPos pos) {
@@ -147,7 +148,7 @@ public class PipeGameTests {
     public static void tagRuleMatchesTagMembers(GameTestHelper helper) {
         PipeBlockEntity pipe = line(helper, 1);
         install(pipe, UpgradeType.STACK);
-        pipe.side(Direction.WEST).setEntry(0, allow("#minecraft:logs"));
+        pipe.side(Direction.WEST).setEntry(0, FilterEntry.ofTags(false, "minecraft:logs"));
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 4));
         chest(helper, SOURCE).setItem(1, new ItemStack(Items.OAK_LOG, 4));
         chest(helper, SOURCE).setItem(2, new ItemStack(Items.BIRCH_LOG, 4));
@@ -160,12 +161,57 @@ public class PipeGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = TEMPLATE, timeoutTicks = 200)
+    public static void tagsAnyMatchesEither(GameTestHelper helper) {
+        PipeBlockEntity pipe = line(helper, 1);
+        install(pipe, UpgradeType.STACK);
+        pipe.side(Direction.WEST).setEntry(0, FilterEntry.ofTags(false, "minecraft:logs", "minecraft:logs_that_burn"));
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.OAK_LOG, 2));
+        chest(helper, SOURCE).setItem(1, new ItemStack(Items.CRIMSON_STEM, 2));
+
+        helper.succeedWhen(() -> helper.assertTrue(count(helper, target(1), Items.OAK_LOG) == 2
+                && count(helper, target(1), Items.CRIMSON_STEM) == 2, "OR: logs from either tag move"));
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void tagsAllNeedsEvery(GameTestHelper helper) {
+        PipeBlockEntity pipe = line(helper, 1);
+        install(pipe, UpgradeType.STACK);
+        pipe.side(Direction.WEST).setEntry(0, FilterEntry.ofTags(true, "minecraft:logs", "minecraft:logs_that_burn"));
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.OAK_LOG, 2));
+        chest(helper, SOURCE).setItem(1, new ItemStack(Items.CRIMSON_STEM, 2));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(count(helper, target(1), Items.OAK_LOG) == 2,
+                        "AND: oak logs are in both tags"))
+                .thenIdle(60)
+                .thenExecute(() -> helper.assertTrue(count(helper, target(1), Items.CRIMSON_STEM) == 0,
+                        "AND: crimson stems do not burn, so they stay"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void legacyTargetStillLoads(GameTestHelper helper) {
+        CompoundTag legacy = new CompoundTag();
+        legacy.putString("target", "#minecraft:logs");
+        legacy.putBoolean("invert", true);
+        FilterEntry entry = FilterEntry.CODEC.parse(NbtOps.INSTANCE, legacy).getOrThrow();
+        helper.assertTrue(entry.tags().equals(List.of("minecraft:logs")), "legacy tag target becomes a tag");
+        helper.assertTrue(entry.item().isEmpty() && entry.invert(), "other fields survive");
+
+        CompoundTag legacyItem = new CompoundTag();
+        legacyItem.putString("target", "minecraft:stone");
+        FilterEntry itemEntry = FilterEntry.CODEC.parse(NbtOps.INSTANCE, legacyItem).getOrThrow();
+        helper.assertTrue(itemEntry.item().equals(Optional.of("minecraft:stone")), "legacy id target becomes an item");
+        helper.succeed();
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 300)
     public static void nbtRuleMatchesComponents(GameTestHelper helper) {
         SideConfig cfg = line(helper, 1).side(Direction.WEST);
         CompoundTag damaged = new CompoundTag();
         damaged.putInt("minecraft:damage", 5);
-        cfg.setEntry(0, new FilterEntry("minecraft:diamond_sword", Optional.of(damaged), false, false));
+        cfg.setEntry(0, FilterEntry.ofItem("minecraft:diamond_sword").withNbt(Optional.of(damaged)));
         ItemStack worn = new ItemStack(Items.DIAMOND_SWORD);
         worn.set(DataComponents.DAMAGE, 5);
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND_SWORD));

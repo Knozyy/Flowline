@@ -30,22 +30,24 @@ Each Extract side runs on an adaptive interval, similar to AE2's tick rate modul
 
 The badge in the GUI header shows the amount multiplier and the current interval (hover for details).
 
-### Filter (Pipez style)
+### Filter and rule library
 
-Each side (not on energy pipes) has **9 rules** by default and **9 more per Filter upgrade** (Knozy counts). A rule has:
+Each side (not on energy pipes) has **9 rules** by default and **9 more per Filter upgrade** (Knozy counts). A rule
+can combine:
 
-- a **target**: an id (`minecraft:stone`), a **tag** (`#minecraft:logs`, `#c:ores`), or nothing (any item),
-- optional **NBT**: the stack's data components in SNBT, e.g. `{"minecraft:damage":5}` or
-  `{"minecraft:enchantments":{levels:{"minecraft:sharpness":5}}}`; matched as **Contains** (default) or **Exact**,
+- an **item** (or fluid) id,
+- any number of **tags**, matched as **OR** (any of them) or **AND** (all of them),
+- **data components** (NBT), matched as **Contains** (default) or **Exact**,
 - **Allow** or **Block**.
 
 A stack matching any Block rule never passes; if there are Allow rules it must match one of them; with only Block
-rules everything else passes. Fluid pipes use fluid ids and fluid tags.
+rules everything else passes.
 
-In the GUI: click a rule slot with an item (or a filled bucket) to add it as a rule, click a rule to open the editor
-(type the target / NBT, toggle Contains/Exact and Allow/Block, or click an inventory item to copy it), right-click
-to remove it. Slots show `#` for tags, a purple corner for NBT and a red bar for Block rules. With more than 9 rules
-the grid gets pages (arrows, page dots, mouse wheel); rules past the capacity are kept but ignored.
+Click a rule slot to open the **rule library**: click an item in your inventory to use it as the sample, then tick
+the tags it belongs to (or search every known tag, and hover a tag to see what is in it) and tick the data
+components it must have (enchantments, damage, name...). Data can also be edited as SNBT text. Clicking a rule slot
+with an item still adds that item as a rule directly; right-click removes a rule. Slots show `#`/`#n` for tag rules,
+a purple corner for NBT and a red bar for Block rules. Older single-target rules load automatically.
 
 Config (`config/flowline-common.toml`): per-operation amounts, Stack multipliers, filter entries
 (`baseFilterSlots` = 9, `filterSlotsPerUpgrade` = 9), `idleBackoffFactor` (2)

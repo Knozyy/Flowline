@@ -78,8 +78,6 @@ public class PipeMenu extends AbstractContainerMenu {
     private final HolderLookup.Provider registries;
     /** Client: rules on the visible page, as last sent by the server; used by the rule editor and overlays. */
     private final FilterEntry[] clientEntries = new FilterEntry[SideConfig.FILTER_PAGE];
-    /** Client: while the rule editor is open, filter and upgrade slots are hidden under it. */
-    public boolean editorOpen = false;
     private final int ghostCount;
     private final int inventoryStart;
 
@@ -385,7 +383,7 @@ public class PipeMenu extends AbstractContainerMenu {
                 && player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64;
     }
 
-    /** Holds one upgrade item; hidden while the rule editor covers the panels. */
+    /** Holds one upgrade item. */
     public class UpgradeSlot extends Slot {
         UpgradeSlot(Container container, int index, int x, int y) {
             super(container, index, x, y);
@@ -399,11 +397,6 @@ public class PipeMenu extends AbstractContainerMenu {
         @Override
         public int getMaxStackSize() {
             return 1;
-        }
-
-        @Override
-        public boolean isActive() {
-            return !editorOpen;
         }
     }
 
@@ -433,7 +426,7 @@ public class PipeMenu extends AbstractContainerMenu {
 
         @Override
         public boolean isActive() {
-            return !editorOpen && filterIndex() < capacity();
+            return filterIndex() < capacity();
         }
     }
 }

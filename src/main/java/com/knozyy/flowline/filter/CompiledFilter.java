@@ -37,11 +37,9 @@ public final class CompiledFilter {
         List<Rule> allow = new ArrayList<>();
         List<Rule> deny = new ArrayList<>();
         for (FilterEntry entry : entries) {
-            if (entry == null) continue;
-            ResourceLocation location = entry.location();
-            if (!entry.target().isEmpty() && location == null) continue;   // malformed: ignore
-            if (entry.target().isEmpty() && entry.nbt().isEmpty()) continue;
-            Rule rule = new Rule(location, entry.isTag(), entry.nbt().orElse(null), entry.exactNbt());
+            if (entry == null || entry.isEmpty()) continue;
+            Rule rule = Rule.of(entry);
+            if (rule == null) continue;   // malformed id: ignore the rule
             (entry.invert() ? deny : allow).add(rule);
         }
         return allow.isEmpty() && deny.isEmpty() ? ALLOW_ALL : new CompiledFilter(allow, deny);
@@ -93,26 +91,44 @@ public final class CompiledFilter {
     }
 
     private static final class Rule {
-        @Nullable private final ResourceLocation location;
-        private final boolean tag;
+        @Nullable private final ResourceLocation id;
+        private final List<ResourceLocation> tags;
+        private final boolean allTags;
         @Nullable private final CompoundTag nbt;
         private final boolean exact;
-        @Nullable private TagKey<Item> itemTag;
-        @Nullable private TagKey<Fluid> fluidTag;
+        @Nullable private List<TagKey<Item>> itemTags;
+        @Nullable private List<TagKey<Fluid>> fluidTags;
 
-        Rule(@Nullable ResourceLocation location, boolean tag, @Nullable CompoundTag nbt, boolean exact) {
-            this.location = location;
-            this.tag = tag;
+        private Rule(@Nullable ResourceLocation id, List<ResourceLocation> tags, boolean allTags,
+                     @Nullable CompoundTag nbt, boolean exact) {
+            this.id = id;
+            this.tags = tags;
+            this.allTags = allTags;
             this.nbt = nbt;
             this.exact = exact;
         }
 
+        @Nullable
+        static Rule of(FilterEntry entry) {
+            ResourceLocation id = null;
+            if (entry.item().isPresent()) {
+                id = ResourceLocation.tryParse(entry.item().get());
+                if (id == null) return null;
+            }
+            List<ResourceLocation> tags = new ArrayList<>();
+            for (String tag : entry.tags()) {
+                ResourceLocation location = ResourceLocation.tryParse(tag);
+                if (location == null) return null;
+                tags.add(location);
+            }
+            return new Rule(id, List.copyOf(tags), entry.allTags(), entry.nbt().orElse(null), entry.exactNbt());
+        }
+
         boolean matchesItem(ItemStack stack, Lazy<Tag> data) {
-            if (location != null) {
-                if (tag) {
-                    if (itemTag == null) itemTag = TagKey.create(Registries.ITEM, location);
-                    if (!stack.is(itemTag)) return false;
-                } else if (!location.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()))) {
+            if (id != null && !id.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()))) return false;
+            if (!tags.isEmpty()) {
+                if (itemTags == null) itemTags = tags.stream().map(t -> TagKey.create(Registries.ITEM, t)).toList();
+                if (allTags ? !itemTags.stream().allMatch(stack::is) : itemTags.stream().noneMatch(stack::is)) {
                     return false;
                 }
             }
@@ -120,11 +136,10 @@ public final class CompiledFilter {
         }
 
         boolean matchesFluid(FluidStack fluid, Lazy<Tag> data) {
-            if (location != null) {
-                if (tag) {
-                    if (fluidTag == null) fluidTag = TagKey.create(Registries.FLUID, location);
-                    if (!fluid.is(fluidTag)) return false;
-                } else if (!location.equals(BuiltInRegistries.FLUID.getKey(fluid.getFluid()))) {
+            if (id != null && !id.equals(BuiltInRegistries.FLUID.getKey(fluid.getFluid()))) return false;
+            if (!tags.isEmpty()) {
+                if (fluidTags == null) fluidTags = tags.stream().map(t -> TagKey.create(Registries.FLUID, t)).toList();
+                if (allTags ? !fluidTags.stream().allMatch(fluid::is) : fluidTags.stream().noneMatch(fluid::is)) {
                     return false;
                 }
             }
