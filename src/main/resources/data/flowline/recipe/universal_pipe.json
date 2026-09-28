@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "ingredients": [
+    {
+      "item": "flowline:item_pipe"
+    },
+    {
+      "item": "flowline:fluid_pipe"
+    },
+    {
+      "item": "flowline:energy_pipe"
+    },
+    {
+      "item": "minecraft:gold_ingot"
+    }
+  ],
+  "result": {
+    "id": "flowline:universal_pipe",
+    "count": 3
+  }
+}

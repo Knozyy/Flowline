@@ -256,39 +256,82 @@ public class PipeBlock extends Block implements EntityBlock {
                                                BlockHitResult hit) {
         Direction side = sideFromHit(hit, pos);
         if (state.getValue(prop(side)) != Conn.ENDPOINT) return InteractionResult.PASS;
-        if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be
-                && be.side(side).mode != SideMode.EXTRACT) {
-            player.displayClientMessage(Component.translatable("message.flowline.gui_needs_extract"), true);
-        } else if (!level.isClientSide && player instanceof ServerPlayer serverPlayer
-                && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
-            Component title = Component.translatable("gui.flowline.pipe_config", getName(),
-                    Component.translatable("direction.flowline." + side.getName()));
-            serverPlayer.openMenu(
-                    new SimpleMenuProvider((id, inventory, p) -> new PipeMenu(id, inventory, be, side), title),
-                    buf -> {
-                        buf.writeBlockPos(pos);
-                        buf.writeEnum(side);
-                        buf.writeEnum(be.type());
-                    });
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
+            openConfig(be, side, Conn.ENDPOINT, player);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
+    /** Opens the configuration screen of an extracting side, or says why it cannot. Server side. */
+    public static void openConfig(PipeBlockEntity be, Direction side, Conn conn, Player player) {
+        if (conn != Conn.ENDPOINT) {
+            player.displayClientMessage(Component.translatable("message.flowline.no_endpoint"), true);
+            return;
+        }
+        if (be.side(side).mode != SideMode.EXTRACT) {
+            player.displayClientMessage(Component.translatable("message.flowline.gui_needs_extract"), true);
+            return;
+        }
+        if (!(player instanceof ServerPlayer serverPlayer)) return;
+        Component title = Component.translatable("gui.flowline.pipe_config", be.getBlockState().getBlock().getName(),
+                Component.translatable("direction.flowline." + side.getName()));
+        BlockPos pos = be.getBlockPos();
+        serverPlayer.openMenu(
+                new SimpleMenuProvider((id, inventory, p) -> new PipeMenu(id, inventory, be, side), title),
+                buf -> {
+                    buf.writeBlockPos(pos);
+                    buf.writeEnum(side);
+                    buf.writeEnum(be.type());
+                });
+    }
+
     /**
-     * Switches a side between insert and extract and tells the player which one it is now. Upgrades only work on
-     * extracting sides, so switching to insert hands the installed upgrades back.
+     * Wrench sneak-click cycle for one side: normal (insert) -> extract -> disconnected -> normal. Pipe-to-pipe
+     * sides only toggle between connected and disconnected.
      */
-    public static void toggleMode(PipeBlockEntity be, Direction side, Player player) {
+    public static void cycleSide(PipeBlockEntity be, Direction side, Conn conn, Player player) {
+        Level level = be.getLevel();
+        if (level == null) return;
+        BlockPos pos = be.getBlockPos();
+        Component where = Component.translatable("direction.flowline." + side.getName());
         SideConfig cfg = be.side(side);
-        cfg.mode = cfg.mode.toggle();
-        if (cfg.mode == SideMode.INSERT) {
+
+        if (isCut(level, pos, side)) {
+            toggleConnection(level, pos, side);
+            player.displayClientMessage(Component.translatable("message.flowline.side_normal", where), true);
+        } else if (conn == Conn.ENDPOINT && cfg.mode == SideMode.INSERT) {
+            setMode(be, side, SideMode.EXTRACT, player);
+            player.displayClientMessage(Component.translatable("message.flowline.side_extract", where), true);
+        } else if (conn != Conn.NONE) {
+            if (cfg.mode == SideMode.EXTRACT) setMode(be, side, SideMode.INSERT, player);
+            toggleConnection(level, pos, side);
+            player.displayClientMessage(Component.translatable("message.flowline.side_disconnected", where), true);
+        } else {
+            player.displayClientMessage(Component.translatable("message.flowline.nothing_to_connect"), true);
+        }
+    }
+
+    /** Whether the wrench has cut this side (on this pipe, or on the neighbouring pipe towards it). */
+    public static boolean isCut(Level level, BlockPos pos, Direction side) {
+        if (level.getBlockEntity(pos) instanceof PipeBlockEntity be && be.isDisconnected(side)) return true;
+        return level.getBlockEntity(pos.relative(side)) instanceof PipeBlockEntity other
+                && level.getBlockEntity(pos) instanceof PipeBlockEntity self
+                && other.type() == self.type() && other.isDisconnected(side.getOpposite());
+    }
+
+    /**
+     * Sets a side's mode. Upgrades only work on extracting sides, so switching to insert hands the installed
+     * upgrades back to the player.
+     */
+    public static void setMode(PipeBlockEntity be, Direction side, SideMode mode, Player player) {
+        SideConfig cfg = be.side(side);
+        if (cfg.mode == mode) return;
+        cfg.mode = mode;
+        if (mode == SideMode.INSERT) {
             be.removeAllUpgrades(side).forEach(player.getInventory()::placeItemBackInInventory);
         }
         be.setChanged();
         PipeNetwork.invalidate();
-        player.displayClientMessage(Component.translatable("message.flowline.mode_set",
-                Component.translatable("direction.flowline." + side.getName()),
-                Component.translatable("mode.flowline." + cfg.mode.name().toLowerCase())), true);
     }
 
     /**

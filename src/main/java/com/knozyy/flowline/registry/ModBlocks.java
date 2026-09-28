@@ -15,6 +15,8 @@ public final class ModBlocks {
     public static final DeferredBlock<PipeBlock> ITEM_PIPE = pipe("item_pipe", PipeType.ITEM, MapColor.COLOR_ORANGE);
     public static final DeferredBlock<PipeBlock> FLUID_PIPE = pipe("fluid_pipe", PipeType.FLUID, MapColor.COLOR_BLUE);
     public static final DeferredBlock<PipeBlock> ENERGY_PIPE = pipe("energy_pipe", PipeType.ENERGY, MapColor.COLOR_RED);
+    public static final DeferredBlock<PipeBlock> UNIVERSAL_PIPE =
+            pipe("universal_pipe", PipeType.UNIVERSAL, MapColor.COLOR_PURPLE);
 
     private static DeferredBlock<PipeBlock> pipe(String name, PipeType type, MapColor color) {
         return BLOCKS.registerBlock(name, props -> new PipeBlock(props, type),

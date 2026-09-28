@@ -20,6 +20,7 @@ public final class ModCreativeTabs {
                         out.accept(ModItems.ITEM_PIPE.get());
                         out.accept(ModItems.FLUID_PIPE.get());
                         out.accept(ModItems.ENERGY_PIPE.get());
+                        out.accept(ModItems.UNIVERSAL_PIPE.get());
                         out.accept(ModItems.WRENCH.get());
                         ModItems.UPGRADES.forEach(u -> out.accept(u.get()));
                     })

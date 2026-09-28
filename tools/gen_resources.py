@@ -11,7 +11,8 @@ import zlib
 
 MODID = "flowline"
 ROOT = os.path.join("src", "main", "resources")
-TYPES = {"item": (0xE0, 0x8A, 0x2B), "fluid": (0x2F, 0x7F, 0xE0), "energy": (0xD8, 0x3A, 0x3A)}
+TYPES = {"item": (0xE0, 0x8A, 0x2B), "fluid": (0x2F, 0x7F, 0xE0), "energy": (0xD8, 0x3A, 0x3A),
+         "universal": (0x9C, 0x7B, 0xD8)}
 
 
 def write(path, text):
@@ -64,6 +65,11 @@ for idx, (name, base) in enumerate(TYPES.items()):
                 f *= 1.12
             if (x, y) in ((5, 5), (10, 5), (5, 10), (10, 10)):
                 f = 0.55          # rivets
+                if name == "universal":
+                    rivet = {(5, 5): TYPES["item"], (10, 5): TYPES["fluid"], (5, 10): TYPES["energy"]}.get((x, y))
+                    if rivet:
+                        row.append(shade(rivet, 1.1))
+                        continue
             elif (x, y) in ((4, 4), (9, 4), (4, 9), (9, 9)):
                 f = 1.3           # rivet highlights
             row.append(shade(base, f))
@@ -95,26 +101,51 @@ def ascii_icon(art, palette):
     return out
 
 
-WRENCH = [
-    "................",
-    "..........XXX...",
-    ".........XXXXX..",
-    ".........XXX.XX.",
-    ".........XX..XX.",
-    ".........XXX.XX.",
-    "..........XXXX..",
-    ".........XXXXX..",
-    "........XXXXX...",
-    ".......XXXXX....",
-    "......HHHHH.....",
-    ".....HHHHH......",
-    "....HHHHH.......",
-    "...HHHHH........",
-    "...HHHH.........",
-    "................",
-]
-write_png(f"assets/{MODID}/textures/item/wrench.png",
-          ascii_icon(WRENCH, {"X": GREY, "H": (0xC0, 0x50, 0x3C)}))
+def wrench_texture():
+    """Open-end wrench: a ring head open towards the upper right, a steel shaft and a striped orange grip."""
+    import math
+    grid = [[None] * 16 for _ in range(16)]
+    cx, cy, opening = 11.0, 4.6, math.atan2(-1, 1)
+    for y in range(16):
+        for x in range(16):
+            dx, dy = x + 0.5 - cx, y + 0.5 - cy
+            if 1.7 <= math.hypot(dx, dy) <= 3.9:
+                diff = abs((math.atan2(dy, dx) - opening + math.pi) % (2 * math.pi) - math.pi)
+                if diff > 0.62:
+                    grid[y][x] = "m"
+    ax, ay, bx, by = 9.3, 6.7, 2.4, 13.6
+    for y in range(16):
+        for x in range(16):
+            X, Y = x + 0.5, y + 0.5
+            t = max(0, min(1, ((X - ax) * (bx - ax) + (Y - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2)))
+            if math.hypot(X - (ax + t * (bx - ax)), Y - (ay + t * (by - ay))) <= 1.15:
+                grid[y][x] = "g" if t > 0.45 else "m"
+    light, mid, dark = (0xDC, 0xE2, 0xEA), (0xA0, 0xA9, 0xB5), (0x5E, 0x67, 0x73)
+    grip, grip_dark, outline = (0xF0, 0x9A, 0x3A), (0xB0, 0x62, 0x1A), (0x1E, 0x20, 0x26, 255)
+    out = [[(0, 0, 0, 0)] * 16 for _ in range(16)]
+    for y in range(16):
+        for x in range(16):
+            c = grid[y][x]
+            if c is None:
+                if any(0 <= x + ex < 16 and 0 <= y + ey < 16 and grid[y + ey][x + ex]
+                       for ex, ey in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                    out[y][x] = outline
+                continue
+            up = grid[y - 1][x] if y > 0 else None
+            left = grid[y][x - 1] if x > 0 else None
+            down = grid[y + 1][x] if y < 15 else None
+            right = grid[y][x + 1] if x < 15 else None
+            if c == "m":
+                col = light if (up is None or left is None) else dark if (down is None or right is None) else mid
+            else:
+                col = grip_dark if (x + y) % 3 == 0 else grip
+                if up is None or left is None:
+                    col = tuple(min(255, int(v * 1.15)) for v in col)
+            out[y][x] = col + (255,)
+    return out
+
+
+write_png(f"assets/{MODID}/textures/item/wrench.png", wrench_texture())
 
 def upgrade_chip(symbol):
     """Circuit chip with pins; `symbol` is a set of (x, y) pixels drawn in the accent colour."""
@@ -261,6 +292,8 @@ def shaped(name, pattern, key, result, count=1):
 shapeless("item_pipe", ["minecraft:iron_ingot"] * 3 + ["minecraft:hopper"], f"{MODID}:item_pipe", 4)
 shapeless("fluid_pipe", ["minecraft:iron_ingot"] * 3 + ["minecraft:bucket"], f"{MODID}:fluid_pipe", 4)
 shapeless("energy_pipe", ["minecraft:iron_ingot"] * 3 + ["minecraft:redstone_block"], f"{MODID}:energy_pipe", 4)
+shapeless("universal_pipe", [f"{MODID}:item_pipe", f"{MODID}:fluid_pipe", f"{MODID}:energy_pipe", "minecraft:gold_ingot"],
+          f"{MODID}:universal_pipe", 3)
 shaped("wrench", ["I I", " S ", " S "], {"I": "minecraft:iron_ingot", "S": "minecraft:stick"}, f"{MODID}:wrench")
 shaped("speed_upgrade", ["ISI", "RIR", "ISI"],
        {"I": "minecraft:iron_ingot", "S": "minecraft:sugar", "R": "minecraft:redstone"}, f"{MODID}:speed_upgrade")
@@ -281,6 +314,18 @@ en = {
     "block.flowline.item_pipe": "Item Pipe",
     "block.flowline.fluid_pipe": "Fluid Pipe",
     "block.flowline.energy_pipe": "Energy Pipe",
+    "block.flowline.universal_pipe": "Universal Pipe",
+    "message.flowline.side_normal": "%s: normal (Insert)",
+    "message.flowline.side_extract": "%s: Extract",
+    "message.flowline.side_disconnected": "%s: disconnected",
+    "message.flowline.rule_exists": "This rule already exists (#%s)",
+    "gui.flowline.editor.error.exists": "The same rule is already on this page",
+    "item.flowline.upgrade.effect.speed": "Start interval -%s ticks (never below %s)",
+    "item.flowline.upgrade.effect.stack": "Amount per operation: %s",
+    "item.flowline.upgrade.effect.filter": "+%s filter rules",
+    "item.flowline.upgrade.where": "Goes on Extract sides, up to %s per side",
+    "gui.flowline.upgrades.title": "Upgrades (Extract sides, up to %s each):",
+    "gui.flowline.upgrades.now": "This side now: start %st, x%s per operation, %s filter rules",
     "item.flowline.wrench": "Flowline Wrench",
     "item.flowline.speed_upgrade": "Speed Upgrade",
     "item.flowline.speed_upgrade.desc": "Starts the side at a shorter interval.",
@@ -302,12 +347,11 @@ en = {
     "gui.flowline.pacing.hint": "Speeds up while moving, slows down when idle.",
     "gui.flowline.pacing.sleeping": "Sleeping: no targets. Wakes up when the pipe network changes.",
     "message.flowline.no_endpoint": "Nothing to configure on this side.",
-    "message.flowline.mode_set": "%s: %s",
     "message.flowline.upgrade_needs_extract": "Upgrades only go on Extract sides (sneak + right-click with the wrench).",
     "message.flowline.gui_needs_extract": "This side is Insert. Sneak + right-click it with the wrench to make it Extract.",
     "gui.flowline.pipe_config": "%s - %s",
     "gui.flowline.distribution": "Distribution: %s",
-    "gui.flowline.side_line": "%s side · %s",
+    "gui.flowline.side_line": "%s side",
     "gui.flowline.section.settings": "Settings",
     "gui.flowline.section.filter": "Filter",
     "gui.flowline.section.upgrade": "Upgrade",
@@ -374,8 +418,6 @@ en = {
     "distribution.flowline.round_robin.desc": "Takes turns between targets.",
     "distribution.flowline.random.desc": "Picks a random target each time.",
     "gui.flowline.redstone": "Redstone: %s",
-    "message.flowline.connected": "Side connected",
-    "message.flowline.disconnected": "Side disconnected",
     "message.flowline.nothing_to_connect": "Nothing to connect on this side.",
     "redstone.flowline.ignored": "Ignored",
     "redstone.flowline.require_signal": "Needs signal",
@@ -392,6 +434,18 @@ tr = {
     "block.flowline.item_pipe": "Eşya Borusu",
     "block.flowline.fluid_pipe": "Sıvı Borusu",
     "block.flowline.energy_pipe": "Enerji Borusu",
+    "block.flowline.universal_pipe": "Evrensel Boru",
+    "message.flowline.side_normal": "%s: normal (Ekle)",
+    "message.flowline.side_extract": "%s: Çek",
+    "message.flowline.side_disconnected": "%s: bağlantı kesildi",
+    "message.flowline.rule_exists": "Bu kural zaten var (#%s)",
+    "gui.flowline.editor.error.exists": "Bu sayfada aynı kural zaten var",
+    "item.flowline.upgrade.effect.speed": "Başlangıç aralığı -%s tick (en az %s)",
+    "item.flowline.upgrade.effect.stack": "İşlem başına miktar: %s",
+    "item.flowline.upgrade.effect.filter": "+%s filtre kuralı",
+    "item.flowline.upgrade.where": "Çek tarafına takılır, taraf başına en fazla %s",
+    "gui.flowline.upgrades.title": "Yükseltmeler (Çek tarafı, her birine en fazla %s):",
+    "gui.flowline.upgrades.now": "Bu taraf şu an: başlangıç %st, işlem başına x%s, %s filtre kuralı",
     "item.flowline.wrench": "Flowline Anahtarı",
     "item.flowline.speed_upgrade": "Speed Upgrade",
     "item.flowline.speed_upgrade.desc": "Tarafı daha kısa bir aralıkla başlatır.",
@@ -413,12 +467,11 @@ tr = {
     "gui.flowline.pacing.hint": "Taşıdıkça hızlanır, boştayken yavaşlar.",
     "gui.flowline.pacing.sleeping": "Uyuyor: hedef yok. Boru ağı değişince uyanır.",
     "message.flowline.no_endpoint": "Bu tarafta ayarlanacak bir şey yok.",
-    "message.flowline.mode_set": "%s: %s",
     "message.flowline.upgrade_needs_extract": "Yükseltmeler sadece Çek tarafına takılır (anahtarla Shift + sağ tık).",
     "message.flowline.gui_needs_extract": "Bu taraf Ekle modunda. Çek yapmak için anahtarla Shift + sağ tıkla.",
     "gui.flowline.pipe_config": "%s - %s",
     "gui.flowline.distribution": "Dağıtım: %s",
-    "gui.flowline.side_line": "%s tarafı · %s",
+    "gui.flowline.side_line": "%s tarafı",
     "gui.flowline.section.settings": "Ayarlar",
     "gui.flowline.section.filter": "Filtre",
     "gui.flowline.section.upgrade": "Yükseltme",
@@ -485,8 +538,6 @@ tr = {
     "distribution.flowline.round_robin.desc": "Hedefler arasında sırayla dağıtır.",
     "distribution.flowline.random.desc": "Her seferinde rastgele bir hedef seçer.",
     "gui.flowline.redstone": "Redstone: %s",
-    "message.flowline.connected": "Bağlantı açıldı",
-    "message.flowline.disconnected": "Bağlantı kesildi",
     "message.flowline.nothing_to_connect": "Bu tarafta bağlanacak bir şey yok.",
     "redstone.flowline.ignored": "Yok sayılır",
     "redstone.flowline.require_signal": "Sinyal gerekir",
@@ -651,7 +702,17 @@ def page_arrow(right):
     return c
 
 
+def help_icon():
+    c = Canvas()
+    for x, y in ((6, 3), (7, 2), (8, 2), (9, 2), (10, 3), (10, 4), (10, 5), (9, 6), (8, 7), (8, 8), (8, 9)):
+        c.rect(x, y, x, y, WHITE)
+        c.rect(x - 1 if x > 8 else x, y, x - 1 if x > 8 else x, y, WHITE)
+    c.rect(7, 11, 8, 12, WHITE)
+    return c
+
+
 GUI_ICONS = {
+    "help": help_icon(),
     "page_prev": page_arrow(False),
     "page_next": page_arrow(True),
     "redstone_ignored": rs_ignored(),

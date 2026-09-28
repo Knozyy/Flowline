@@ -7,7 +7,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
+import com.knozyy.flowline.pipe.Caps;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 
@@ -18,14 +18,16 @@ public final class ItemTransfer {
     private ItemTransfer() {}
 
     /** @return number of items moved. */
-    public static int run(Level level, BlockPos sourcePos, BlockCapabilityCache<?, Direction> sourceCache,
-                          SideConfig cfg, List<Target> targets, int budget) {
-        if (!(sourceCache.getCapability() instanceof IItemHandler source)) return 0;
+    public static int run(Level level, BlockPos sourcePos, Caps sourceCaps, SideConfig cfg, List<Target> targets,
+                          int budget) {
+        IItemHandler source = sourceCaps.itemHandler();
+        if (source == null) return 0;
         int total = 0;
 
         List<IItemHandler> destinations = new ArrayList<>();
         for (Target t : targets) {
-            if (t.cache().getCapability() instanceof IItemHandler h && h != source) destinations.add(h);
+            IItemHandler h = t.caps().itemHandler();
+            if (h != null && h != source) destinations.add(h);
         }
         if (destinations.isEmpty()) return 0;
 

@@ -94,6 +94,13 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
         return new FilterEntry(item, tags, allTags, value, exactNbt, invert);
     }
 
+    /** Whether both rules select the same stacks (Allow/Block aside); used to reject duplicates. */
+    public boolean sameMatch(FilterEntry other) {
+        return item.equals(other.item) && java.util.Set.copyOf(tags).equals(java.util.Set.copyOf(other.tags))
+                && (tags.size() < 2 || allTags == other.allTags) && nbt.equals(other.nbt)
+                && (nbt.isEmpty() || exactNbt == other.exactNbt);
+    }
+
     public boolean isEmpty() {
         return item.isEmpty() && tags.isEmpty() && nbt.isEmpty();
     }
@@ -142,7 +149,7 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
             return new FilterEntry(Optional.of(BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString()), List.of(),
                     false, encode(fluid.getComponentsPatch(), registries), false, false);
         }
-        if (type != PipeType.ITEM) return null;
+        if (!type.movesItems()) return null;
         return new FilterEntry(Optional.of(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()), List.of(),
                 false, encode(stack.getComponentsPatch(), registries), false, false);
     }
@@ -226,6 +233,29 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
     }
 
     // ---- display ------------------------------------------------------------------------------------------
+
+    /** The fluid that represents a fluid-pipe rule: its fluid, or a member of its first tag. */
+    public Fluid displayFluid() {
+        ResourceLocation itemId = item.map(ResourceLocation::tryParse).orElse(null);
+        if (itemId != null) return BuiltInRegistries.FLUID.get(itemId);
+        ResourceLocation firstTag = tags.isEmpty() ? null : ResourceLocation.tryParse(tags.get(0));
+        if (firstTag == null) return Fluids.EMPTY;
+        return first(BuiltInRegistries.FLUID, TagKey.create(Registries.FLUID, firstTag), Fluids.EMPTY);
+    }
+
+    /** The fluid inside a sample container, or empty. */
+    public static Fluid fluidOf(ItemStack sample) {
+        return fluidIn(sample).getFluid();
+    }
+
+    /** Up to {@code limit} still (source) fluids of a fluid tag. */
+    public static List<Fluid> tagFluids(ResourceLocation id, int limit) {
+        List<Fluid> fluids = new ArrayList<>();
+        BuiltInRegistries.FLUID.getTag(TagKey.create(Registries.FLUID, id)).ifPresent(set -> set.stream()
+                .map(Holder::value).filter(fluid -> fluid.isSource(fluid.defaultFluidState()))
+                .limit(limit).forEach(fluids::add));
+        return fluids;
+    }
 
     /** An item that represents the rule in a slot: the item itself, a member of its first tag, or a bucket. */
     public ItemStack displayStack(PipeType type, HolderLookup.Provider registries) {

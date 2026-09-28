@@ -254,7 +254,16 @@ public class RuleEditorScreen extends Screen {
     @Nullable
     private String problem() {
         if (textMode && !nbtTextValid) return "gui.flowline.editor.error.nbt";
-        return draft().problem(type);
+        FilterEntry draft = draft();
+        String problem = draft.problem(type);
+        if (problem != null) return problem;
+        // the client only knows the visible page; the server checks the whole filter again
+        int pageStart = index - index % com.knozyy.flowline.pipe.SideConfig.FILTER_PAGE;
+        for (int i = 0; i < com.knozyy.flowline.pipe.SideConfig.FILTER_PAGE; i++) {
+            FilterEntry other = menu.clientEntry(i);
+            if (pageStart + i != index && other != null && other.sameMatch(draft)) return "gui.flowline.editor.error.exists";
+        }
+        return null;
     }
 
     private void validate() {
@@ -435,7 +444,9 @@ public class RuleEditorScreen extends Screen {
         int sx = (LEFT_L + LEFT_R) / 2 - 17, sy = BODY_T + 14;
         graphics.fill(sx - 1, sy - 1, sx + 35, sy + 35, sample.isEmpty() ? SLOT_EDGE : accent);
         graphics.fill(sx, sy, sx + 34, sy + 34, SLOT);
-        if (!sample.isEmpty()) {
+        if (!sample.isEmpty() && type.filtersFluids()) {
+            FluidIcon.draw(graphics, FilterEntry.fluidOf(sample), sx + 1, sy + 1, 32);
+        } else if (!sample.isEmpty()) {
             graphics.pose().pushPose();
             graphics.pose().translate(sx + 1, sy + 1, 0);
             graphics.pose().scale(2f, 2f, 1f);
@@ -444,8 +455,10 @@ public class RuleEditorScreen extends Screen {
         } else {
             smallCentered(graphics, Component.translatable("gui.flowline.library.pick"), sx + 17, sy + 9, MUTED, 44);
         }
-        smallCentered(graphics, Component.translatable("gui.flowline.library.pick_hint"), (LEFT_L + LEFT_R) / 2,
-                sy + 38, MUTED, 80);
+        Component under = sample.isEmpty() ? Component.translatable("gui.flowline.library.pick_hint")
+                : type.filtersFluids() ? FilterEntry.fluidOf(sample).getFluidType().getDescription()
+                : sample.getHoverName();
+        smallCentered(graphics, under, (LEFT_L + LEFT_R) / 2, sy + 38, sample.isEmpty() ? MUTED : TEXT, 80);
 
         // "match this item" checkbox
         checkbox(graphics, LEFT_L + 4, 94, matchItem);
@@ -506,6 +519,11 @@ public class RuleEditorScreen extends Screen {
         }
         int size = FilterEntry.tagSize(type, hoveredTag);
         small(graphics, Component.translatable("gui.flowline.library.members", size), LEFT_L, y + 5, MUTED);
+        if (type.filtersFluids()) {
+            List<net.minecraft.world.level.material.Fluid> fluids = FilterEntry.tagFluids(hoveredTag, 12);
+            for (int i = 0; i < fluids.size(); i++) FluidIcon.draw(graphics, fluids.get(i), 80 + i * 17, y, 16);
+            return;
+        }
         List<ItemStack> members = FilterEntry.tagMembers(type, hoveredTag, 12);
         for (int i = 0; i < members.size(); i++) graphics.renderItem(members.get(i), 80 + i * 17, y);
     }

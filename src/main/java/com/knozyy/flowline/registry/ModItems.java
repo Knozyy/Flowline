@@ -17,6 +17,7 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> ITEM_PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.ITEM_PIPE);
     public static final DeferredItem<BlockItem> FLUID_PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.FLUID_PIPE);
     public static final DeferredItem<BlockItem> ENERGY_PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.ENERGY_PIPE);
+    public static final DeferredItem<BlockItem> UNIVERSAL_PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.UNIVERSAL_PIPE);
 
     public static final DeferredItem<WrenchItem> WRENCH =
             ITEMS.registerItem("wrench", WrenchItem::new, new Item.Properties().stacksTo(1));

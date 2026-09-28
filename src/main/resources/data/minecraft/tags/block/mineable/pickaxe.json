@@ -3,6 +3,7 @@
   "values": [
     "flowline:item_pipe",
     "flowline:fluid_pipe",
-    "flowline:energy_pipe"
+    "flowline:energy_pipe",
+    "flowline:universal_pipe"
   ]
 }

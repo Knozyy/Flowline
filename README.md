@@ -8,11 +8,12 @@ modes, filters, distribution modes and speed upgrades.
 | Item | Use |
 | --- | --- |
 | Item / Fluid / Energy Pipe | Connects to pipes of the same type and to any block exposing the matching capability. |
-| Flowline Wrench | **Sneak + right-click** an attached side: toggle **Insert ↔ Extract**. Right-click any side: cut / restore the connection. |
+| Universal Pipe | Moves items, fluids and energy at once (its filter applies to items). 3 from one of each pipe + a gold ingot. |
+| Flowline Wrench | **Sneak + right-click** a side to cycle: normal (Insert) → **Extract** → **disconnected** → normal. Right-click an Extract side: open its screen. |
 | Empty hand | Right-click an **Extract** side: opens its config screen (upgrade slots, distribution, redstone, filter). |
 | Speed / Stack / Filter / Knozy Upgrade | Six upgrade slots per Extract side (GUI, or right-click the side). **Speed** lowers the starting interval, **Stack** multiplies the amount per operation, **Filter** adds filter entries, **Knozy** counts as all three. Returned when the side goes back to Insert, dropped when the pipe is broken. |
 
-Every side defaults to **Insert**; sneak-click the side facing your source chest/tank/generator with the wrench to make it **Extract**.
+Every side defaults to **Insert**; sneak-click the side facing your source chest/tank/generator with the wrench to make it **Extract**. The "?" in the upgrade panel lists what each upgrade does.
 Extracting sides send to the Insert sides of their pipe network. Target lists are cached and rebuilt only when
 the network changes, and every source/target keeps a NeoForge `BlockCapabilityCache`, so an operation does not look
 block entities up again.
@@ -46,7 +47,8 @@ rules everything else passes.
 Click a rule slot to open the **rule library**: click an item in your inventory to use it as the sample, then tick
 the tags it belongs to (or search every known tag, and hover a tag to see what is in it) and tick the data
 components it must have (enchantments, damage, name...). Data can also be edited as SNBT text. Clicking a rule slot
-with an item still adds that item as a rule directly; right-click removes a rule. Slots show `#`/`#n` for tag rules,
+with an item still adds that item as a rule directly; **shift + left-click** removes a rule. The same rule cannot be
+added twice. On fluid pipes, rules show the fluid itself (not a bucket). Slots show `#`/`#n` for tag rules,
 a purple corner for NBT and a red bar for Block rules. Older single-target rules load automatically.
 
 Config (`config/flowline-common.toml`): per-operation amounts, Stack multipliers, filter entries

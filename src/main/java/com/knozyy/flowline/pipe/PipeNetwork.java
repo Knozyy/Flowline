@@ -6,7 +6,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -31,7 +30,7 @@ public final class PipeNetwork {
      * An INSERT side of some pipe: transfer into the block at {@code pipePos.relative(side)}. Holds a NeoForge
      * capability cache for that block, so transfers do not look the block entity up again on every operation.
      */
-    public record Target(BlockPos pipePos, Direction side, int distance, BlockCapabilityCache<?, Direction> cache) {
+    public record Target(BlockPos pipePos, Direction side, int distance, Caps caps) {
         public BlockPos endpointPos() {
             return pipePos.relative(side);
         }
@@ -90,8 +89,7 @@ public final class PipeNetwork {
                 } else if (conn == Conn.ENDPOINT
                         && pipeBe.side(dir).mode == SideMode.INSERT
                         && !(pos.equals(origin) && dir == extractSide)) {
-                    targets.add(new Target(pos, dir, dist,
-                            BlockCapabilityCache.create(type.capability(), level, pos.relative(dir), dir.getOpposite())));
+                    targets.add(new Target(pos, dir, dist, Caps.create(type, level, pos.relative(dir), dir.getOpposite())));
                 }
             }
         }

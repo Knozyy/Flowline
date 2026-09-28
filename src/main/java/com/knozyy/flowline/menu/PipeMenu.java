@@ -16,6 +16,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -114,7 +115,7 @@ public class PipeMenu extends AbstractContainerMenu {
         this.cfg = pipe == null ? null : pipe.side(side);
         this.player = inventory.player instanceof ServerPlayer serverPlayer ? serverPlayer : null;
         this.registries = inventory.player.level().registryAccess();
-        this.ghostCount = type == PipeType.ENERGY ? 0 : SideConfig.FILTER_PAGE;
+        this.ghostCount = type.hasFilter() ? SideConfig.FILTER_PAGE : 0;
 
         // The client mirrors the whole upgrade container so slot indices match the server's.
         Container upgrades = pipe != null ? pipe.upgrades() : new SimpleContainer(6 * UPGRADES);
@@ -269,8 +270,8 @@ public class PipeMenu extends AbstractContainerMenu {
     }
 
     /**
-     * Ghost slots: click with a stack to turn it into a rule, right-click with an empty hand to remove the rule.
-     * A left click with an empty hand is handled by the screen, which opens the rule editor instead.
+     * Ghost slots: click with a stack to turn it into a rule. Clicks with an empty hand are handled by the screen
+     * (open the rule library, or shift-click to remove the rule).
      */
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
@@ -283,28 +284,26 @@ public class PipeMenu extends AbstractContainerMenu {
 
     private void clickGhost(GhostSlot slot, ItemStack carried, int button) {
         int index = slot.filterIndex();
-        if (index >= capacity()) return;
-        FilterEntry entry;
-        if (!carried.isEmpty()) {
-            entry = FilterEntry.fromStack(type, carried, registries);
-            if (entry == null) return;
-        } else if (button == 1) {
-            entry = null;
-        } else {
-            return;
-        }
-        if (cfg != null) {
-            setEntry(index, entry);
-        } else {
-            // client prediction; the server's page update follows
-            slot.set(entry == null ? ItemStack.EMPTY : entry.displayStack(type, registries));
-        }
+        if (cfg == null || carried.isEmpty() || index >= capacity()) return;   // server decides; the page syncs back
+        FilterEntry entry = FilterEntry.fromStack(type, carried, registries);
+        if (entry != null) setEntry(index, entry);
     }
 
     /** Server: replace one rule (null removes it), then refresh the page for the client. */
     public void setEntry(int index, @Nullable FilterEntry entry) {
         if (cfg == null || !hasFilter() || index < 0 || index >= cfg.filterCapacity()) return;
         if (entry != null && entry.problem(type) != null) return;
+        if (entry != null) {
+            for (int i = 0; i < cfg.filterCapacity(); i++) {
+                FilterEntry other = cfg.getEntry(i);
+                if (i != index && other != null && other.sameMatch(entry)) {
+                    if (player != null) {
+                        player.displayClientMessage(Component.translatable("message.flowline.rule_exists", i + 1), true);
+                    }
+                    return;
+                }
+            }
+        }
         cfg.setEntry(index, entry);
         pipe.setChanged();
         loadPage();
@@ -327,7 +326,9 @@ public class PipeMenu extends AbstractContainerMenu {
     private void loadPage() {
         for (int i = 0; i < filterInv.getContainerSize(); i++) {
             FilterEntry entry = cfg.getEntry(page * SideConfig.FILTER_PAGE + i);
-            filterInv.setItem(i, entry == null ? ItemStack.EMPTY : entry.displayStack(type, registries));
+            // fluid rules are drawn by the screen with the fluid's own texture, not as a bucket
+            filterInv.setItem(i, entry == null || type.filtersFluids() ? ItemStack.EMPTY
+                    : entry.displayStack(type, registries));
         }
         pageDirty = true;
     }

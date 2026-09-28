@@ -3,6 +3,7 @@ package com.knozyy.flowline.test;
 import com.knozyy.flowline.Flowline;
 import com.knozyy.flowline.filter.FilterEntry;
 import com.knozyy.flowline.item.UpgradeType;
+import com.knozyy.flowline.pipe.Conn;
 import com.knozyy.flowline.pipe.Pacing;
 import com.knozyy.flowline.pipe.PipeBlock;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
@@ -18,9 +19,11 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -265,6 +268,62 @@ public class PipeGameTests {
                 .thenWaitUntil(() -> helper.assertTrue(count(helper, target(2), Items.DIAMOND) == 4,
                         "items should flow after reconnecting"))
                 .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 200)
+    public static void universalPipeMovesItems(GameTestHelper helper) {
+        helper.setBlock(SOURCE, Blocks.CHEST);
+        helper.setBlock(target(2), Blocks.CHEST);
+        helper.setBlock(FIRST_PIPE, ModBlocks.UNIVERSAL_PIPE.get());
+        helper.setBlock(new BlockPos(2, 1, 1), ModBlocks.UNIVERSAL_PIPE.get());
+        PipeBlockEntity pipe = helper.getBlockEntity(FIRST_PIPE);
+        pipe.side(Direction.WEST).mode = SideMode.EXTRACT;
+        install(pipe, UpgradeType.STACK);
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.IRON_INGOT, 8));
+
+        helper.succeedWhen(() -> helper.assertTrue(count(helper, target(2), Items.IRON_INGOT) == 8,
+                "universal pipes carry items"));
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void wrenchCyclesNormalExtractDisconnected(GameTestHelper helper) {
+        helper.setBlock(SOURCE, Blocks.CHEST);
+        helper.setBlock(target(1), Blocks.CHEST);
+        helper.setBlock(FIRST_PIPE, ModBlocks.ITEM_PIPE.get());
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+
+        helper.startSequence()
+                .thenIdle(2)   // connections are computed one tick after placement
+                .thenExecute(() -> {
+                    PipeBlockEntity pipe = helper.getBlockEntity(FIRST_PIPE);
+                    SideConfig cfg = pipe.side(Direction.WEST);
+                    cycle(helper, pipe, player);
+                    helper.assertTrue(cfg.mode == SideMode.EXTRACT, "1st: normal -> extract");
+                    cycle(helper, pipe, player);
+                    helper.assertTrue(pipe.isDisconnected(Direction.WEST) && cfg.mode == SideMode.INSERT,
+                            "2nd: extract -> disconnected (and back to insert)");
+                    cycle(helper, pipe, player);
+                    helper.assertTrue(!pipe.isDisconnected(Direction.WEST) && cfg.mode == SideMode.INSERT,
+                            "3rd: disconnected -> normal");
+                })
+                .thenSucceed();
+    }
+
+    private static void cycle(GameTestHelper helper, PipeBlockEntity pipe, Player player) {
+        Conn conn = helper.getBlockState(FIRST_PIPE).getValue(PipeBlock.prop(Direction.WEST));
+        PipeBlock.cycleSide(pipe, Direction.WEST, conn, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void duplicateRulesAreDetected(GameTestHelper helper) {
+        helper.assertTrue(allow("minecraft:dirt").sameMatch(block("minecraft:dirt")),
+                "allow and block of the same item are the same rule");
+        helper.assertTrue(FilterEntry.ofTags(false, "minecraft:logs", "minecraft:planks")
+                .sameMatch(FilterEntry.ofTags(false, "minecraft:planks", "minecraft:logs")), "tag order does not matter");
+        helper.assertTrue(!FilterEntry.ofTags(false, "minecraft:logs", "minecraft:planks")
+                .sameMatch(FilterEntry.ofTags(true, "minecraft:logs", "minecraft:planks")), "OR and AND differ");
+        helper.assertTrue(!allow("minecraft:dirt").sameMatch(allow("minecraft:stone")), "different items differ");
+        helper.succeed();
     }
 
     // ---- upgrades -----------------------------------------------------------------------------------------

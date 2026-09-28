@@ -5,7 +5,6 @@ import com.knozyy.flowline.filter.CompiledFilter;
 import com.knozyy.flowline.filter.FilterEntry;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
-import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -55,7 +54,7 @@ public class SideConfig {
     public List<PipeNetwork.Target> cachedTargets = null;
     public long cachedVersion = -1;
     /** Capability cache of the block this side extracts from; NeoForge invalidates it when that block changes. */
-    public BlockCapabilityCache<?, Direction> sourceCache = null;
+    public Caps sourceCaps = null;
 
     /** Forget pacing and cached targets, e.g. when the side stops extracting. */
     public void resetRuntime() {
@@ -63,7 +62,7 @@ public class SideConfig {
         cooldown = 0;
         sleeping = false;
         cachedTargets = null;
-        sourceCache = null;
+        sourceCaps = null;
     }
 
     /** Leave sleep and run again soon, at the starting interval at the latest. */

@@ -1,7 +1,11 @@
 package com.knozyy.flowline.client;
 
 import com.knozyy.flowline.filter.FilterEntry;
+import com.knozyy.flowline.item.UpgradeItem;
+import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.menu.PipeMenu;
+import com.knozyy.flowline.pipe.SideConfig;
+import com.knozyy.flowline.network.SetFilterEntryPayload;
 import com.knozyy.flowline.pipe.PipeType;
 import com.knozyy.flowline.registry.ModItems;
 import net.minecraft.ChatFormatting;
@@ -12,11 +16,13 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Dark, panel-based configuration screen drawn without a background texture: a header with the pipe and side,
@@ -49,6 +55,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private IconButton clearButton;
     private IconButton prevPageButton;
     private IconButton nextPageButton;
+    private IconButton upgradeHelp;
 
     public PipeScreen(PipeMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -59,6 +66,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             case ITEM -> 0xFFE08A2B;
             case FLUID -> 0xFF2F7FE0;
             case ENERGY -> 0xFFD83A3A;
+            case UNIVERSAL -> 0xFFA77BE8;
         };
     }
 
@@ -77,6 +85,8 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                 () -> "page_prev", accent, b -> press(PipeMenu.BTN_PREV_PAGE)));
         nextPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 13, topPos + PANEL_TOP + 2, 10,
                 () -> "page_next", accent, b -> press(PipeMenu.BTN_NEXT_PAGE)));
+        upgradeHelp = addRenderableWidget(new IconButton(leftPos + UPGRADE_R - 11, topPos + PANEL_TOP + 2, 9,
+                () -> "help", accent, b -> {}));
 
     }
 
@@ -92,13 +102,22 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
 
     // ---- input --------------------------------------------------------------------------------------------
 
-    /** A left click on a filter slot with an empty hand opens the rule library for that slot. */
+    /**
+     * Filter slots with an empty hand: left click opens the rule library, shift + left click removes the rule.
+     * Clicking with an item in hand goes to the menu, which turns the item into a rule.
+     */
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && hoveredSlot instanceof PipeMenu.GhostSlot ghost && menu.getCarried().isEmpty()
-                && minecraft != null) {
-            minecraft.setScreen(new RuleEditorScreen(this, menu, ghost.filterIndex(),
-                    menu.clientEntry(ghost.getContainerSlot()), accent));
+        if (hoveredSlot instanceof PipeMenu.GhostSlot ghost && menu.getCarried().isEmpty() && minecraft != null) {
+            if (button == 0 && hasShiftDown()) {
+                if (menu.clientEntry(ghost.getContainerSlot()) != null) {
+                    PacketDistributor.sendToServer(
+                            new SetFilterEntryPayload(menu.containerId, ghost.filterIndex(), Optional.empty()));
+                }
+            } else if (button == 0) {
+                minecraft.setScreen(new RuleEditorScreen(this, menu, ghost.filterIndex(),
+                        menu.clientEntry(ghost.getContainerSlot()), accent));
+            }
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -186,8 +205,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         Component name = Component.translatable("block.flowline." + menu.type.getSerializedName() + "_pipe");
         graphics.drawString(font, name, 26, 7, TEXT, false);
         Component sub = Component.translatable("gui.flowline.side_line",
-                Component.translatable("direction.flowline." + menu.side.getName()),
-                Component.translatable("mode.flowline." + key(menu.mode())));
+                Component.translatable("direction.flowline." + menu.side.getName()));
         small(graphics, sub, 26, 18, MUTED);
 
         // pacing badge: stack multiplier and current interval
@@ -203,8 +221,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         // panel captions
         small(graphics, caption("gui.flowline.section.settings"), SETTINGS_L + 4, PANEL_TOP + 4, MUTED);
         small(graphics, caption("gui.flowline.section.filter"), FILTER_L + 4, PANEL_TOP + 4, MUTED);
-        int ucx = (UPGRADE_L + UPGRADE_R) / 2;
-        smallCentered(graphics, caption("gui.flowline.section.upgrade"), ucx, PANEL_TOP + 4, MUTED);
+        small(graphics, caption("gui.flowline.section.upgrade"), UPGRADE_L + 3, PANEL_TOP + 4, MUTED);
 
         renderRuleMarks(graphics);
     }
@@ -218,6 +235,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             FilterEntry entry = menu.clientEntry(ghost.getContainerSlot());
             if (entry == null) continue;
             int x = slot.x, y = slot.y;
+            if (menu.type.filtersFluids()) FluidIcon.draw(graphics, entry.displayFluid(), x, y, 16);
             if (!entry.tags().isEmpty()) {
                 small(graphics, Component.literal("#" + (entry.tags().size() > 1 ? entry.tags().size() : "")), x, y,
                         0xFF7FD3FF);
@@ -237,6 +255,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             case ITEM -> new ItemStack(ModItems.ITEM_PIPE.get());
             case FLUID -> new ItemStack(ModItems.FLUID_PIPE.get());
             case ENERGY -> new ItemStack(ModItems.ENERGY_PIPE.get());
+            case UNIVERSAL -> new ItemStack(ModItems.UNIVERSAL_PIPE.get());
         };
     }
 
@@ -259,7 +278,10 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             lines.add(Component.translatable("gui.flowline.rule.empty_hint").withStyle(ChatFormatting.GRAY));
             return lines;
         }
-        if (entry.item().isPresent()) {
+        if (entry.item().isPresent() && menu.type.filtersFluids()) {
+            lines.add(entry.displayFluid().getFluidType().getDescription().copy());
+            lines.add(Component.literal(entry.item().get()).withStyle(ChatFormatting.DARK_GRAY));
+        } else if (entry.item().isPresent()) {
             lines.add(entry.displayStack(menu.type, menu.registries()).getHoverName().copy());
             lines.add(Component.literal(entry.item().get()).withStyle(ChatFormatting.DARK_GRAY));
         } else if (entry.tags().isEmpty()) {
@@ -303,6 +325,8 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         } else if (clearButton.visible && clearButton.isHovered()) {
             lines = List.of(Component.translatable("gui.flowline.clear"),
                     Component.translatable("gui.flowline.clear.desc").withStyle(ChatFormatting.GRAY));
+        } else if (upgradeHelp.isHovered()) {
+            lines = upgradeLegend();
         } else if (isHovering(badgeX, BADGE_Y, badgeW, BADGE_H, mouseX, mouseY)) {
             lines = pacingTooltip();
         } else if (hoveredSlot instanceof PipeMenu.UpgradeSlot && !hoveredSlot.hasItem() && menu.getCarried().isEmpty()) {
@@ -310,6 +334,28 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                     Component.translatable("gui.flowline.upgrade_slot.desc").withStyle(ChatFormatting.GRAY));
         }
         if (lines != null) graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
+    }
+
+    /** What each upgrade does, and what the installed ones add up to on this side. */
+    private List<Component> upgradeLegend() {
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable("gui.flowline.upgrades.title", SideConfig.UPGRADE_SLOTS));
+        lines.add(Component.translatable("item.flowline.speed_upgrade").withColor(UpgradeItem.SPEED_COLOR));
+        UpgradeItem.effectLines(UpgradeType.SPEED).forEach(line -> lines.add(indent(line)));
+        lines.add(Component.translatable("item.flowline.stack_upgrade").withColor(UpgradeItem.STACK_COLOR));
+        UpgradeItem.effectLines(UpgradeType.STACK).forEach(line -> lines.add(indent(line)));
+        lines.add(Component.translatable("item.flowline.filter_upgrade").withColor(UpgradeItem.FILTER_COLOR));
+        UpgradeItem.effectLines(UpgradeType.FILTER).forEach(line -> lines.add(indent(line)));
+        lines.add(Component.translatable("item.flowline.knozy_upgrade").withColor(UpgradeItem.KNOZY_COLOR));
+        lines.add(indent(Component.translatable("item.flowline.knozy_upgrade.desc").withStyle(ChatFormatting.GRAY)));
+        lines.add(Component.empty());
+        lines.add(Component.translatable("gui.flowline.upgrades.now", menu.startInterval(), menu.multiplier(),
+                menu.capacity()).withStyle(ChatFormatting.GRAY));
+        return lines;
+    }
+
+    private static Component indent(Component line) {
+        return Component.literal("  ").append(line);
     }
 
     private List<Component> pacingTooltip() {

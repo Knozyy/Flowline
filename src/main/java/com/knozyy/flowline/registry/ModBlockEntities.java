@@ -15,7 +15,8 @@ public final class ModBlockEntities {
 
     public static final Supplier<BlockEntityType<PipeBlockEntity>> PIPE = BLOCK_ENTITIES.register("pipe",
             () -> BlockEntityType.Builder.of(PipeBlockEntity::new,
-                    ModBlocks.ITEM_PIPE.get(), ModBlocks.FLUID_PIPE.get(), ModBlocks.ENERGY_PIPE.get()).build(null));
+                    ModBlocks.ITEM_PIPE.get(), ModBlocks.FLUID_PIPE.get(), ModBlocks.ENERGY_PIPE.get(),
+                    ModBlocks.UNIVERSAL_PIPE.get()).build(null));
 
     private ModBlockEntities() {}
 }
