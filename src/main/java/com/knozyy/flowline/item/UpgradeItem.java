@@ -60,8 +60,6 @@ public class UpgradeItem extends Item implements PipeInteractable {
                     FlowlineConfig.SPEED_REDUCTION.get(), Pacing.min()).withStyle(s -> s.withColor(SPEED_COLOR)));
         }
         if (type.stack > 0) {
-            String curve = FlowlineConfig.STACK_MULTIPLIERS.get().stream().map(m -> "x" + m)
-                    .reduce((a, b) -> a + " > " + b).orElse("x1");
             String items = curve(FlowlineConfig.ITEMS_PER_OPERATION.get(), FlowlineConfig.ITEM_STACK_MULTIPLIERS.get());
             lines.add(Component.translatable("item.flowline.upgrade.effect.stack_items", items)
                     .withStyle(ChatFormatting.GOLD));
@@ -73,7 +71,9 @@ public class UpgradeItem extends Item implements PipeInteractable {
                         curve(FlowlineConfig.CHEMICAL_PER_OPERATION.get(), FlowlineConfig.CHEMICAL_STACK_MULTIPLIERS.get()))
                         .withStyle(ChatFormatting.GREEN));
             }
-            lines.add(Component.translatable("item.flowline.upgrade.effect.stack", curve).withStyle(s -> s.withColor(STACK_COLOR)));
+            lines.add(Component.translatable("item.flowline.upgrade.effect.stack",
+                    curve(FlowlineConfig.ENERGY_PER_TICK.get(), FlowlineConfig.STACK_MULTIPLIERS.get()))
+                    .withStyle(s -> s.withColor(STACK_COLOR)));
         }
         if (type.filter > 0) {
             lines.add(Component.translatable("item.flowline.upgrade.effect.filter",

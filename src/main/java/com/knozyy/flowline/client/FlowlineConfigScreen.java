@@ -39,7 +39,7 @@ public class FlowlineConfigScreen extends Screen {
             new Section("client", FlowlineConfig.Client.SPEC, true, List.of(FlowlineConfig.Client.RENDER_ITEMS,
                     FlowlineConfig.Client.MAX_TRAVELLING, FlowlineConfig.Client.TICKS_PER_PIPE)),
             new Section("amounts", FlowlineConfig.SPEC, false, List.of(FlowlineConfig.ITEMS_PER_OPERATION,
-                    FlowlineConfig.FLUID_PER_OPERATION, FlowlineConfig.ENERGY_PER_OPERATION,
+                    FlowlineConfig.FLUID_PER_OPERATION, FlowlineConfig.ENERGY_PER_TICK,
                     FlowlineConfig.CHEMICAL_PER_OPERATION, FlowlineConfig.STACK_MULTIPLIERS,
                     FlowlineConfig.ITEM_STACK_MULTIPLIERS, FlowlineConfig.FLUID_STACK_MULTIPLIERS,
                     FlowlineConfig.CHEMICAL_STACK_MULTIPLIERS)),

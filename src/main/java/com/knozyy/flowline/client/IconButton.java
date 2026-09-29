@@ -16,11 +16,14 @@ public class IconButton extends Button {
     private static final int FILL = 0xFF2A2F38;
     private static final int FILL_HOVER = 0xFF3A414D;
     private static final int FILL_DISABLED = 0xFF1B1E24;
+    private static final int WARNING = 0xFFFF5555;
 
     private final Supplier<String> icon;
     private final int accent;
     /** While true the icon is drawn faded (a toggle that is off), but the button stays clickable. */
     private final BooleanSupplier dim;
+    /** While true the border is drawn red, e.g. a destructive button waiting for its confirming click. */
+    private BooleanSupplier warning = () -> false;
 
     public IconButton(int x, int y, int size, Supplier<String> icon, int accent, OnPress onPress) {
         this(x, y, size, icon, accent, () -> false, onPress);
@@ -33,6 +36,11 @@ public class IconButton extends Button {
         this.dim = dim;
     }
 
+    public IconButton warnWhen(BooleanSupplier warning) {
+        this.warning = warning;
+        return this;
+    }
+
     public static ResourceLocation icon(String name) {
         return new ResourceLocation(Flowline.MODID, "textures/gui/icon/" + name + ".png");
     }
@@ -42,7 +50,7 @@ public class IconButton extends Button {
         boolean hot = active && isHoveredOrFocused();
         int x = getX();
         int y = getY();
-        graphics.fill(x, y, x + width, y + height, hot ? accent : BORDER);
+        graphics.fill(x, y, x + width, y + height, warning.getAsBoolean() ? WARNING : hot ? accent : BORDER);
         graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, !active ? FILL_DISABLED : hot ? FILL_HOVER : FILL);
 
         int size = Math.min(16, Math.min(width, height) - 4);

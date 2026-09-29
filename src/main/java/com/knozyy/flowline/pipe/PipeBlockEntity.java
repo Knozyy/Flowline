@@ -286,9 +286,11 @@ public class PipeBlockEntity extends BlockEntity {
                 moved = operate(level, dir, cfg, cfg.interval);
                 if (moved < 0) continue;   // asleep
             }
-            cfg.interval = moved > 0
-                    ? Pacing.afterWork(cfg.interval, cfg.speedCount)
-                    : Pacing.afterIdle(cfg.interval, cfg.speedCount);
+            cfg.interval = moved <= 0 ? Pacing.afterIdle(cfg.interval, cfg.speedCount)
+                    // energy flows every tick while there is work, like a cable: many sources only give one
+                    // tick's worth per call, so a slower pipe would get less out of them
+                    : type == PipeType.ENERGY ? 1
+                    : Pacing.afterWork(cfg.interval, cfg.speedCount);
             cfg.cooldown = cfg.interval;
         }
     }

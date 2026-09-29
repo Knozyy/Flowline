@@ -5,22 +5,27 @@
       "modid": "mekanism"
     }
   ],
-  "type": "minecraft:crafting_shapeless",
+  "type": "minecraft:crafting_shaped",
   "category": "redstone",
-  "ingredients": [
-    {
+  "pattern": [
+    "IGI",
+    "RCR",
+    "IGI"
+  ],
+  "key": {
+    "I": {
       "item": "minecraft:iron_ingot"
     },
-    {
-      "item": "minecraft:iron_ingot"
+    "G": {
+      "item": "minecraft:gold_ingot"
     },
-    {
-      "item": "minecraft:iron_ingot"
+    "R": {
+      "item": "minecraft:redstone"
     },
-    {
+    "C": {
       "item": "mekanism:basic_pressurized_tube"
     }
-  ],
+  },
   "result": {
     "item": "flowline:chemical_pipe",
     "count": 4

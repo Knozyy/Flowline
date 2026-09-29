@@ -90,7 +90,7 @@ public enum PipeType implements StringRepresentable {
     /**
      * Runs one operation for every kind this pipe moves.
      *
-     * @param elapsed ticks since the previous operation, for rate limits
+     * @param elapsed ticks since the previous operation: energy moves this many ticks' worth, and rate limits scale
      * @param onItem  told about the first item stack moved to each target (for the travel animation); may be null
      * @return how much was moved in total (items + mB + FE); 0 means the operation found no work
      */
@@ -108,8 +108,9 @@ public enum PipeType implements StringRepresentable {
                     Pacing.fluidPerOperation(cfg.stackCount), balanced, this);
         }
         if (energy && cfg.channel(CH_ENERGY, this)) {
-            long budget = (long) FlowlineConfig.ENERGY_PER_OPERATION.get() * multiplier;
-            if (cfg.rate > 0) budget = Math.min(budget, (long) cfg.rate * Math.max(1, elapsed));
+            long ticks = Math.max(1, elapsed);
+            long budget = (long) FlowlineConfig.ENERGY_PER_TICK.get() * multiplier * ticks;
+            if (cfg.rate > 0) budget = Math.min(budget, (long) cfg.rate * ticks);
             moved += EnergyTransfer.run(source, cfg, targets, (int) Math.min(Integer.MAX_VALUE, budget), balanced, this);
         }
         if (chemicals) {

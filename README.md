@@ -12,7 +12,7 @@ modes, filters, distribution modes and speed upgrades.
 | Item | Use |
 | --- | --- |
 | Item / Fluid / Energy Pipe | Connects to pipes of the same type and to any block exposing the matching capability. |
-| Universal Pipe | Moves items, fluids and energy at once. Each side can switch its **channels** (items / fluids / energy) on and off; rules are item rules unless marked as fluid rules. 3 from one of each pipe + a gold ingot. |
+| Universal Pipe | Moves items, fluids and energy at once. Each side can switch its **channels** (items / fluids / energy) on and off; rules are item rules unless marked as fluid rules. 3 from one of each pipe + a diamond. |
 | Chemical Pipe | Only with **Mekanism** installed: moves Mekanism chemicals (gases, infuse types, pigments, slurries). |
 | Flowline Wrench | **Sneak + right-click** a side to cycle: normal (Insert) → **Extract** → **disconnected** → normal. Right-click a side: open its screen. **Sneak + scroll** on a side: Extract sides cycle their distribution (with Ctrl: their redstone mode), Insert sides change their priority (Ctrl: ±10). |
 | Empty hand | Right-click a side: opens its config screen. Sneak + right-click with both hands empty: take a facade off. |
@@ -88,6 +88,14 @@ Older rules load automatically.
 - **Jade**: looking at a pipe shows the side's mode, distribution, pacing, priority and regulator.
 - **Mekanism** (10.4): the Chemical Pipe (gases, infuse types, pigments, slurries).
 
+## Recipes
+
+Pipes (4 each): iron ingots and gold ingots around redstone and what the pipe carries, `IGI / RCR / IGI` with C =
+hopper (item), bucket (fluid), redstone block (energy) or Mekanism's basic pressurized tube (chemical). Universal
+Pipe: one of each pipe + a diamond (3). Speed upgrade: gold, sugar, redstone and a clock. Stack upgrade: iron,
+redstone, two chests and a diamond. Filter upgrade: iron, paper and a comparator. Knozy: one of each upgrade + a
+netherite ingot. JEI/EMI show them all.
+
 ## Config
 
 Config is per world (`<world>/serverconfig/flowline-server.toml`; put a copy in `defaultconfigs/` to seed new
@@ -97,8 +105,9 @@ also be edited in game from **Mods > Flowline > Config**; changes apply without 
 
 It holds per-operation amounts and a Stack multiplier list for each kind, indexed by
 the number of Stack upgrades: items 16 × `[1, 2, 4 ... 64]` (16 to 1024 items), fluids and chemicals 1000 mB ×
-`[1, 2, 4 ... 64]` (1 to 64 buckets), energy 1000 FE × `[1, 8, 16, 32, 64, 96, 128]` (amounts are capped at
-2147483647 per operation), filter entries (`baseFilterSlots` = 9, `filterSlotsPerUpgrade` = 9), every pacing value
+`[1, 2, 4 ... 64]` (1 to 64 buckets), energy 8000 FE/t × `[1, 4, 16, 64, 128, 256, 1024]` (8000 to 8192000 FE/t,
+a bit above Mekanism's basic to ultimate cables; energy pipes work every tick while they have something to move;
+amounts are capped at 2147483647 per operation), filter entries (`baseFilterSlots` = 9, `filterSlotsPerUpgrade` = 9), every pacing value
 above (`idleBackoffFactor` = 2), the max network size (`[network]`) and `sendItemAnimations` (`[animations]`).
 
 `config/flowline-client.toml` (per player, editable from the same screen at any time): `renderTravellingItems`,

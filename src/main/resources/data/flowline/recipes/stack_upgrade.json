@@ -3,18 +3,21 @@
   "category": "redstone",
   "pattern": [
     "IRI",
-    "ICI",
+    "CDC",
     "IRI"
   ],
   "key": {
     "I": {
       "item": "minecraft:iron_ingot"
     },
+    "R": {
+      "item": "minecraft:redstone"
+    },
     "C": {
       "item": "minecraft:chest"
     },
-    "R": {
-      "item": "minecraft:redstone"
+    "D": {
+      "item": "minecraft:diamond"
     }
   },
   "result": {

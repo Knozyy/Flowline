@@ -10,6 +10,7 @@ import com.knozyy.flowline.network.SetSideValuePayload;
 import com.knozyy.flowline.pipe.PipeType;
 import com.knozyy.flowline.registry.ModItems;
 import net.minecraft.ChatFormatting;
+import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -57,6 +58,8 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private IconButton redstoneButton;
     private IconButton distributionButton;
     private IconButton clearButton;
+    /** Until when (ms) the clear button is armed: the first click only arms it, so rules are not lost to a misclick. */
+    private long clearArmedUntil = 0;
     private IconButton prevPageButton;
     private IconButton nextPageButton;
     private IconButton upgradeHelp;
@@ -95,7 +98,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         redstoneButton.visible = extract;
         distributionButton.visible = extract;
         clearButton = addRenderableWidget(new IconButton(x, extract ? y + 22 : y, 20,
-                () -> "clear", accent, b -> press(PipeMenu.BTN_CLEAR)));
+                () -> "clear", accent, b -> clickClear())).warnWhen(this::clearArmed);
         prevPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 24, topPos + PANEL_TOP + 2, 10,
                 () -> "page_prev", accent, b -> press(PipeMenu.BTN_PREV_PAGE)));
         nextPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 13, topPos + PANEL_TOP + 2, 10,
@@ -465,8 +468,11 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                     Component.translatable("gui.flowline.filter_capacity", menu.capacity())
                             .withStyle(ChatFormatting.GRAY));
         } else if (clearButton.visible && clearButton.isHovered()) {
-            lines = List.of(Component.translatable("gui.flowline.clear"),
-                    Component.translatable("gui.flowline.clear.desc").withStyle(ChatFormatting.GRAY));
+            lines = clearArmed()
+                    ? List.of(Component.translatable("gui.flowline.clear.confirm").withStyle(ChatFormatting.RED))
+                    : List.of(Component.translatable("gui.flowline.clear"),
+                            Component.translatable("gui.flowline.clear.desc").withStyle(ChatFormatting.GRAY),
+                            Component.translatable("gui.flowline.clear.how").withStyle(ChatFormatting.DARK_GRAY));
         } else if (upgradeHelp.isHovered()) {
             lines = upgradeLegend();
         } else if (isHovering(badgeX, BADGE_Y, badgeW, BADGE_H, mouseX, mouseY)) {
@@ -478,6 +484,20 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                     Component.translatable("gui.flowline.upgrade_slot.desc").withStyle(ChatFormatting.GRAY));
         }
         if (lines != null) graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
+    }
+
+    /** Clear filter: a second click within three seconds, or Shift + click, removes every rule. */
+    private void clickClear() {
+        if (hasShiftDown() || clearArmed()) {
+            clearArmedUntil = 0;
+            press(PipeMenu.BTN_CLEAR);
+        } else {
+            clearArmedUntil = Util.getMillis() + 3000;
+        }
+    }
+
+    private boolean clearArmed() {
+        return Util.getMillis() < clearArmedUntil;
     }
 
     /** What each upgrade does, and what the installed ones add up to on this side. */

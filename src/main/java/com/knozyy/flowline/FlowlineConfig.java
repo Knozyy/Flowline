@@ -25,9 +25,11 @@ public final class FlowlineConfig {
             .comment("Millibuckets per operation without Stack upgrades (1000 = one bucket).")
             .defineInRange("fluidPerOperation", 1000, 1, 1_000_000);
 
-    public static final ForgeConfigSpec.IntValue ENERGY_PER_OPERATION = BUILDER
-            .comment("FE.")
-            .defineInRange("energyPerOperation", 1000, 1, 100_000_000);
+    public static final ForgeConfigSpec.IntValue ENERGY_PER_TICK = BUILDER
+            .comment("FE per tick an extracting side moves without Stack upgrades. Energy pipes work every tick while",
+                    "they have something to move, like a cable; universal pipes move the ticks since their last",
+                    "operation at once. The default is a bit above a basic Mekanism cable (3200 FE/t).")
+            .defineInRange("energyPerTick", 8000, 1, 100_000_000);
 
     public static final ForgeConfigSpec.IntValue CHEMICAL_PER_OPERATION = BUILDER
             .comment("Millibuckets of Mekanism chemicals per operation without Stack upgrades (chemical pipe, only",
@@ -35,9 +37,10 @@ public final class FlowlineConfig {
             .defineInRange("chemicalPerOperation", 1000, 1, 1_000_000);
 
     public static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> STACK_MULTIPLIERS = BUILDER
-            .comment("Multiplier on energyPerOperation, indexed by the number of Stack upgrades (Knozy counts as one).",
-                    "Entry 0 is used without upgrades; the last entry is used for any higher count.")
-            .defineList("stackMultipliers", List.of(1, 8, 16, 32, 64, 96, 128),
+            .comment("Multiplier on energyPerTick, indexed by the number of Stack upgrades (Knozy counts as one).",
+                    "Entry 0 is used without upgrades; the last entry is used for any higher count. The default",
+                    "gives 8000, 32000, 128000, 512000, 1024000, 2048000 and 8192000 FE/t.")
+            .defineList("stackMultipliers", List.of(1, 4, 16, 64, 128, 256, 1024),
                     o -> o instanceof Integer i && i >= 1);
 
     public static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> ITEM_STACK_MULTIPLIERS = BUILDER

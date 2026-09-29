@@ -498,32 +498,40 @@ def shapeless(name, ingredients, result, count=1, needs=None):
     write_json(f"data/{MODID}/recipes/{name}.json", recipe)
 
 
-def shaped(name, pattern, key, result, count=1):
-    write_json(f"data/{MODID}/recipes/{name}.json", {
+def shaped(name, pattern, key, result, count=1, needs=None):
+    recipe = {
         "type": "minecraft:crafting_shaped",
         "category": "redstone",
         "pattern": pattern,
         "key": {k: ing(v) for k, v in key.items()},
         "result": {"item": result, "count": count},
-    })
+    }
+    if needs:
+        recipe = {"conditions": [{"type": "forge:mod_loaded", "modid": needs}], **recipe}
+    write_json(f"data/{MODID}/recipes/{name}.json", recipe)
 
 
-shapeless("item_pipe", ["minecraft:iron_ingot"] * 3 + ["minecraft:hopper"], f"{MODID}:item_pipe", 4)
-shapeless("fluid_pipe", ["minecraft:iron_ingot"] * 3 + ["minecraft:bucket"], f"{MODID}:fluid_pipe", 4)
-shapeless("energy_pipe", ["minecraft:iron_ingot"] * 3 + ["minecraft:redstone_block"], f"{MODID}:energy_pipe", 4)
-shapeless("universal_pipe", [f"{MODID}:item_pipe", f"{MODID}:fluid_pipe", f"{MODID}:energy_pipe", "minecraft:gold_ingot"],
+# pipes: iron walls with gold and redstone around what the pipe carries (hopper, bucket, redstone block)
+PIPE = ["IGI", "RCR", "IGI"]
+PIPE_KEY = {"I": "minecraft:iron_ingot", "G": "minecraft:gold_ingot", "R": "minecraft:redstone"}
+shaped("item_pipe", PIPE, {**PIPE_KEY, "C": "minecraft:hopper"}, f"{MODID}:item_pipe", 4)
+shaped("fluid_pipe", PIPE, {**PIPE_KEY, "C": "minecraft:bucket"}, f"{MODID}:fluid_pipe", 4)
+shaped("energy_pipe", PIPE, {**PIPE_KEY, "C": "minecraft:redstone_block"}, f"{MODID}:energy_pipe", 4)
+shapeless("universal_pipe", [f"{MODID}:item_pipe", f"{MODID}:fluid_pipe", f"{MODID}:energy_pipe", "minecraft:diamond"],
           f"{MODID}:universal_pipe", 3)
 shaped("wrench", ["I I", " S ", " S "], {"I": "minecraft:iron_ingot", "S": "minecraft:stick"}, f"{MODID}:wrench")
-shaped("speed_upgrade", ["ISI", "RIR", "ISI"],
-       {"I": "minecraft:iron_ingot", "S": "minecraft:sugar", "R": "minecraft:redstone"}, f"{MODID}:speed_upgrade")
-shaped("stack_upgrade", ["IRI", "ICI", "IRI"],
-       {"I": "minecraft:iron_ingot", "C": "minecraft:chest", "R": "minecraft:redstone"}, f"{MODID}:stack_upgrade")
-shaped("filter_upgrade", ["IPI", "PHP", "IPI"],
-       {"I": "minecraft:iron_ingot", "P": "minecraft:paper", "H": "minecraft:hopper"}, f"{MODID}:filter_upgrade")
+shaped("speed_upgrade", ["GSG", "RCR", "GSG"],
+       {"G": "minecraft:gold_ingot", "S": "minecraft:sugar", "R": "minecraft:redstone", "C": "minecraft:clock"},
+       f"{MODID}:speed_upgrade")
+shaped("stack_upgrade", ["IRI", "CDC", "IRI"],
+       {"I": "minecraft:iron_ingot", "R": "minecraft:redstone", "C": "minecraft:chest", "D": "minecraft:diamond"},
+       f"{MODID}:stack_upgrade")
+shaped("filter_upgrade", ["IPI", "PCP", "IPI"],
+       {"I": "minecraft:iron_ingot", "P": "minecraft:paper", "C": "minecraft:comparator"}, f"{MODID}:filter_upgrade")
 shapeless("knozy_upgrade", [f"{MODID}:speed_upgrade", f"{MODID}:stack_upgrade", f"{MODID}:filter_upgrade",
                             "minecraft:netherite_ingot"], f"{MODID}:knozy_upgrade")
-shapeless("chemical_pipe", ["minecraft:iron_ingot"] * 3 + ["mekanism:basic_pressurized_tube"],
-          f"{MODID}:chemical_pipe", 4, needs="mekanism")
+shaped("chemical_pipe", PIPE, {**PIPE_KEY, "C": "mekanism:basic_pressurized_tube"}, f"{MODID}:chemical_pipe", 4,
+       needs="mekanism")
 shaped("config_card", ["PRP", "PGP", "PPP"],
        {"P": "minecraft:paper", "R": "minecraft:redstone", "G": "minecraft:gold_nugget"}, f"{MODID}:config_card")
 shaped("filter_card", ["PRP", "PHP", "PPP"],
@@ -550,7 +558,7 @@ en = {
     "message.flowline.rule_exists": "This rule already exists (#%s)",
     "gui.flowline.editor.error.exists": "The same rule is already on this page",
     "item.flowline.upgrade.effect.speed": "Start interval -%s ticks (never below %s)",
-    "item.flowline.upgrade.effect.stack": "Energy per operation: %s",
+    "item.flowline.upgrade.effect.stack": "Energy (FE/t): %s",
     "item.flowline.upgrade.effect.stack_fluid": "Fluid per operation (mB): %s",
     "item.flowline.upgrade.effect.stack_chemical": "Chemicals per operation (mB): %s",
     "gui.flowline.pacing.fluid": "Fluid per operation: %s mB",
@@ -577,7 +585,7 @@ en = {
     "gui.flowline.filter_capacity": "%s entries (Filter upgrades add more)",
     "gui.flowline.pacing.title": "Pacing",
     "gui.flowline.pacing.counts": "Speed: %s · Stack: %s · Filter: %s",
-    "gui.flowline.pacing.amount": "Energy per operation: x%s",
+    "gui.flowline.pacing.amount": "Energy per tick: x%s",
     "gui.flowline.pacing.interval": "Interval: %s ticks (start %s, min %s)",
     "gui.flowline.pacing.hint": "Speeds up while moving, slows down when idle.",
     "gui.flowline.pacing.sleeping": "Sleeping: no targets. Wakes up when the pipe network changes.",
@@ -618,6 +626,8 @@ en = {
     "gui.flowline.library.members": "%s entries:",
     "gui.flowline.library.inventory": "Inventory: click to use as sample",
     "gui.flowline.clear.desc": "Removes every rule on this side.",
+    "gui.flowline.clear.how": "Click twice, or Shift + click",
+    "gui.flowline.clear.confirm": "Click again to remove every rule",
     "gui.flowline.editor.title": "Rule #%s",
     "gui.flowline.editor.cancel": "Cancel",
     "gui.flowline.editor.save": "Save",
@@ -760,7 +770,7 @@ tr = {
     "message.flowline.rule_exists": "Bu kural zaten var (#%s)",
     "gui.flowline.editor.error.exists": "Bu sayfada aynı kural zaten var",
     "item.flowline.upgrade.effect.speed": "Başlangıç aralığı -%s tick (en az %s)",
-    "item.flowline.upgrade.effect.stack": "İşlem başına enerji: %s",
+    "item.flowline.upgrade.effect.stack": "Enerji (FE/t): %s",
     "item.flowline.upgrade.effect.stack_fluid": "İşlem başına sıvı (mB): %s",
     "item.flowline.upgrade.effect.stack_chemical": "İşlem başına kimyasal (mB): %s",
     "gui.flowline.pacing.fluid": "İşlem başına sıvı: %s mB",
@@ -787,7 +797,7 @@ tr = {
     "gui.flowline.filter_capacity": "%s kayıt (Filter Upgrade ile artar)",
     "gui.flowline.pacing.title": "Hız",
     "gui.flowline.pacing.counts": "Speed: %s · Stack: %s · Filter: %s",
-    "gui.flowline.pacing.amount": "İşlem başına enerji: x%s",
+    "gui.flowline.pacing.amount": "Tick başına enerji: x%s",
     "gui.flowline.pacing.interval": "Aralık: %s tick (başlangıç %s, en az %s)",
     "gui.flowline.pacing.hint": "Taşıdıkça hızlanır, boştayken yavaşlar.",
     "gui.flowline.pacing.sleeping": "Uyuyor: hedef yok. Boru ağı değişince uyanır.",
@@ -828,6 +838,8 @@ tr = {
     "gui.flowline.library.members": "%s kayıt:",
     "gui.flowline.library.inventory": "Envanter: örnek olarak kullanmak için tıkla",
     "gui.flowline.clear.desc": "Bu taraftaki tüm kuralları siler.",
+    "gui.flowline.clear.how": "İki kez tıkla ya da Shift + tıkla",
+    "gui.flowline.clear.confirm": "Tüm kuralları silmek için tekrar tıkla",
     "gui.flowline.editor.title": "Kural #%s",
     "gui.flowline.editor.cancel": "İptal",
     "gui.flowline.editor.save": "Kaydet",
@@ -970,7 +982,7 @@ en.update({
     "flowline.configuration.amounts": "Amounts",
     "flowline.configuration.itemsPerOperation": "Items per operation",
     "flowline.configuration.fluidPerOperation": "Fluid per operation (mB)",
-    "flowline.configuration.energyPerOperation": "Energy per operation (FE)",
+    "flowline.configuration.energyPerTick": "Energy per tick (FE/t)",
     "flowline.configuration.chemicalPerOperation": "Chemicals per operation (mB)",
     "flowline.configuration.stackMultipliers": "Energy Stack multipliers",
     "flowline.configuration.itemStackMultipliers": "Item Stack multipliers",
@@ -1010,12 +1022,12 @@ tr.update({
     "flowline.configuration.itemsPerOperation.tooltip": "Stack upgrade olmadan işlem başına eşya.",
     "flowline.configuration.fluidPerOperation": "İşlem başına sıvı (mB)",
     "flowline.configuration.fluidPerOperation.tooltip": "Stack upgrade olmadan işlem başına milibucket (1000 = bir kova).",
-    "flowline.configuration.energyPerOperation": "İşlem başına enerji (FE)",
-    "flowline.configuration.energyPerOperation.tooltip": "FE.",
+    "flowline.configuration.energyPerTick": "Tick başına enerji (FE/t)",
+    "flowline.configuration.energyPerTick.tooltip": "Stack upgrade olmadan tick başına FE. Enerji boruları iş varken her tick çalışır (kablo gibi); evrensel borular son işlemden bu yana geçen tick'lerin enerjisini bir seferde taşır. Varsayılan, Mekanism'in basit kablosunun (3200 FE/t) biraz üstünde.",
     "flowline.configuration.chemicalPerOperation": "İşlem başına kimyasal (mB)",
     "flowline.configuration.chemicalPerOperation.tooltip": "Stack upgrade olmadan işlem başına Mekanism kimyasalı, milibucket (kimyasal borusu, sadece Mekanism kuruluysa).",
     "flowline.configuration.stackMultipliers": "Enerji Stack çarpanları",
-    "flowline.configuration.stackMultipliers.tooltip": "İşlem başına enerjinin çarpanı, Stack upgrade sayısına göre (Knozy bir sayılır). 0. değer upgrade yokken, son değer daha fazlası için kullanılır. Virgülle ayır.",
+    "flowline.configuration.stackMultipliers.tooltip": "Tick başına enerjinin çarpanı, Stack upgrade sayısına göre (Knozy bir sayılır). 0. değer upgrade yokken, son değer daha fazlası için kullanılır. Varsayılan: 8000, 32000, 128000, 512000, 1024000, 2048000, 8192000 FE/t. Virgülle ayır.",
     "flowline.configuration.itemStackMultipliers": "Eşya Stack çarpanları",
     "flowline.configuration.itemStackMultipliers.tooltip": "İşlem başına eşyanın çarpanı, Stack upgrade sayısına göre (Knozy bir sayılır). Varsayılan her upgrade'de ikiye katlar: 16, 32, 64 ... 1024 eşya. Virgülle ayır.",
     "flowline.configuration.fluidStackMultipliers": "Sıvı Stack çarpanları",

@@ -1,20 +1,25 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "minecraft:crafting_shaped",
   "category": "redstone",
-  "ingredients": [
-    {
+  "pattern": [
+    "IGI",
+    "RCR",
+    "IGI"
+  ],
+  "key": {
+    "I": {
       "item": "minecraft:iron_ingot"
     },
-    {
-      "item": "minecraft:iron_ingot"
+    "G": {
+      "item": "minecraft:gold_ingot"
     },
-    {
-      "item": "minecraft:iron_ingot"
+    "R": {
+      "item": "minecraft:redstone"
     },
-    {
+    "C": {
       "item": "minecraft:redstone_block"
     }
-  ],
+  },
   "result": {
     "item": "flowline:energy_pipe",
     "count": 4

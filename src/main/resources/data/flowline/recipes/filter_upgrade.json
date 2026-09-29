@@ -3,7 +3,7 @@
   "category": "redstone",
   "pattern": [
     "IPI",
-    "PHP",
+    "PCP",
     "IPI"
   ],
   "key": {
@@ -13,8 +13,8 @@
     "P": {
       "item": "minecraft:paper"
     },
-    "H": {
-      "item": "minecraft:hopper"
+    "C": {
+      "item": "minecraft:comparator"
     }
   },
   "result": {
