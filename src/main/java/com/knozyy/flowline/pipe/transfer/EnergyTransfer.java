@@ -4,7 +4,7 @@ import com.knozyy.flowline.pipe.Caps;
 import com.knozyy.flowline.pipe.PipeNetwork.Target;
 import com.knozyy.flowline.pipe.PipeType;
 import com.knozyy.flowline.pipe.SideConfig;
-import net.neoforged.neoforge.energy.IEnergyStorage;
+import net.minecraftforge.energy.IEnergyStorage;
 
 import java.util.ArrayList;
 import java.util.List;

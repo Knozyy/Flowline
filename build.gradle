@@ -1,7 +1,7 @@
 plugins {
-    id 'java-library'
-    id 'net.neoforged.moddev' version '2.0.147'
+    id 'eclipse'
     id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0.24,6.2)'
 }
 
 version = mod_version
@@ -11,32 +11,32 @@ base {
     archivesName = mod_id
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
-neoForge {
-    version = project.neo_version
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
 
     runs {
-        client {
-            client()
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            property 'forge.enabledGameTestNamespaces', mod_id
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
         }
-        server {
-            server()
-            programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-        // Headless in-world tests: ./gradlew runGameTestServer (exits non-zero if a test fails)
-        gameTestServer {
-            type = "gameTestServer"
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-    }
 
-    mods {
-        "${mod_id}" {
-            sourceSet sourceSets.main
+        client {}
+
+        server {
+            args '--nogui'
         }
+
+        // Headless in-world tests: ./gradlew runGameTestServer (exits non-zero if a test fails)
+        gameTestServer {}
     }
 }
 
@@ -61,32 +61,43 @@ repositories {
 }
 
 dependencies {
-    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
-    compileOnly "dev.emi:emi-neoforge:${emi_version}+${minecraft_version}:api"
-    compileOnly "curse.maven:jade-api-324717:${jade_api_id}"
-    compileOnly "mekanism:Mekanism:${minecraft_version}-${mekanism_version}:api"
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-common-api:${jei_version}")
+    compileOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}")
+    compileOnly fg.deobf("dev.emi:emi-forge:${emi_version}+${minecraft_version}:api")
+    compileOnly fg.deobf("curse.maven:jade-api-324717:${jade_api_id}")
+    compileOnly fg.deobf("mekanism:Mekanism:${minecraft_version}-${mekanism_version}:api")
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version, forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+            mod_authors: mod_authors, mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes([
+                'Specification-Title'   : mod_id,
+                'Specification-Vendor'  : mod_authors,
+                'Specification-Version' : '1',
+                'Implementation-Title'  : project.name,
+                'Implementation-Version': project.jar.archiveVersion,
+                'Implementation-Vendor' : mod_authors
+        ])
+    }
+    finalizedBy 'reobfJar'
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-}
-
-processResources {
-    var replaceProperties = [
-            minecraft_version      : minecraft_version,
-            minecraft_version_range: minecraft_version_range,
-            neo_version            : neo_version,
-            neo_version_range      : neo_version_range,
-            loader_version_range   : loader_version_range,
-            mod_id                 : mod_id,
-            mod_name               : mod_name,
-            mod_license            : mod_license,
-            mod_version            : mod_version,
-            mod_authors            : mod_authors,
-            mod_description        : mod_description
-    ]
-    inputs.properties replaceProperties
-    filesMatching(['META-INF/neoforge.mods.toml']) {
-        expand replaceProperties
-    }
 }

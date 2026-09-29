@@ -17,7 +17,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.knozyy.flowline.network.ModNetwork;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -136,7 +136,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private void addField(int x, int y, int min, int max, java.util.function.IntSupplier value, int field, String label,
                           String help) {
         NumberBox box = new NumberBox(font, leftPos + x, y, FIELD_W, min, max, value,
-                v -> PacketDistributor.sendToServer(new SetSideValuePayload(menu.containerId, field, v)));
+                v -> ModNetwork.sendToServer(new SetSideValuePayload(menu.containerId, field, v)));
         addRenderableWidget(box);
         fields.add(new Field(box, label, help, x));
     }
@@ -173,7 +173,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         if (hoveredSlot instanceof PipeMenu.GhostSlot ghost && menu.getCarried().isEmpty() && minecraft != null) {
             if (button == 0 && hasShiftDown()) {
                 if (menu.clientEntry(ghost.getContainerSlot()) != null) {
-                    PacketDistributor.sendToServer(
+                    ModNetwork.sendToServer(
                             new SetFilterEntryPayload(menu.containerId, ghost.filterIndex(), Optional.empty()));
                 }
             } else if (button == 0) {
@@ -204,7 +204,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
 
     /** Mouse wheel over the filter panel flips filter pages; over a number field it steps the number. */
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
         for (Field field : fields) {
             if (field.box().isMouseOver(mouseX, mouseY) && scrollY != 0) {
                 field.box().step(scrollY);
@@ -219,7 +219,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             }
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        return super.mouseScrolled(mouseX, mouseY, scrollY);
     }
 
     // ---- rendering ----------------------------------------------------------------------------------------
@@ -235,6 +235,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         nextPageButton.active = menu.page() < menu.pageCount() - 1;
         fields.forEach(field -> field.box().follow());
 
+        renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         renderTooltip(graphics, mouseX, mouseY);
         renderButtonTooltips(graphics, mouseX, mouseY);
@@ -405,7 +406,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                     .withStyle(ChatFormatting.GRAY));
             int shown = Math.min(6, entry.tags().size());
             for (int i = 0; i < shown; i++) {
-                lines.add(Component.literal("  #" + entry.tags().get(i)).withColor(accent));
+                lines.add(Component.literal("  #" + entry.tags().get(i)).withStyle(s -> s.withColor(accent)));
             }
             if (entry.tags().size() > shown) {
                 lines.add(Component.translatable("gui.flowline.rule.more", entry.tags().size() - shown)
@@ -477,13 +478,13 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         if (!menu.extracting()) {
             lines.add(Component.translatable("gui.flowline.upgrades.insert").withStyle(ChatFormatting.GOLD));
         }
-        lines.add(Component.translatable("item.flowline.speed_upgrade").withColor(UpgradeItem.SPEED_COLOR));
+        lines.add(Component.translatable("item.flowline.speed_upgrade").withStyle(s -> s.withColor(UpgradeItem.SPEED_COLOR)));
         UpgradeItem.effectLines(UpgradeType.SPEED).forEach(line -> lines.add(indent(line)));
-        lines.add(Component.translatable("item.flowline.stack_upgrade").withColor(UpgradeItem.STACK_COLOR));
+        lines.add(Component.translatable("item.flowline.stack_upgrade").withStyle(s -> s.withColor(UpgradeItem.STACK_COLOR)));
         UpgradeItem.effectLines(UpgradeType.STACK).forEach(line -> lines.add(indent(line)));
-        lines.add(Component.translatable("item.flowline.filter_upgrade").withColor(UpgradeItem.FILTER_COLOR));
+        lines.add(Component.translatable("item.flowline.filter_upgrade").withStyle(s -> s.withColor(UpgradeItem.FILTER_COLOR)));
         UpgradeItem.effectLines(UpgradeType.FILTER).forEach(line -> lines.add(indent(line)));
-        lines.add(Component.translatable("item.flowline.knozy_upgrade").withColor(UpgradeItem.KNOZY_COLOR));
+        lines.add(Component.translatable("item.flowline.knozy_upgrade").withStyle(s -> s.withColor(UpgradeItem.KNOZY_COLOR)));
         lines.add(indent(Component.translatable("item.flowline.knozy_upgrade.desc").withStyle(ChatFormatting.GRAY)));
         lines.add(Component.empty());
         lines.add(Component.translatable("gui.flowline.upgrades.now", menu.startInterval(), menu.multiplier(),
@@ -514,7 +515,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     /** "Label: Value", a grey description line and, when disabled, why. */
     private List<Component> describe(String labelKey, String valueKey, boolean enabled) {
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.translatable(labelKey, Component.translatable(valueKey).withColor(accent)));
+        lines.add(Component.translatable(labelKey, Component.translatable(valueKey).withStyle(s -> s.withColor(accent))));
         lines.add(Component.translatable(valueKey + ".desc").withStyle(ChatFormatting.GRAY));
         lines.add(Component.translatable("gui.flowline.cycle_hint").withStyle(ChatFormatting.DARK_GRAY));
         return lines;

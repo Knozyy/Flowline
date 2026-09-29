@@ -8,7 +8,6 @@ import com.knozyy.flowline.pipe.PipeBlockEntity;
 import com.knozyy.flowline.pipe.RedstoneMode;
 import com.knozyy.flowline.pipe.SideConfig;
 import com.knozyy.flowline.pipe.SideMode;
-import com.knozyy.flowline.registry.ModComponents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -48,9 +47,13 @@ public class ConfigCardItem extends Item implements PipeInteractable {
         return filterOnly;
     }
 
+    /** NBT key of the copied settings on the card. */
+    private static final String KEY = "flowline_card";
+
     @Nullable
     public static CompoundTag data(ItemStack stack) {
-        return stack.get(ModComponents.CARD.get());
+        CompoundTag tag = stack.getTag();
+        return tag != null && tag.contains(KEY) ? tag.getCompound(KEY) : null;
     }
 
     @Override
@@ -68,7 +71,7 @@ public class ConfigCardItem extends Item implements PipeInteractable {
         ItemStack stack = player.getItemInHand(hand);
         if (player.isShiftKeyDown() && data(stack) != null) {
             if (!level.isClientSide) {
-                stack.remove(ModComponents.CARD.get());
+                stack.removeTagKey(KEY);
                 player.displayClientMessage(Component.translatable("message.flowline.card_cleared"), true);
             }
             return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
@@ -86,7 +89,7 @@ public class ConfigCardItem extends Item implements PipeInteractable {
         }
         SideConfig cfg = pipe.side(side);
         if (player.isShiftKeyDown()) {
-            stack.set(ModComponents.CARD.get(), copy(cfg));
+            stack.getOrCreateTag().put(KEY, copy(cfg));
             player.displayClientMessage(Component.translatable("message.flowline.card_copied", where), true);
             return;
         }
@@ -135,7 +138,7 @@ public class ConfigCardItem extends Item implements PipeInteractable {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         CompoundTag data = data(stack);
         if (data == null) {
             tooltip.add(Component.translatable("item.flowline.card.empty").withStyle(ChatFormatting.GRAY));

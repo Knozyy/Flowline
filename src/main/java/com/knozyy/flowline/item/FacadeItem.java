@@ -3,7 +3,6 @@ package com.knozyy.flowline.item;
 import com.knozyy.flowline.pipe.Conn;
 import com.knozyy.flowline.pipe.PipeBlock;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
-import com.knozyy.flowline.registry.ModComponents;
 import com.knozyy.flowline.registry.ModItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -21,6 +20,10 @@ import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -36,15 +39,21 @@ public class FacadeItem extends Item implements PipeInteractable {
     }
 
     /** A facade showing {@code state}. */
+    /** NBT key of the facade block on the item. */
+    private static final String KEY = "facade";
+
     public static ItemStack of(BlockState state) {
         ItemStack stack = new ItemStack(ModItems.FACADE.get());
-        stack.set(ModComponents.FACADE.get(), state);
+        stack.getOrCreateTag().put(KEY, NbtUtils.writeBlockState(state));
         return stack;
     }
 
     @Nullable
     public static BlockState stateOf(ItemStack stack) {
-        return stack.get(ModComponents.FACADE.get());
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.contains(KEY)) return null;
+        BlockState state = NbtUtils.readBlockState(BuiltInRegistries.BLOCK.asLookup(), tag.getCompound(KEY));
+        return state.isAir() ? null : state;
     }
 
     /** Full, plain blocks only: no block entities, no pipes, a normal model and a full-cube shape. */
@@ -71,7 +80,7 @@ public class FacadeItem extends Item implements PipeInteractable {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable(stateOf(stack) == null ? "item.flowline.facade.blank.desc"
                 : "item.flowline.facade.desc").withStyle(ChatFormatting.GRAY));
     }

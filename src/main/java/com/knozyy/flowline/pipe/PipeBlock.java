@@ -4,11 +4,8 @@ import com.knozyy.flowline.item.FacadeItem;
 import com.knozyy.flowline.item.PipeInteractable;
 import com.knozyy.flowline.menu.PipeMenu;
 import com.knozyy.flowline.registry.ModBlockEntities;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.util.StringRepresentable;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,7 +14,6 @@ import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
-import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.DyeItem;
@@ -45,18 +41,16 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraftforge.network.NetworkHooks;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBlock {
     public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
-
-    public static final MapCodec<PipeBlock> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-            propertiesCodec(),
-            StringRepresentable.fromEnum(PipeType::values).fieldOf("pipe_type").forGetter(PipeBlock::type)
-    ).apply(i, PipeBlock::new));
 
     private static final Map<Direction, EnumProperty<Conn>> PROPS = new EnumMap<>(Direction.class);
 
@@ -98,11 +92,6 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
     }
 
     @Override
-    protected MapCodec<? extends Block> codec() {
-        return CODEC;
-    }
-
-    @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         for (Direction d : Direction.values()) builder.add(prop(d));
         builder.add(WATERLOGGED);
@@ -111,12 +100,12 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
     // ---- water ------------------------------------------------------------------------------------------------
 
     @Override
-    protected FluidState getFluidState(BlockState state) {
+    public FluidState getFluidState(BlockState state) {
         return state.getValue(WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(state);
     }
 
     @Override
-    protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
+    public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
                                      LevelAccessor level, BlockPos pos, BlockPos neighborPos) {
         if (state.getValue(WATERLOGGED)) level.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
         return super.updateShape(state, direction, neighborState, level, pos, neighborPos);
@@ -154,7 +143,7 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
     }
 
     @Override
-    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+    public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
         if (!level.isClientSide && !oldState.is(this)) {
             // A freshly placed pipe reconnects neighbours that were cut towards this position earlier.
@@ -173,12 +162,12 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
     }
 
     @Override
-    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+    public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         refresh(state, level, pos);
     }
 
     @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
             Containers.dropContents(level, pos, be.upgrades());
             if (be.facade() != null) popResource(level, pos, FacadeItem.of(be.facade()));
@@ -188,7 +177,7 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
     }
 
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
                                    BlockPos neighborPos, boolean movedByPiston) {
         super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
         refresh(state, level, pos);
@@ -246,10 +235,17 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
         return !cutNow;
     }
 
+    /** The chemical pipe has no loot table (a table naming an unregistered item would fail to load). */
+    @Override
+    public List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
+        if (type == PipeType.CHEMICAL) return List.of(new ItemStack(this));
+        return super.getDrops(state, params);
+    }
+
     // ---- shape ------------------------------------------------------------------------------------------------
 
     @Override
-    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext ctx) {
+    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext ctx) {
         if (level.getBlockEntity(pos) instanceof PipeBlockEntity be && be.facade() != null) return Shapes.block();
         VoxelShape shape = CORE;
         for (Direction d : Direction.values()) {
@@ -260,20 +256,25 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
 
     // ---- interaction ------------------------------------------------------------------------------------------
 
+    /**
+     * Tools configure the clicked side, dyes paint the pipe, an empty hand opens the side's screen (or, sneaking with
+     * both hands empty, takes a facade off). Any other held item keeps its normal behaviour, e.g. placing a block
+     * against the pipe.
+     */
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
-                                              Player player, InteractionHand hand, BlockHitResult hit) {
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
+                                 BlockHitResult hit) {
+        ItemStack stack = player.getItemInHand(hand);
         if (stack.getItem() instanceof PipeInteractable tool) {
             useTool(tool, stack, state, level, pos, player, hand, hit);
-            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+            return InteractionResult.sidedSuccess(level.isClientSide);
         }
         if (stack.getItem() instanceof DyeItem dye) {
             if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be) paint(be, dye.getDyeColor(), player, stack);
-            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+            return InteractionResult.sidedSuccess(level.isClientSide);
         }
-        // Any other held item keeps its normal behaviour (e.g. placing a block against the pipe).
-        return stack.isEmpty() ? ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
-                : ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+        if (!stack.isEmpty() || hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
+        return useEmptyHand(state, level, pos, player, hit);
     }
 
     /**
@@ -309,9 +310,8 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
      * Empty-handed click on an endpoint side opens that side's configuration screen; sneaking with both hands empty
      * takes a facade off.
      */
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-                                               BlockHitResult hit) {
+    private InteractionResult useEmptyHand(BlockState state, Level level, BlockPos pos, Player player,
+                                           BlockHitResult hit) {
         PipeBlockEntity be = level.getBlockEntity(pos) instanceof PipeBlockEntity pipe ? pipe : null;
         if (be != null && be.facade() != null && player.isShiftKeyDown()) {
             if (!level.isClientSide) {
@@ -339,7 +339,7 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
         Component title = Component.translatable("gui.flowline.pipe_config", be.getBlockState().getBlock().getName(),
                 Component.translatable("direction.flowline." + side.getName()));
         BlockPos pos = be.getBlockPos();
-        serverPlayer.openMenu(
+        NetworkHooks.openScreen(serverPlayer,
                 new SimpleMenuProvider((id, inventory, p) -> new PipeMenu(id, inventory, be, side), title),
                 buf -> {
                     buf.writeBlockPos(pos);

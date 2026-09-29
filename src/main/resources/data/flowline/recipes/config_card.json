@@ -2,23 +2,23 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "pattern": [
-    "ISI",
-    "RIR",
-    "ISI"
+    "PRP",
+    "PGP",
+    "PPP"
   ],
   "key": {
-    "I": {
-      "item": "minecraft:iron_ingot"
-    },
-    "S": {
-      "item": "minecraft:sugar"
+    "P": {
+      "item": "minecraft:paper"
     },
     "R": {
       "item": "minecraft:redstone"
+    },
+    "G": {
+      "item": "minecraft:gold_nugget"
     }
   },
   "result": {
-    "id": "flowline:speed_upgrade",
+    "item": "flowline:config_card",
     "count": 1
   }
 }

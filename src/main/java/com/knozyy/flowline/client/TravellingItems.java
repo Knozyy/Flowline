@@ -38,10 +38,10 @@ public final class TravellingItems {
         List<Vec3> points = new ArrayList<>(payload.path().size());
         List<BlockPos> path = payload.path();
         for (int i = 0; i < path.size(); i++) {
-            Vec3 center = path.get(i).getCenter();
+            Vec3 center = Vec3.atCenterOf(path.get(i));
             // start and end at the face between the block and the pipe, not inside the block
-            if (i == 0) center = center.lerp(path.get(1).getCenter(), 0.5);
-            if (i == path.size() - 1) center = center.lerp(path.get(i - 1).getCenter(), 0.5);
+            if (i == 0) center = center.lerp(Vec3.atCenterOf(path.get(1)), 0.5);
+            if (i == path.size() - 1) center = center.lerp(Vec3.atCenterOf(path.get(i - 1)), 0.5);
             points.add(center);
         }
         int duration = Math.max(1, (points.size() - 1) * FlowlineConfig.Client.TICKS_PER_PIPE.get());

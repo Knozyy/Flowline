@@ -16,7 +16,7 @@
     }
   ],
   "result": {
-    "id": "flowline:energy_pipe",
+    "item": "flowline:energy_pipe",
     "count": 4
   }
 }

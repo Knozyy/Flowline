@@ -5,8 +5,8 @@ import com.knozyy.flowline.menu.PipeMenu;
 import com.knozyy.flowline.network.SetFilterEntryPayload;
 import com.knozyy.flowline.pipe.PipeType;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.knozyy.flowline.network.ModNetwork;
+import net.minecraftforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -40,7 +40,7 @@ public final class GhostTargets {
             if (!(slot instanceof PipeMenu.GhostSlot ghost) || !ghost.isActive()) continue;
             int index = ghost.filterIndex();
             slots.add(new Slot(screen.getGuiLeft() + slot.x, screen.getGuiTop() + slot.y, () ->
-                    PacketDistributor.sendToServer(new SetFilterEntryPayload(menu.containerId, index, Optional.of(rule)))));
+                    ModNetwork.sendToServer(new SetFilterEntryPayload(menu.containerId, index, Optional.of(rule)))));
         }
         return slots;
     }

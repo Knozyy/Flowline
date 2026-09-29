@@ -14,7 +14,6 @@ import com.knozyy.flowline.registry.ModBlocks;
 import com.knozyy.flowline.registry.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -23,11 +22,11 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 import java.util.Optional;
@@ -43,6 +42,12 @@ public class PipeGameTests {
     private static final BlockPos SOURCE = new BlockPos(0, 1, 1);
     private static final BlockPos FIRST_PIPE = new BlockPos(1, 1, 1);
 
+    /** The block entity at a test-relative position, cast to what the caller expects. */
+    @SuppressWarnings("unchecked")
+    private static <T extends BlockEntity> T be(GameTestHelper helper, BlockPos pos) {
+        return (T) helper.getLevel().getBlockEntity(helper.absolutePos(pos));
+    }
+
     private static BlockPos target(int pipes) {
         return new BlockPos(pipes + 1, 1, 1);
     }
@@ -52,7 +57,7 @@ public class PipeGameTests {
         helper.setBlock(SOURCE, Blocks.CHEST);
         helper.setBlock(target(pipes), Blocks.CHEST);
         for (int i = 1; i <= pipes; i++) helper.setBlock(new BlockPos(i, 1, 1), ModBlocks.ITEM_PIPE.get());
-        PipeBlockEntity first = helper.getBlockEntity(FIRST_PIPE);
+        PipeBlockEntity first = be(helper, FIRST_PIPE);
         first.side(Direction.WEST).mode = SideMode.EXTRACT;
         return first;
     }
@@ -74,7 +79,7 @@ public class PipeGameTests {
     }
 
     private static ChestBlockEntity chest(GameTestHelper helper, BlockPos pos) {
-        return helper.getBlockEntity(pos);
+        return be(helper, pos);
     }
 
     private static int count(GameTestHelper helper, BlockPos pos, Item item) {
@@ -216,7 +221,7 @@ public class PipeGameTests {
         damaged.putInt("minecraft:damage", 5);
         cfg.setEntry(0, FilterEntry.ofItem("minecraft:diamond_sword").withNbt(Optional.of(damaged)));
         ItemStack worn = new ItemStack(Items.DIAMOND_SWORD);
-        worn.set(DataComponents.DAMAGE, 5);
+        worn.setDamageValue(5);
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND_SWORD));
         chest(helper, SOURCE).setItem(1, worn);
 
@@ -276,7 +281,7 @@ public class PipeGameTests {
         helper.setBlock(target(2), Blocks.CHEST);
         helper.setBlock(FIRST_PIPE, ModBlocks.UNIVERSAL_PIPE.get());
         helper.setBlock(new BlockPos(2, 1, 1), ModBlocks.UNIVERSAL_PIPE.get());
-        PipeBlockEntity pipe = helper.getBlockEntity(FIRST_PIPE);
+        PipeBlockEntity pipe = be(helper, FIRST_PIPE);
         pipe.side(Direction.WEST).mode = SideMode.EXTRACT;
         install(pipe, UpgradeType.STACK);
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.IRON_INGOT, 8));
@@ -290,12 +295,12 @@ public class PipeGameTests {
         helper.setBlock(SOURCE, Blocks.CHEST);
         helper.setBlock(target(1), Blocks.CHEST);
         helper.setBlock(FIRST_PIPE, ModBlocks.ITEM_PIPE.get());
-        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        Player player = helper.makeMockPlayer();
 
         helper.startSequence()
                 .thenIdle(2)   // connections are computed one tick after placement
                 .thenExecute(() -> {
-                    PipeBlockEntity pipe = helper.getBlockEntity(FIRST_PIPE);
+                    PipeBlockEntity pipe = be(helper, FIRST_PIPE);
                     SideConfig cfg = pipe.side(Direction.WEST);
                     cycle(helper, pipe, player);
                     helper.assertTrue(cfg.mode == SideMode.EXTRACT, "1st: normal -> extract");
@@ -440,22 +445,22 @@ public class PipeGameTests {
         helper.setBlock(FAR, Blocks.BARREL);
         helper.setBlock(FIRST_PIPE, ModBlocks.ITEM_PIPE.get());
         helper.setBlock(new BlockPos(2, 1, 1), ModBlocks.ITEM_PIPE.get());
-        PipeBlockEntity first = helper.getBlockEntity(FIRST_PIPE);
+        PipeBlockEntity first = be(helper, FIRST_PIPE);
         first.side(Direction.WEST).mode = SideMode.EXTRACT;
         install(first, UpgradeType.STACK);
         return first;
     }
 
     private static SideConfig farSide(GameTestHelper helper) {
-        return ((PipeBlockEntity) helper.getBlockEntity(new BlockPos(2, 1, 1))).side(Direction.SOUTH);
+        return ((PipeBlockEntity) be(helper, new BlockPos(2, 1, 1))).side(Direction.SOUTH);
     }
 
     private static SideConfig nearSide(GameTestHelper helper) {
-        return ((PipeBlockEntity) helper.getBlockEntity(FIRST_PIPE)).side(Direction.NORTH);
+        return ((PipeBlockEntity) be(helper, FIRST_PIPE)).side(Direction.NORTH);
     }
 
     private static int stored(GameTestHelper helper, BlockPos pos, Item item) {
-        return ((net.minecraft.world.Container) helper.getBlockEntity(pos)).countItem(item);
+        return ((net.minecraft.world.Container) be(helper, pos)).countItem(item);
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 300)
@@ -563,7 +568,7 @@ public class PipeGameTests {
     // ---- colours, channels, network cache -----------------------------------------------------------------
 
     private static void paint(GameTestHelper helper, BlockPos pos, int color) {
-        PipeBlockEntity pipe = helper.getBlockEntity(pos);
+        PipeBlockEntity pipe = be(helper, pos);
         pipe.setColor(color);
         PipeBlock.updateConnections(helper.getLevel(), helper.absolutePos(pos));
         for (Direction dir : Direction.values()) {
@@ -601,7 +606,7 @@ public class PipeGameTests {
         helper.setBlock(SOURCE, Blocks.CHEST);
         helper.setBlock(target(1), Blocks.CHEST);
         helper.setBlock(FIRST_PIPE, ModBlocks.UNIVERSAL_PIPE.get());
-        PipeBlockEntity pipe = helper.getBlockEntity(FIRST_PIPE);
+        PipeBlockEntity pipe = be(helper, FIRST_PIPE);
         SideConfig cfg = pipe.side(Direction.WEST);
         cfg.mode = SideMode.EXTRACT;
         cfg.channels = com.knozyy.flowline.pipe.PipeType.ALL_CHANNELS & ~com.knozyy.flowline.pipe.PipeType.CH_ITEMS;
@@ -647,27 +652,26 @@ public class PipeGameTests {
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void modNameAndDurabilityRules(GameTestHelper helper) {
-        var registries = helper.getLevel().registryAccess();
         SideConfig cfg = new SideConfig(com.knozyy.flowline.pipe.PipeType.ITEM);
         cfg.setEntry(0, FilterEntry.ofMod("minecraft"));
-        helper.assertTrue(cfg.allowsItem(new ItemStack(Items.DIRT), registries), "@minecraft matches dirt");
-        helper.assertTrue(!cfg.allowsItem(new ItemStack(ModItems.WRENCH.get()), registries), "@minecraft skips the wrench");
+        helper.assertTrue(cfg.allowsItem(new ItemStack(Items.DIRT)), "@minecraft matches dirt");
+        helper.assertTrue(!cfg.allowsItem(new ItemStack(ModItems.WRENCH.get())), "@minecraft skips the wrench");
 
         cfg.clearFilter();
         cfg.setEntry(0, FilterEntry.ofName("^diam"));
-        helper.assertTrue(cfg.allowsItem(new ItemStack(Items.DIAMOND), registries), "name ^diam matches Diamond");
-        helper.assertTrue(!cfg.allowsItem(new ItemStack(Items.DIRT), registries), "name ^diam does not match Dirt");
+        helper.assertTrue(cfg.allowsItem(new ItemStack(Items.DIAMOND)), "name ^diam matches Diamond");
+        helper.assertTrue(!cfg.allowsItem(new ItemStack(Items.DIRT)), "name ^diam does not match Dirt");
         ItemStack named = new ItemStack(Items.DIRT);
-        named.set(DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("Diamond dirt"));
-        helper.assertTrue(cfg.allowsItem(named, registries), "the display name counts, renames included");
+        named.setHoverName(net.minecraft.network.chat.Component.literal("Diamond dirt"));
+        helper.assertTrue(cfg.allowsItem(named), "the display name counts, renames included");
 
         cfg.clearFilter();
         cfg.setEntry(0, FilterEntry.ofDurability(0, 50));
         ItemStack worn = new ItemStack(Items.IRON_PICKAXE);
         worn.setDamageValue(worn.getMaxDamage() * 3 / 4);
-        helper.assertTrue(cfg.allowsItem(worn, registries), "25% left is inside 0..50");
-        helper.assertTrue(!cfg.allowsItem(new ItemStack(Items.IRON_PICKAXE), registries), "a new pickaxe is at 100%");
-        helper.assertTrue(!cfg.allowsItem(new ItemStack(Items.DIRT), registries), "dirt has no durability");
+        helper.assertTrue(cfg.allowsItem(worn), "25% left is inside 0..50");
+        helper.assertTrue(!cfg.allowsItem(new ItemStack(Items.IRON_PICKAXE)), "a new pickaxe is at 100%");
+        helper.assertTrue(!cfg.allowsItem(new ItemStack(Items.DIRT)), "dirt has no durability");
 
         helper.assertTrue(FilterEntry.ofName("[").problem(com.knozyy.flowline.pipe.PipeType.ITEM) != null,
                 "a broken pattern is rejected");
@@ -678,14 +682,13 @@ public class PipeGameTests {
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void universalFluidRulesOnlyAffectFluids(GameTestHelper helper) {
-        var registries = helper.getLevel().registryAccess();
         SideConfig cfg = new SideConfig(com.knozyy.flowline.pipe.PipeType.UNIVERSAL);
         cfg.setEntry(0, FilterEntry.ofItem("minecraft:water").withFluid(true));
-        helper.assertTrue(cfg.allowsItem(new ItemStack(Items.DIRT), registries), "a fluid rule does not filter items");
-        helper.assertTrue(cfg.allowsFluid(new net.neoforged.neoforge.fluids.FluidStack(
-                net.minecraft.world.level.material.Fluids.WATER, 100), registries), "water is allowed");
-        helper.assertTrue(!cfg.allowsFluid(new net.neoforged.neoforge.fluids.FluidStack(
-                net.minecraft.world.level.material.Fluids.LAVA, 100), registries), "lava is not");
+        helper.assertTrue(cfg.allowsItem(new ItemStack(Items.DIRT)), "a fluid rule does not filter items");
+        helper.assertTrue(cfg.allowsFluid(new net.minecraftforge.fluids.FluidStack(
+                net.minecraft.world.level.material.Fluids.WATER, 100)), "water is allowed");
+        helper.assertTrue(!cfg.allowsFluid(new net.minecraftforge.fluids.FluidStack(
+                net.minecraft.world.level.material.Fluids.LAVA, 100)), "lava is not");
         helper.succeed();
     }
 
@@ -698,7 +701,7 @@ public class PipeGameTests {
         from.distribution = com.knozyy.flowline.pipe.Distribution.BALANCED;
         from.limit = 7;
         from.setEntry(0, allow("minecraft:diamond"));
-        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        Player player = helper.makeMockPlayer();
         ItemStack card = new ItemStack(ModItems.CONFIG_CARD.get());
 
         helper.startSequence()
@@ -708,7 +711,7 @@ public class PipeGameTests {
                     ModItems.CONFIG_CARD.get().useOnPipe(pipe, Direction.WEST, Conn.EXTRACT, player,
                             net.minecraft.world.InteractionHand.MAIN_HAND, card);
                     player.setShiftKeyDown(false);
-                    PipeBlockEntity other = helper.getBlockEntity(new BlockPos(2, 1, 1));
+                    PipeBlockEntity other = be(helper, new BlockPos(2, 1, 1));
                     ModItems.CONFIG_CARD.get().useOnPipe(other, Direction.SOUTH, Conn.ENDPOINT, player,
                             net.minecraft.world.InteractionHand.MAIN_HAND, card);
                     SideConfig to = other.side(Direction.SOUTH);
@@ -724,7 +727,7 @@ public class PipeGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void facadeMakesFullBlockAndDrops(GameTestHelper helper) {
         helper.setBlock(FIRST_PIPE, ModBlocks.ITEM_PIPE.get());
-        PipeBlockEntity pipe = helper.getBlockEntity(FIRST_PIPE);
+        PipeBlockEntity pipe = be(helper, FIRST_PIPE);
         helper.assertTrue(com.knozyy.flowline.item.FacadeItem.isValid(Blocks.STONE.defaultBlockState()), "stone is a facade");
         helper.assertTrue(!com.knozyy.flowline.item.FacadeItem.isValid(Blocks.CHEST.defaultBlockState()),
                 "chests are not");
@@ -752,7 +755,7 @@ public class PipeGameTests {
     public static void sleepsWithoutTargets(GameTestHelper helper) {
         helper.setBlock(SOURCE, Blocks.CHEST);
         helper.setBlock(FIRST_PIPE, ModBlocks.ITEM_PIPE.get());
-        PipeBlockEntity pipe = helper.getBlockEntity(FIRST_PIPE);
+        PipeBlockEntity pipe = be(helper, FIRST_PIPE);
         pipe.side(Direction.WEST).mode = SideMode.EXTRACT;
         install(pipe, UpgradeType.STACK);
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 4));

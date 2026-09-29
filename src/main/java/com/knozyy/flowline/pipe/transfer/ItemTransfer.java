@@ -1,5 +1,6 @@
 package com.knozyy.flowline.pipe.transfer;
 
+import com.knozyy.flowline.util.Stacks;
 import com.knozyy.flowline.pipe.Caps;
 import com.knozyy.flowline.pipe.PipeNetwork.Target;
 import com.knozyy.flowline.pipe.PipeType;
@@ -8,8 +9,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.ItemHandlerHelper;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemHandlerHelper;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -52,26 +53,26 @@ public final class ItemTransfer {
             for (int slot = 0; slot < source.getSlots() && budget > 0; slot++) {
                 ItemStack offered = source.extractItem(slot, budget, true);
                 if (offered.isEmpty()) continue;
-                if (!cfg.allowsItem(offered, level.registryAccess())) continue;
+                if (!cfg.allowsItem(offered)) continue;
                 if (cfg.limit > 0) {
                     // regulator: leave at least `limit` of this item in the source
                     int spare = count(source, offered) - cfg.limit;
                     if (spare <= 0) continue;
-                    if (spare < offered.getCount()) offered = offered.copyWithCount(spare);
+                    if (spare < offered.getCount()) offered = Stacks.withCount(offered, spare);
                 }
 
                 for (int i = 0; i < destinations.size() && !offered.isEmpty() && budget > 0; i++) {
                     Dest dest = destinations.get(i);
                     int want = Math.min(offered.getCount(), cap - given[i]);
                     if (want <= 0) continue;
-                    if (!dest.cfg().allowsItem(offered, level.registryAccess())) continue;
+                    if (!dest.cfg().allowsItem(offered)) continue;
                     if (dest.cfg().limit > 0) {
                         // regulator: keep at most `limit` of this item in the target
                         want = Math.min(want, dest.cfg().limit - count(dest.handler(), offered));
                         if (want <= 0) continue;
                     }
 
-                    ItemStack leftover = ItemHandlerHelper.insertItemStacked(dest.handler(), offered.copyWithCount(want),
+                    ItemStack leftover = ItemHandlerHelper.insertItemStacked(dest.handler(), Stacks.withCount(offered, want),
                             true);
                     int accepted = want - leftover.getCount();
                     if (accepted <= 0) continue;
@@ -87,12 +88,12 @@ public final class ItemTransfer {
                     int moved = extracted.getCount() - rest.getCount();
                     if (moved > 0 && onMove != null && !announced[i]) {
                         announced[i] = true;
-                        onMove.accept(dest.target(), extracted.copyWithCount(moved));
+                        onMove.accept(dest.target(), Stacks.withCount(extracted, moved));
                     }
                     given[i] += moved;
                     total += moved;
                     budget -= moved;
-                    offered = offered.copyWithCount(offered.getCount() - moved);
+                    offered = Stacks.withCount(offered, offered.getCount() - moved);
                 }
             }
             cap = Integer.MAX_VALUE;
@@ -105,7 +106,7 @@ public final class ItemTransfer {
         int count = 0;
         for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack stack = handler.getStackInSlot(slot);
-            if (ItemStack.isSameItemSameComponents(stack, like)) count += stack.getCount();
+            if (ItemStack.isSameItemSameTags(stack, like)) count += stack.getCount();
         }
         return count;
     }

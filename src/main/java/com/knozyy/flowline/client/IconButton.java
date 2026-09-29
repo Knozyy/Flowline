@@ -34,7 +34,7 @@ public class IconButton extends Button {
     }
 
     public static ResourceLocation icon(String name) {
-        return ResourceLocation.fromNamespaceAndPath(Flowline.MODID, "textures/gui/icon/" + name + ".png");
+        return new ResourceLocation(Flowline.MODID, "textures/gui/icon/" + name + ".png");
     }
 
     @Override

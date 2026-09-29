@@ -10,7 +10,7 @@ import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.widget.Bounds;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 
 import java.util.List;
 
@@ -35,7 +35,7 @@ public class FlowlineEmiPlugin implements EmiPlugin {
         if (stacks.isEmpty()) return List.of();
         EmiStack stack = stacks.get(0);
         FluidStack fluid = stack.getKey() instanceof Fluid f
-                ? new FluidStack(f.builtInRegistryHolder(), 1000, stack.getComponentChanges()) : FluidStack.EMPTY;
+                ? new FluidStack(f, 1000, stack.getNbt()) : FluidStack.EMPTY;
         ItemStack item = fluid.isEmpty() ? stack.getItemStack() : ItemStack.EMPTY;
         return GhostTargets.slots(screen, item, fluid);
     }

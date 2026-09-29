@@ -7,23 +7,21 @@ import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.gui.handlers.IGhostIngredientHandler;
 import mezz.jei.api.ingredients.ITypedIngredient;
-import mezz.jei.api.neoforge.NeoForgeTypes;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /** JEI: drag items (and fluids) from the ingredient list onto filter slots. Only loaded by JEI. */
 @JeiPlugin
 public class FlowlineJeiPlugin implements IModPlugin {
     @Override
     public ResourceLocation getPluginUid() {
-        return ResourceLocation.fromNamespaceAndPath(Flowline.MODID, "jei");
+        return new ResourceLocation(Flowline.MODID, "jei");
     }
 
     @Override
@@ -31,11 +29,12 @@ public class FlowlineJeiPlugin implements IModPlugin {
         registration.addGhostIngredientHandler(PipeScreen.class, new IGhostIngredientHandler<>() {
             @Override
             public <I> List<Target<I>> getTargetsTyped(PipeScreen gui, ITypedIngredient<I> ingredient, boolean doStart) {
-                Optional<ItemStack> item = ingredient.getItemStack();
-                Optional<FluidStack> fluid = ingredient.getIngredient(NeoForgeTypes.FLUID_STACK);
+                // by class, so this works across JEI 15.x versions
+                Object value = ingredient.getIngredient();
+                ItemStack item = value instanceof ItemStack stack ? stack : ItemStack.EMPTY;
+                FluidStack fluid = value instanceof FluidStack stack ? stack : FluidStack.EMPTY;
                 List<Target<I>> targets = new ArrayList<>();
-                for (GhostTargets.Slot slot : GhostTargets.slots(gui, item.orElse(ItemStack.EMPTY),
-                        fluid.orElse(FluidStack.EMPTY))) {
+                for (GhostTargets.Slot slot : GhostTargets.slots(gui, item, fluid)) {
                     targets.add(new Target<>() {
                         @Override
                         public Rect2i getArea() {

@@ -1,14 +1,15 @@
 package com.knozyy.flowline.pipe;
 
+import com.knozyy.flowline.util.Stacks;
 import com.knozyy.flowline.FlowlineConfig;
 import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.item.UpgradeType;
+import com.knozyy.flowline.network.ModNetwork;
 import com.knozyy.flowline.network.TravelPayload;
 import com.knozyy.flowline.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
@@ -23,9 +24,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.data.ModelData;
-import net.neoforged.neoforge.client.model.data.ModelProperty;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.data.ModelProperty;
+import net.minecraftforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -109,7 +110,7 @@ public class PipeBlockEntity extends BlockEntity {
         if (!accepts(dir, upgrade)) return false;
         for (int i = 0; i < SideConfig.UPGRADE_SLOTS; i++) {
             if (getUpgrade(dir, i).isEmpty()) {
-                upgrades.setItem(upgradeSlot(dir, i), upgrade.copyWithCount(1));
+                upgrades.setItem(upgradeSlot(dir, i), Stacks.withCount(upgrade, 1));
                 return true;
             }
         }
@@ -318,8 +319,9 @@ public class PipeBlockEntity extends BlockEntity {
             path.add(source);
             path.addAll(target.path());
             path.add(target.endpointPos());
-            PacketDistributor.sendToPlayersNear(level, null, x, y, z, TravelPayload.RANGE,
-                    new TravelPayload(stack.copyWithCount(Math.min(stack.getCount(), stack.getMaxStackSize())), path));
+            ModNetwork.CHANNEL.send(PacketDistributor.NEAR.with(() -> new PacketDistributor.TargetPoint(x, y, z,
+                            TravelPayload.RANGE, level.dimension())),
+                    new TravelPayload(Stacks.withCount(stack, Math.min(stack.getCount(), stack.getMaxStackSize())), path));
         };
     }
 
@@ -346,28 +348,28 @@ public class PipeBlockEntity extends BlockEntity {
     // ---- persistence and client sync ----------------------------------------------------------------------
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
+    protected void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
         ListTag list = new ListTag();
-        for (SideConfig cfg : sides) list.add(cfg.save(registries));
+        for (SideConfig cfg : sides) list.add(cfg.save());
         tag.put("sides", list);
         tag.putInt("disconnected", disconnected);
         tag.putBoolean("powered", powered);
-        tag.put("upgrades", ContainerHelper.saveAllItems(new CompoundTag(), upgrades.getItems(), registries));
+        tag.put("upgrades", ContainerHelper.saveAllItems(new CompoundTag(), upgrades.getItems()));
         saveVisuals(tag);
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
+    public void load(CompoundTag tag) {
+        super.load(tag);
         ListTag list = tag.getList("sides", Tag.TAG_COMPOUND);
-        for (int i = 0; i < sides.length && i < list.size(); i++) sides[i].load(list.getCompound(i), registries);
+        for (int i = 0; i < sides.length && i < list.size(); i++) sides[i].load(list.getCompound(i));
         disconnected = tag.getInt("disconnected");
         powered = tag.getBoolean("powered");
         upgrades.getItems().clear();
-        ContainerHelper.loadAllItems(tag.getCompound("upgrades"), upgrades.getItems(), registries);
+        ContainerHelper.loadAllItems(tag.getCompound("upgrades"), upgrades.getItems());
         syncUpgrades();
-        loadVisuals(tag, registries);
+        loadVisuals(tag);
     }
 
     private void saveVisuals(CompoundTag tag) {
@@ -375,17 +377,17 @@ public class PipeBlockEntity extends BlockEntity {
         if (facade != null) tag.put("facade", NbtUtils.writeBlockState(facade));
     }
 
-    private void loadVisuals(CompoundTag tag, HolderLookup.Provider registries) {
+    private void loadVisuals(CompoundTag tag) {
         color = tag.contains("color") ? tag.getInt("color") : NO_COLOR;
         facade = tag.contains("facade")
-                ? NbtUtils.readBlockState(registries.lookupOrThrow(Registries.BLOCK), tag.getCompound("facade"))
+                ? NbtUtils.readBlockState(BuiltInRegistries.BLOCK.asLookup(), tag.getCompound("facade"))
                 : null;
         if (facade != null && facade.isAir()) facade = null;
     }
 
     /** Clients only need what changes the look: colour and facade. */
     @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+    public CompoundTag getUpdateTag() {
         CompoundTag tag = new CompoundTag();
         saveVisuals(tag);
         return tag;
@@ -398,14 +400,15 @@ public class PipeBlockEntity extends BlockEntity {
     }
 
     @Override
-    public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries) {
-        loadVisuals(tag, registries);
+    public void handleUpdateTag(CompoundTag tag) {
+        loadVisuals(tag);
         redraw();
     }
 
     @Override
-    public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt, HolderLookup.Provider registries) {
-        loadVisuals(pkt.getTag(), registries);
+    public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt) {
+        CompoundTag tag = pkt.getTag();
+        if (tag != null) loadVisuals(tag);
         redraw();
     }
 

@@ -4,19 +4,16 @@ import com.knozyy.flowline.pipe.PipeType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import io.netty.buffer.ByteBuf;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.Registry;
-import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.TagParser;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
@@ -24,8 +21,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -81,7 +78,16 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
         return new FilterEntry(item, tags, allTags, nbt, exact, invert, mod, name, min, max, fluid);
     }));
 
-    public static final StreamCodec<ByteBuf, FilterEntry> STREAM_CODEC = ByteBufCodecs.fromCodec(CODEC);
+    /** Network form: the codec's NBT. */
+    public void write(FriendlyByteBuf buf) {
+        buf.writeNbt((CompoundTag) CODEC.encodeStart(NbtOps.INSTANCE, this).result().orElseGet(CompoundTag::new));
+    }
+
+    @Nullable
+    public static FilterEntry read(FriendlyByteBuf buf) {
+        CompoundTag tag = buf.readNbt();
+        return tag == null ? null : CODEC.parse(NbtOps.INSTANCE, tag).result().orElse(null);
+    }
 
     /** An item/tag/NBT rule without the newer parts. */
     public FilterEntry(Optional<String> item, List<String> tags, boolean allTags, Optional<CompoundTag> nbt,
@@ -217,11 +223,11 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
             FluidStack fluid = fluidIn(stack);
             if (fluid.isEmpty()) return null;
             return new FilterEntry(Optional.of(BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString()), List.of(),
-                    false, encode(fluid.getComponentsPatch(), registries), false, false);
+                    false, encode(fluid.getTag()), false, false);
         }
         if (!type.movesItems()) return null;
         return new FilterEntry(Optional.of(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()), List.of(),
-                false, encode(stack.getComponentsPatch(), registries), false, false);
+                false, encode(stack.getTag()), false, false);
     }
 
     /** A fluid rule matching {@code fluid} exactly (its fluid and its data components). */
@@ -229,17 +235,13 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
     public static FilterEntry fromFluid(FluidStack fluid, HolderLookup.Provider registries) {
         if (fluid.isEmpty()) return null;
         return new FilterEntry(Optional.of(BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString()), List.of(),
-                false, encode(fluid.getComponentsPatch(), registries), false, false, Optional.empty(), Optional.empty(),
+                false, encode(fluid.getTag()), false, false, Optional.empty(), Optional.empty(),
                 0, 100, true);
     }
 
-    /** The component patch as NBT, or empty when the patch is empty. */
-    public static Optional<CompoundTag> encode(DataComponentPatch patch, HolderLookup.Provider registries) {
-        if (patch.isEmpty()) return Optional.empty();
-        return DataComponentPatch.CODEC.encodeStart(registries.createSerializationContext(NbtOps.INSTANCE), patch)
-                .result()
-                .filter(tag -> tag instanceof CompoundTag c && !c.isEmpty())
-                .map(tag -> (CompoundTag) tag);
+    /** A copy of a stack's NBT, or empty when it has none. */
+    public static Optional<CompoundTag> encode(@Nullable CompoundTag tag) {
+        return tag == null || tag.isEmpty() ? Optional.empty() : Optional.of(tag.copy());
     }
 
     private static FluidStack fluidIn(ItemStack stack) {
@@ -265,7 +267,7 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
         if (type == PipeType.FLUID) {
             FluidStack fluid = fluidIn(sample);
             if (fluid.isEmpty()) return List.of();
-            tags = fluid.getFluidHolder().tags().map(TagKey::location);
+            tags = fluid.getFluid().builtInRegistryHolder().tags().map(TagKey::location);
         } else {
             tags = sample.getTags().map(TagKey::location);
         }
@@ -275,9 +277,8 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
     /** Data components of the sample (or the fluid inside it) as NBT; empty compound if it has none. */
     public static CompoundTag componentsOf(PipeType type, ItemStack sample, HolderLookup.Provider registries) {
         if (sample.isEmpty()) return new CompoundTag();
-        DataComponentPatch patch = type == PipeType.FLUID ? fluidIn(sample).getComponentsPatch()
-                : sample.getComponentsPatch();
-        return encode(patch, registries).orElseGet(CompoundTag::new);
+        CompoundTag tag = type == PipeType.FLUID ? fluidIn(sample).getTag() : sample.getTag();
+        return encode(tag).orElseGet(CompoundTag::new);
     }
 
     /** Every tag known to the item (or fluid) registry. */
@@ -368,11 +369,7 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
             shown = Items.NAME_TAG;
         }
         ItemStack stack = new ItemStack(shown == Items.AIR ? Items.BARRIER : shown);
-        if (itemId != null && nbt.isPresent()) {
-            DataComponentPatch.CODEC.parse(registries.createSerializationContext(NbtOps.INSTANCE), nbt.get())
-                    .result()
-                    .ifPresent(stack::applyComponents);
-        }
+        if (itemId != null && nbt.isPresent()) stack.setTag(nbt.get().copy());
         return stack;
     }
 

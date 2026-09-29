@@ -8,21 +8,22 @@ import com.knozyy.flowline.registry.ModMenus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.BlockModelShaper;
 import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ModelEvent;
-import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
-import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
-import net.neoforged.neoforge.registries.DeferredBlock;
+import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ModelEvent;
+import net.minecraftforge.client.event.RegisterColorHandlersEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.registries.RegistryObject;
 
 import java.util.Map;
 
-@EventBusSubscriber(modid = Flowline.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = Flowline.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public final class ClientSetup {
     /** Tint of the band around an undyed pipe's core. */
     private static final int UNDYED = 0xFFB9BEC7;
@@ -30,8 +31,8 @@ public final class ClientSetup {
     private ClientSetup() {}
 
     @SubscribeEvent
-    public static void registerScreens(RegisterMenuScreensEvent event) {
-        event.register(ModMenus.PIPE.get(), PipeScreen::new);
+    public static void registerScreens(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> MenuScreens.register(ModMenus.PIPE.get(), PipeScreen::new));
     }
 
     /**
@@ -40,7 +41,7 @@ public final class ClientSetup {
      */
     @SubscribeEvent
     public static void registerBlockColors(RegisterColorHandlersEvent.Block event) {
-        Block[] pipes = ModBlocks.pipes().stream().map(DeferredBlock::get).toArray(Block[]::new);
+        Block[] pipes = ModBlocks.pipes().stream().map(RegistryObject::get).toArray(Block[]::new);
         event.register((state, level, pos, tintIndex) -> {
             if (level == null || pos == null || !(level.getBlockEntity(pos) instanceof PipeBlockEntity be)) {
                 return tintIndex == 0 ? UNDYED : -1;
@@ -48,18 +49,19 @@ public final class ClientSetup {
             BlockState facade = be.facade();
             if (facade != null) return Minecraft.getInstance().getBlockColors().getColor(facade, level, pos, tintIndex);
             if (tintIndex != 0) return -1;
-            return be.color() == PipeBlockEntity.NO_COLOR ? UNDYED
-                    : DyeColor.byId(be.color()).getTextureDiffuseColor();
+            if (be.color() == PipeBlockEntity.NO_COLOR) return UNDYED;
+            float[] rgb = DyeColor.byId(be.color()).getTextureDiffuseColors();
+            return (int) (rgb[0] * 255) << 16 | (int) (rgb[1] * 255) << 8 | (int) (rgb[2] * 255);
         }, pipes);
     }
 
     /** Wraps every pipe model so a facade can replace it. */
     @SubscribeEvent
     public static void wrapModels(ModelEvent.ModifyBakingResult event) {
-        Map<ModelResourceLocation, BakedModel> models = event.getModels();
-        for (DeferredBlock<PipeBlock> pipe : ModBlocks.pipes()) {
+        Map<ResourceLocation, BakedModel> models = event.getModels();
+        for (RegistryObject<PipeBlock> pipe : ModBlocks.pipes()) {
             for (BlockState state : pipe.get().getStateDefinition().getPossibleStates()) {
-                ModelResourceLocation location = BlockModelShaper.stateToModelLocation(state);
+                ResourceLocation location = BlockModelShaper.stateToModelLocation(state);
                 BakedModel model = models.get(location);
                 if (model != null && !(model instanceof FacadeModel)) models.put(location, new FacadeModel(model));
             }

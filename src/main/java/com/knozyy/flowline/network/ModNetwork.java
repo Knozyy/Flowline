@@ -3,60 +3,94 @@ package com.knozyy.flowline.network;
 import com.knozyy.flowline.Flowline;
 import com.knozyy.flowline.item.WrenchItem;
 import com.knozyy.flowline.menu.PipeMenu;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.simple.SimpleChannel;
 
-@EventBusSubscriber(modid = Flowline.MODID, bus = EventBusSubscriber.Bus.MOD)
+import java.util.function.Supplier;
+
 public final class ModNetwork {
+    private static final String PROTOCOL = "2";
+    public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
+            new ResourceLocation(Flowline.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
+
     private ModNetwork() {}
 
-    @SubscribeEvent
-    public static void register(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("2");
-        registrar.playToServer(SetFilterEntryPayload.TYPE, SetFilterEntryPayload.STREAM_CODEC, ModNetwork::onSetEntry);
-        registrar.playToServer(SetSideValuePayload.TYPE, SetSideValuePayload.STREAM_CODEC, ModNetwork::onSetValue);
-        registrar.playToServer(WrenchScrollPayload.TYPE, WrenchScrollPayload.STREAM_CODEC, ModNetwork::onWrenchScroll);
-        registrar.playToClient(FilterPagePayload.TYPE, FilterPagePayload.STREAM_CODEC, ModNetwork::onFilterPage);
-        // the handler only touches the client class when it runs, i.e. on the client
-        registrar.playToClient(TravelPayload.TYPE, TravelPayload.STREAM_CODEC, (payload, context) ->
-                context.enqueueWork(() -> com.knozyy.flowline.client.TravellingItems.add(payload)));
+    public static void register() {
+        int id = 0;
+        CHANNEL.messageBuilder(SetFilterEntryPayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(SetFilterEntryPayload::encode).decoder(SetFilterEntryPayload::decode)
+                .consumerMainThread(ModNetwork::onSetEntry).add();
+        CHANNEL.messageBuilder(SetSideValuePayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(SetSideValuePayload::encode).decoder(SetSideValuePayload::decode)
+                .consumerMainThread(ModNetwork::onSetValue).add();
+        CHANNEL.messageBuilder(WrenchScrollPayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(WrenchScrollPayload::encode).decoder(WrenchScrollPayload::decode)
+                .consumerMainThread(ModNetwork::onWrenchScroll).add();
+        CHANNEL.messageBuilder(FilterPagePayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(FilterPagePayload::encode).decoder(FilterPagePayload::decode)
+                .consumerMainThread(ModNetwork::onFilterPage).add();
+        CHANNEL.messageBuilder(TravelPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(TravelPayload::encode).decoder(TravelPayload::decode)
+                .consumerMainThread(ModNetwork::onTravel).add();
     }
 
-    private static void onSetEntry(SetFilterEntryPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player().containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()) {
-                menu.setEntry(payload.index(), payload.entry().orElse(null));
-            }
-        });
+    public static void sendToServer(Object message) {
+        CHANNEL.sendToServer(message);
     }
 
-    private static void onSetValue(SetSideValuePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player().containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()) {
-                menu.setValue(payload.field(), payload.value());
-            }
-        });
+    private static void onSetEntry(SetFilterEntryPayload payload, Supplier<NetworkEvent.Context> context) {
+        ServerPlayer player = context.get().getSender();
+        if (player != null && player.containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()) {
+            menu.setEntry(payload.index(), payload.entry().orElse(null));
+        }
+        context.get().setPacketHandled(true);
     }
 
-    private static void onWrenchScroll(WrenchScrollPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            Player player = context.player();
-            if (player.getMainHandItem().getItem() instanceof WrenchItem
-                    && player.distanceToSqr(payload.pos().getCenter()) <= 64) {
-                WrenchItem.scroll(player, payload.pos(), payload.side(), payload.forward(), payload.redstone());
-            }
-        });
+    private static void onSetValue(SetSideValuePayload payload, Supplier<NetworkEvent.Context> context) {
+        ServerPlayer player = context.get().getSender();
+        if (player != null && player.containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()) {
+            menu.setValue(payload.field(), payload.value());
+        }
+        context.get().setPacketHandled(true);
     }
 
-    private static void onFilterPage(FilterPagePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player().containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()) {
+    private static void onWrenchScroll(WrenchScrollPayload payload, Supplier<NetworkEvent.Context> context) {
+        Player player = context.get().getSender();
+        if (player != null && player.getMainHandItem().getItem() instanceof WrenchItem
+                && player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(payload.pos())) <= 64) {
+            WrenchItem.scroll(player, payload.pos(), payload.side(), payload.forward(), payload.redstone());
+        }
+        context.get().setPacketHandled(true);
+    }
+
+    private static void onFilterPage(FilterPagePayload payload, Supplier<NetworkEvent.Context> context) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandlers.filterPage(payload));
+        context.get().setPacketHandled(true);
+    }
+
+    private static void onTravel(TravelPayload payload, Supplier<NetworkEvent.Context> context) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandlers.travel(payload));
+        context.get().setPacketHandled(true);
+    }
+
+    /** Only loaded on the client. */
+    private static final class ClientHandlers {
+        static void filterPage(FilterPagePayload payload) {
+            Player player = net.minecraft.client.Minecraft.getInstance().player;
+            if (player != null && player.containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()) {
                 menu.receivePage(payload.page(), payload.entries());
             }
-        });
+        }
+
+        static void travel(TravelPayload payload) {
+            com.knozyy.flowline.client.TravellingItems.add(payload);
+        }
     }
 }

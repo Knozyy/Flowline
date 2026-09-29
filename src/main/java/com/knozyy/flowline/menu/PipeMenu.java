@@ -15,7 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
@@ -27,7 +27,8 @@ import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.knozyy.flowline.network.ModNetwork;
+import net.minecraftforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -113,7 +114,7 @@ public class PipeMenu extends AbstractContainerMenu {
     private final IntSupplier rateData;
 
     /** Client constructor, fed by the extra data written in {@code PipeBlock}. */
-    public PipeMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
+    public PipeMenu(int id, Inventory inventory, FriendlyByteBuf buf) {
         this(id, inventory, buf.readBlockPos(), buf.readEnum(Direction.class), buf.readEnum(PipeType.class),
                 buf.readEnum(SideMode.class), null);
     }
@@ -420,7 +421,7 @@ public class PipeMenu extends AbstractContainerMenu {
             for (int i = 0; i < SideConfig.FILTER_PAGE; i++) {
                 entries.add(Optional.ofNullable(cfg.getEntry(page * SideConfig.FILTER_PAGE + i)));
             }
-            PacketDistributor.sendToPlayer(player, new FilterPagePayload(containerId, page, entries));
+            ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new FilterPagePayload(containerId, page, entries));
         }
     }
 
@@ -443,7 +444,7 @@ public class PipeMenu extends AbstractContainerMenu {
         }
 
         if (stack.isEmpty()) {
-            slot.setByPlayer(ItemStack.EMPTY);
+            slot.set(ItemStack.EMPTY);
         } else {
             slot.setChanged();
         }

@@ -2,6 +2,7 @@
 """Generates blockstates, models, textures, recipes, loot tables and lang files under src/main/resources.
 
 Run from the repo root:  python3 tools/gen_resources.py
+This branch targets Minecraft 1.20.1 / Forge: plural data folders, {"item": ...} recipe results, forge: conditions.
 Pure standard library; textures are simple placeholders meant to be replaced by real art.
 """
 import json
@@ -423,16 +424,17 @@ for name in TYPES:
         multipart.append({"when": {side: "extract"}, "apply": {"model": f"{MODID}:block/{name}_pipe_extract", **r}})
     write_json(f"assets/{MODID}/blockstates/{name}_pipe.json", {"multipart": multipart})
 
-    # loot table (optional pipes only load with their mod, or the unknown item is logged as an error)
-    loot = {"type": "minecraft:block"} if name not in OPTIONAL else {
-        "neoforge:conditions": [{"type": "neoforge:mod_loaded", "modid": OPTIONAL[name]}], "type": "minecraft:block"}
-    loot["pools"] = [{
-        "rolls": 1.0,
-        "bonus_rolls": 0.0,
-        "conditions": [{"condition": "minecraft:survives_explosion"}],
-        "entries": [{"type": "minecraft:item", "name": f"{MODID}:{name}_pipe"}],
-    }]
-    write_json(f"data/{MODID}/loot_table/blocks/{name}_pipe.json", loot)
+    # loot table; optional pipes have none, their block drops itself (see PipeBlock#getDrops)
+    if name not in OPTIONAL:
+        write_json(f"data/{MODID}/loot_tables/blocks/{name}_pipe.json", {
+            "type": "minecraft:block",
+            "pools": [{
+                "rolls": 1.0,
+                "bonus_rolls": 0.0,
+                "conditions": [{"condition": "minecraft:survives_explosion"}],
+                "entries": [{"type": "minecraft:item", "name": f"{MODID}:{name}_pipe"}],
+            }],
+        })
 
 for name in ("wrench", "speed_upgrade", "stack_upgrade", "filter_upgrade", "knozy_upgrade", "config_card",
              "filter_card", "facade"):
@@ -441,7 +443,7 @@ for name in ("wrench", "speed_upgrade", "stack_upgrade", "filter_upgrade", "knoz
         "textures": {"layer0": f"{MODID}:item/{name}"},
     })
 
-write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
+write_json("data/minecraft/tags/blocks/mineable/pickaxe.json", {
     "replace": False,
     # optional pipes are only registered with their mod, so they must not be required here
     "values": [f"{MODID}:{n}_pipe" if n not in OPTIONAL else {"id": f"{MODID}:{n}_pipe", "required": False}
@@ -458,20 +460,20 @@ def shapeless(name, ingredients, result, count=1, needs=None):
         "type": "minecraft:crafting_shapeless",
         "category": "redstone",
         "ingredients": [ing(i) for i in ingredients],
-        "result": {"id": result, "count": count},
+        "result": {"item": result, "count": count},
     }
     if needs:
-        recipe["neoforge:conditions"] = [{"type": "neoforge:mod_loaded", "modid": needs}]
-    write_json(f"data/{MODID}/recipe/{name}.json", recipe)
+        recipe = {"conditions": [{"type": "forge:mod_loaded", "modid": needs}], **recipe}
+    write_json(f"data/{MODID}/recipes/{name}.json", recipe)
 
 
 def shaped(name, pattern, key, result, count=1):
-    write_json(f"data/{MODID}/recipe/{name}.json", {
+    write_json(f"data/{MODID}/recipes/{name}.json", {
         "type": "minecraft:crafting_shaped",
         "category": "redstone",
         "pattern": pattern,
         "key": {k: ing(v) for k, v in key.items()},
-        "result": {"id": result, "count": count},
+        "result": {"item": result, "count": count},
     })
 
 
@@ -498,7 +500,7 @@ shaped("filter_card", ["PRP", "PHP", "PPP"],
 shaped("facade_blank", ["N N", " P ", "N N"], {"N": "minecraft:iron_nugget", "P": "minecraft:paper"},
        f"{MODID}:facade", 8)
 # a blank facade and a full block in the crafting grid: a facade of that block (see FacadeRecipe)
-write_json(f"data/{MODID}/recipe/facade.json", {"type": f"{MODID}:facade", "category": "misc"})
+write_json(f"data/{MODID}/recipes/facade.json", {"type": f"{MODID}:facade", "category": "misc"})
 
 # ---------------------------------------------------------------- lang
 def lang(code, tr):
@@ -1178,12 +1180,12 @@ def nbt_empty_structure(size):
 
     palette = (b"\x09" + name("palette") + b"\x0a" + struct.pack(">i", 1)
                + b"\x08" + name("Name") + name("minecraft:air") + b"\x00")
-    body = (b"\x03" + name("DataVersion") + struct.pack(">i", 3955)
+    body = (b"\x03" + name("DataVersion") + struct.pack(">i", 3465)
             + int_list("size", size) + palette + empty_list("blocks") + empty_list("entities"))
     return gzip.compress(b"\x0a" + name("") + body + b"\x00", mtime=0)
 
 
-full = os.path.join(ROOT, "data", MODID, "structure", "empty.nbt")
+full = os.path.join(ROOT, "data", MODID, "structures", "empty.nbt")
 os.makedirs(os.path.dirname(full), exist_ok=True)
 with open(full, "wb") as f:
     f.write(nbt_empty_structure([6, 3, 3]))

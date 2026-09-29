@@ -26,7 +26,7 @@ import java.util.Locale;
 public enum PipeSideProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
     INSTANCE;
 
-    private static final ResourceLocation UID = ResourceLocation.fromNamespaceAndPath(Flowline.MODID, "pipe_side");
+    private static final ResourceLocation UID = new ResourceLocation(Flowline.MODID, "pipe_side");
 
     @Override
     public ResourceLocation getUid() {

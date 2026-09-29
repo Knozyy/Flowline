@@ -2,23 +2,23 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "pattern": [
-    "IPI",
-    "PHP",
-    "IPI"
+    "IRI",
+    "ICI",
+    "IRI"
   ],
   "key": {
     "I": {
       "item": "minecraft:iron_ingot"
     },
-    "P": {
-      "item": "minecraft:paper"
+    "C": {
+      "item": "minecraft:chest"
     },
-    "H": {
-      "item": "minecraft:hopper"
+    "R": {
+      "item": "minecraft:redstone"
     }
   },
   "result": {
-    "id": "flowline:filter_upgrade",
+    "item": "flowline:stack_upgrade",
     "count": 1
   }
 }

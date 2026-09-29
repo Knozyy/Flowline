@@ -1,5 +1,6 @@
 package com.knozyy.flowline.client;
 
+import com.knozyy.flowline.util.Stacks;
 import com.knozyy.flowline.filter.FilterEntry;
 import com.knozyy.flowline.menu.PipeMenu;
 import com.knozyy.flowline.network.SetFilterEntryPayload;
@@ -17,7 +18,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.knozyy.flowline.network.ModNetwork;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -282,7 +283,7 @@ public class RuleEditorScreen extends Screen {
     // ---- sample -------------------------------------------------------------------------------------------
 
     private void setSample(ItemStack stack, boolean fromClick) {
-        sample = stack.copyWithCount(1);
+        sample = Stacks.withCount(stack, 1);
         sampleTags = FilterEntry.tagsOf(type, sample);
         sampleData = FilterEntry.componentsOf(type, sample, menu.registries());
         String id = FilterEntry.idOf(type, sample);
@@ -378,7 +379,7 @@ public class RuleEditorScreen extends Screen {
     }
 
     private void send(@Nullable FilterEntry entry) {
-        PacketDistributor.sendToServer(new SetFilterEntryPayload(menu.containerId, index, Optional.ofNullable(entry)));
+        ModNetwork.sendToServer(new SetFilterEntryPayload(menu.containerId, index, Optional.ofNullable(entry)));
     }
 
     @Override
@@ -436,7 +437,7 @@ public class RuleEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
         int mx = (int) mouseX - left, my = (int) mouseY - top;
         int step = scrollY < 0 ? 1 : -1;
         if (in(mx, my, MID_L, TAG_LIST_T, MID_R, BODY_B)) {
@@ -447,7 +448,7 @@ public class RuleEditorScreen extends Screen {
             nbtScroll = clampScroll(nbtScroll + step, nbtRows.size(), visibleRows(NBT_LIST_T));
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        return super.mouseScrolled(mouseX, mouseY, scrollY);
     }
 
     private static int clampScroll(int value, int rows, int visible) {
@@ -486,8 +487,8 @@ public class RuleEditorScreen extends Screen {
     // ---- rendering ----------------------------------------------------------------------------------------
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+    public void renderBackground(GuiGraphics graphics) {
+        super.renderBackground(graphics);
         int l = left, t = top, r = left + W, b = top + H;
         graphics.fill(l + 1, t - 1, r - 1, b + 1, BG_EDGE);
         graphics.fill(l - 1, t + 1, r + 1, b - 1, BG_EDGE);
@@ -511,6 +512,7 @@ public class RuleEditorScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         anyAllButton.setMessage(Component.translatable(allTags ? "gui.flowline.library.all" : "gui.flowline.library.any"));
         anyAllButton.active = selectedTags.size() > 1;
+        renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
 
         int mx = mouseX - left, my = mouseY - top;

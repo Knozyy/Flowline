@@ -1,7 +1,11 @@
 # Flowline
 
-Pipez-style transport mod for **NeoForge 1.21.1** (Java 21): item, fluid and energy pipes with per-side
+Pipez-style transport mod for **Forge 1.20.1** (Java 17): item, fluid and energy pipes with per-side
 modes, filters, distribution modes and speed upgrades.
+
+> This branch is the 1.20.1 Forge backport of the NeoForge 1.21.1 version. Differences: rule "data" matches the
+> stack's NBT tag (1.20.1 has no data components), and the Chemical Pipe moves Mekanism 10.4's gases, infuse types,
+> pigments and slurries.
 
 ## Gameplay
 
@@ -81,7 +85,7 @@ Older rules load automatically.
 
 - **JEI / EMI**: drag an item or fluid from the list onto a filter slot.
 - **Jade**: looking at a pipe shows the side's mode, distribution, pacing, priority and regulator.
-- **Mekanism**: the Chemical Pipe.
+- **Mekanism** (10.4): the Chemical Pipe (gases, infuse types, pigments, slurries).
 
 ## Config
 
@@ -102,7 +106,7 @@ Older rules load automatically.
 
 CI (`.github/workflows/build.yml`) builds the jar, uploads it as the `flowline-jar` artifact and runs the in-world tests.
 
-Requires access to `maven.neoforged.net`, Mojang's asset/library hosts and, for the optional integration APIs,
+Requires access to `maven.minecraftforge.net`, Mojang's asset/library hosts and, for the optional integration APIs,
 `maven.blamejared.com` (JEI), `maven.terraformersmc.com` (EMI), `www.cursemaven.com` (Jade) and `modmaven.dev`
 (Mekanism).
 

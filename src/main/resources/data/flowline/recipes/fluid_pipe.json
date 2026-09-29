@@ -12,11 +12,11 @@
       "item": "minecraft:iron_ingot"
     },
     {
-      "item": "minecraft:hopper"
+      "item": "minecraft:bucket"
     }
   ],
   "result": {
-    "id": "flowline:item_pipe",
+    "item": "flowline:fluid_pipe",
     "count": 4
   }
 }

@@ -3,13 +3,12 @@ package com.knozyy.flowline.pipe;
 import com.knozyy.flowline.FlowlineConfig;
 import com.knozyy.flowline.filter.CompiledFilter;
 import com.knozyy.flowline.filter.FilterEntry;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -148,17 +147,17 @@ public class SideConfig {
         return compiled;
     }
 
-    public boolean allowsItem(ItemStack stack, HolderLookup.Provider registries) {
-        return compiled().allowsItem(stack, registries);
+    public boolean allowsItem(ItemStack stack) {
+        return compiled().allowsItem(stack);
     }
 
-    public boolean allowsFluid(FluidStack fluid, HolderLookup.Provider registries) {
-        return compiled().allowsFluid(fluid, registries);
+    public boolean allowsFluid(FluidStack fluid) {
+        return compiled().allowsFluid(fluid);
     }
 
     // ---- persistence --------------------------------------------------------------------------------------
 
-    public CompoundTag save(HolderLookup.Provider registries) {
+    public CompoundTag save() {
         CompoundTag tag = saveSettings();
         tag.putString("mode", mode.name());
         tag.put("filter", saveFilter());
@@ -193,7 +192,7 @@ public class SideConfig {
         return list;
     }
 
-    public void load(CompoundTag tag, HolderLookup.Provider registries) {
+    public void load(CompoundTag tag) {
         mode = SideMode.byName(tag.getString("mode"));
         loadSettings(tag);
         loadFilter(tag.getList("filter", Tag.TAG_COMPOUND));

@@ -9,10 +9,9 @@ import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.ChunkRenderTypeSet;
-import net.neoforged.neoforge.client.model.BakedModelWrapper;
-import net.neoforged.neoforge.client.model.data.ModelData;
-import net.neoforged.neoforge.common.util.TriState;
+import net.minecraftforge.client.ChunkRenderTypeSet;
+import net.minecraftforge.client.model.BakedModelWrapper;
+import net.minecraftforge.client.model.data.ModelData;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -45,13 +44,6 @@ public class FacadeModel extends BakedModelWrapper<BakedModel> {
         BlockState facade = facade(data);
         if (facade == null) return super.getRenderTypes(state, rand, data);
         return modelOf(facade).getRenderTypes(facade, rand, ModelData.EMPTY);
-    }
-
-    @Override
-    public TriState useAmbientOcclusion(BlockState state, ModelData data, RenderType renderType) {
-        BlockState facade = facade(data);
-        if (facade == null) return super.useAmbientOcclusion(state, data, renderType);
-        return modelOf(facade).useAmbientOcclusion(facade, ModelData.EMPTY, renderType);
     }
 
     @Override

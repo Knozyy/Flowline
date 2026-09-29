@@ -1,25 +1,16 @@
 package com.knozyy.flowline.network;
 
-import com.knozyy.flowline.Flowline;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.FriendlyByteBuf;
 
 /** Client → server: set a number (priority, regulator, rate) of the side in the open pipe menu. */
-public record SetSideValuePayload(int containerId, int field, int value) implements CustomPacketPayload {
-    public static final Type<SetSideValuePayload> TYPE =
-            new Type<>(ResourceLocation.fromNamespaceAndPath(Flowline.MODID, "set_side_value"));
+public record SetSideValuePayload(int containerId, int field, int value) {
+    public void encode(FriendlyByteBuf buf) {
+        buf.writeVarInt(containerId);
+        buf.writeVarInt(field);
+        buf.writeInt(value);
+    }
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, SetSideValuePayload> STREAM_CODEC = StreamCodec.composite(
-            ByteBufCodecs.VAR_INT, SetSideValuePayload::containerId,
-            ByteBufCodecs.VAR_INT, SetSideValuePayload::field,
-            ByteBufCodecs.INT, SetSideValuePayload::value,
-            SetSideValuePayload::new);
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public static SetSideValuePayload decode(FriendlyByteBuf buf) {
+        return new SetSideValuePayload(buf.readVarInt(), buf.readVarInt(), buf.readInt());
     }
 }

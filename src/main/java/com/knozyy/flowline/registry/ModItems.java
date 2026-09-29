@@ -6,45 +6,51 @@ import com.knozyy.flowline.item.FacadeItem;
 import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.item.WrenchItem;
+import com.knozyy.flowline.pipe.PipeBlock;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
-import net.neoforged.neoforge.registries.DeferredItem;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
 public final class ModItems {
-    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(Flowline.MODID);
+    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, Flowline.MODID);
 
-    public static final DeferredItem<BlockItem> ITEM_PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.ITEM_PIPE);
-    public static final DeferredItem<BlockItem> FLUID_PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.FLUID_PIPE);
-    public static final DeferredItem<BlockItem> ENERGY_PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.ENERGY_PIPE);
-    public static final DeferredItem<BlockItem> UNIVERSAL_PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.UNIVERSAL_PIPE);
+    public static final RegistryObject<BlockItem> ITEM_PIPE = blockItem(ModBlocks.ITEM_PIPE);
+    public static final RegistryObject<BlockItem> FLUID_PIPE = blockItem(ModBlocks.FLUID_PIPE);
+    public static final RegistryObject<BlockItem> ENERGY_PIPE = blockItem(ModBlocks.ENERGY_PIPE);
+    public static final RegistryObject<BlockItem> UNIVERSAL_PIPE = blockItem(ModBlocks.UNIVERSAL_PIPE);
     @Nullable
-    public static final DeferredItem<BlockItem> CHEMICAL_PIPE =
-            ModBlocks.CHEMICAL_PIPE == null ? null : ITEMS.registerSimpleBlockItem(ModBlocks.CHEMICAL_PIPE);
+    public static final RegistryObject<BlockItem> CHEMICAL_PIPE =
+            ModBlocks.CHEMICAL_PIPE == null ? null : blockItem(ModBlocks.CHEMICAL_PIPE);
 
-    public static final DeferredItem<WrenchItem> WRENCH =
-            ITEMS.registerItem("wrench", WrenchItem::new, new Item.Properties().stacksTo(1));
+    public static final RegistryObject<WrenchItem> WRENCH =
+            ITEMS.register("wrench", () -> new WrenchItem(new Item.Properties().stacksTo(1)));
 
-    public static final DeferredItem<UpgradeItem> SPEED_UPGRADE = upgrade("speed_upgrade", UpgradeType.SPEED);
-    public static final DeferredItem<UpgradeItem> STACK_UPGRADE = upgrade("stack_upgrade", UpgradeType.STACK);
-    public static final DeferredItem<UpgradeItem> FILTER_UPGRADE = upgrade("filter_upgrade", UpgradeType.FILTER);
-    public static final DeferredItem<UpgradeItem> KNOZY_UPGRADE = upgrade("knozy_upgrade", UpgradeType.KNOZY);
+    public static final RegistryObject<UpgradeItem> SPEED_UPGRADE = upgrade("speed_upgrade", UpgradeType.SPEED);
+    public static final RegistryObject<UpgradeItem> STACK_UPGRADE = upgrade("stack_upgrade", UpgradeType.STACK);
+    public static final RegistryObject<UpgradeItem> FILTER_UPGRADE = upgrade("filter_upgrade", UpgradeType.FILTER);
+    public static final RegistryObject<UpgradeItem> KNOZY_UPGRADE = upgrade("knozy_upgrade", UpgradeType.KNOZY);
 
-    public static final List<DeferredItem<UpgradeItem>> UPGRADES =
+    public static final List<RegistryObject<UpgradeItem>> UPGRADES =
             List.of(SPEED_UPGRADE, STACK_UPGRADE, FILTER_UPGRADE, KNOZY_UPGRADE);
 
-    public static final DeferredItem<ConfigCardItem> CONFIG_CARD = ITEMS.registerItem("config_card",
-            props -> new ConfigCardItem(props, false), new Item.Properties().stacksTo(1));
-    public static final DeferredItem<ConfigCardItem> FILTER_CARD = ITEMS.registerItem("filter_card",
-            props -> new ConfigCardItem(props, true), new Item.Properties().stacksTo(1));
-    public static final DeferredItem<FacadeItem> FACADE =
-            ITEMS.registerItem("facade", FacadeItem::new, new Item.Properties());
+    public static final RegistryObject<ConfigCardItem> CONFIG_CARD = ITEMS.register("config_card",
+            () -> new ConfigCardItem(new Item.Properties().stacksTo(1), false));
+    public static final RegistryObject<ConfigCardItem> FILTER_CARD = ITEMS.register("filter_card",
+            () -> new ConfigCardItem(new Item.Properties().stacksTo(1), true));
+    public static final RegistryObject<FacadeItem> FACADE =
+            ITEMS.register("facade", () -> new FacadeItem(new Item.Properties()));
 
-    private static DeferredItem<UpgradeItem> upgrade(String name, UpgradeType type) {
-        return ITEMS.registerItem(name, props -> new UpgradeItem(props, type), new Item.Properties());
+    private static RegistryObject<BlockItem> blockItem(RegistryObject<PipeBlock> block) {
+        return ITEMS.register(block.getId().getPath(), () -> new BlockItem(block.get(), new Item.Properties()));
+    }
+
+    private static RegistryObject<UpgradeItem> upgrade(String name, UpgradeType type) {
+        return ITEMS.register(name, () -> new UpgradeItem(new Item.Properties(), type));
     }
 
     public static UpgradeItem upgrade(UpgradeType type) {

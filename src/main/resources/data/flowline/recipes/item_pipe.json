@@ -12,17 +12,11 @@
       "item": "minecraft:iron_ingot"
     },
     {
-      "item": "mekanism:basic_pressurized_tube"
+      "item": "minecraft:hopper"
     }
   ],
   "result": {
-    "id": "flowline:chemical_pipe",
+    "item": "flowline:item_pipe",
     "count": 4
-  },
-  "neoforge:conditions": [
-    {
-      "type": "neoforge:mod_loaded",
-      "modid": "mekanism"
-    }
-  ]
+  }
 }

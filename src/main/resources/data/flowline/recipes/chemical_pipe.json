@@ -1,4 +1,10 @@
 {
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
   "type": "minecraft:crafting_shapeless",
   "category": "redstone",
   "ingredients": [
@@ -12,11 +18,11 @@
       "item": "minecraft:iron_ingot"
     },
     {
-      "item": "minecraft:bucket"
+      "item": "mekanism:basic_pressurized_tube"
     }
   ],
   "result": {
-    "id": "flowline:fluid_pipe",
+    "item": "flowline:chemical_pipe",
     "count": 4
   }
 }

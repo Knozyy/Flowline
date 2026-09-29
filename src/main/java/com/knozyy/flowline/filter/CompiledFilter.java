@@ -1,7 +1,6 @@
 package com.knozyy.flowline.filter;
 
 import com.knozyy.flowline.pipe.PipeType;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
@@ -12,7 +11,7 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -65,9 +64,9 @@ public final class CompiledFilter {
         return itemAllow.isEmpty() && itemDeny.isEmpty() && fluidAllow.isEmpty() && fluidDeny.isEmpty();
     }
 
-    public boolean allowsItem(ItemStack stack, HolderLookup.Provider registries) {
+    public boolean allowsItem(ItemStack stack) {
         if (itemAllow.isEmpty() && itemDeny.isEmpty()) return true;
-        Lazy data = new Lazy(() -> FilterEntry.encode(stack.getComponentsPatch(), registries));
+        Lazy data = new Lazy(() -> FilterEntry.encode(stack.getTag()));
         for (Rule rule : itemDeny) {
             if (rule.matchesItem(stack, data)) return false;
         }
@@ -78,9 +77,9 @@ public final class CompiledFilter {
         return false;
     }
 
-    public boolean allowsFluid(FluidStack fluid, HolderLookup.Provider registries) {
+    public boolean allowsFluid(FluidStack fluid) {
         if (fluidAllow.isEmpty() && fluidDeny.isEmpty()) return true;
-        Lazy data = new Lazy(() -> FilterEntry.encode(fluid.getComponentsPatch(), registries));
+        Lazy data = new Lazy(() -> FilterEntry.encode(fluid.getTag()));
         for (Rule rule : fluidDeny) {
             if (rule.matchesFluid(fluid, data)) return false;
         }
@@ -190,11 +189,12 @@ public final class CompiledFilter {
             if (mod != null && !mod.equals(key.getNamespace())) return false;
             if (!tags.isEmpty()) {
                 if (fluidTags == null) fluidTags = tags.stream().map(t -> TagKey.create(Registries.FLUID, t)).toList();
-                if (allTags ? !fluidTags.stream().allMatch(fluid::is) : fluidTags.stream().noneMatch(fluid::is)) {
+                Fluid f = fluid.getFluid();
+                if (allTags ? !fluidTags.stream().allMatch(f::is) : fluidTags.stream().noneMatch(f::is)) {
                     return false;
                 }
             }
-            if (name != null && !name.matcher(fluid.getHoverName().getString()).find()) return false;
+            if (name != null && !name.matcher(fluid.getDisplayName().getString()).find()) return false;
             return matchesNbt(data);
         }
 

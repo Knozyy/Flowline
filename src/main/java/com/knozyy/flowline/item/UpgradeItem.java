@@ -44,7 +44,8 @@ public class UpgradeItem extends Item implements PipeInteractable {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, @Nullable net.minecraft.world.level.Level level, List<Component> tooltip,
+                                TooltipFlag flag) {
         tooltip.addAll(effectLines(type));
         tooltip.add(Component.translatable("item.flowline.upgrade.where", SideConfig.UPGRADE_SLOTS)
                 .withStyle(ChatFormatting.DARK_GRAY));
@@ -55,16 +56,16 @@ public class UpgradeItem extends Item implements PipeInteractable {
         List<Component> lines = new ArrayList<>();
         if (type.speed > 0) {
             lines.add(Component.translatable("item.flowline.upgrade.effect.speed",
-                    FlowlineConfig.SPEED_REDUCTION.get(), Pacing.min()).withColor(SPEED_COLOR));
+                    FlowlineConfig.SPEED_REDUCTION.get(), Pacing.min()).withStyle(s -> s.withColor(SPEED_COLOR)));
         }
         if (type.stack > 0) {
             String curve = FlowlineConfig.STACK_MULTIPLIERS.get().stream().map(m -> "x" + m)
                     .reduce((a, b) -> a + " > " + b).orElse("x1");
-            lines.add(Component.translatable("item.flowline.upgrade.effect.stack", curve).withColor(STACK_COLOR));
+            lines.add(Component.translatable("item.flowline.upgrade.effect.stack", curve).withStyle(s -> s.withColor(STACK_COLOR)));
         }
         if (type.filter > 0) {
             lines.add(Component.translatable("item.flowline.upgrade.effect.filter",
-                    FlowlineConfig.FILTER_SLOTS_PER_UPGRADE.get()).withColor(FILTER_COLOR));
+                    FlowlineConfig.FILTER_SLOTS_PER_UPGRADE.get()).withStyle(s -> s.withColor(FILTER_COLOR)));
         }
         return lines;
     }

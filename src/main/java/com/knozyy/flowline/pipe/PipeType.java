@@ -10,7 +10,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.capabilities.Capabilities;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -78,10 +79,12 @@ public enum PipeType implements StringRepresentable {
 
     /** Whether the block at {@code pos} exposes any capability this pipe moves on {@code access}. */
     public boolean hasEndpoint(Level level, BlockPos pos, Direction access) {
-        return items && level.getCapability(Capabilities.ItemHandler.BLOCK, pos, access) != null
-                || fluids && level.getCapability(Capabilities.FluidHandler.BLOCK, pos, access) != null
-                || energy && level.getCapability(Capabilities.EnergyStorage.BLOCK, pos, access) != null
-                || chemicals && ChemicalCompat.hasHandler(level, pos, access);
+        BlockEntity be = level.getBlockEntity(pos);
+        if (be == null) return false;
+        return items && be.getCapability(ForgeCapabilities.ITEM_HANDLER, access).isPresent()
+                || fluids && be.getCapability(ForgeCapabilities.FLUID_HANDLER, access).isPresent()
+                || energy && be.getCapability(ForgeCapabilities.ENERGY, access).isPresent()
+                || chemicals && ChemicalCompat.hasHandler(be, access);
     }
 
     /**

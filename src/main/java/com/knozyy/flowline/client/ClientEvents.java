@@ -11,16 +11,16 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import com.knozyy.flowline.network.ModNetwork;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.client.event.InputEvent;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
-@EventBusSubscriber(modid = Flowline.MODID, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = Flowline.MODID, value = Dist.CLIENT)
 public final class ClientEvents {
     private ClientEvents() {}
 
@@ -33,10 +33,10 @@ public final class ClientEvents {
         if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return;
         BlockPos pos = hit.getBlockPos();
         if (!(mc.level.getBlockState(pos).getBlock() instanceof PipeBlock)) return;
-        if (event.getScrollDeltaY() == 0) return;
+        if (event.getScrollDelta() == 0) return;
         boolean facade = mc.level.getBlockEntity(pos) instanceof PipeBlockEntity be && be.facade() != null;
         Direction side = PipeBlock.sideFromHit(hit, pos, facade);
-        PacketDistributor.sendToServer(new WrenchScrollPayload(pos, side, event.getScrollDeltaY() > 0,
+        ModNetwork.sendToServer(new WrenchScrollPayload(pos, side, event.getScrollDelta() > 0,
                 Screen.hasControlDown()));
         event.setCanceled(true);
     }
@@ -45,11 +45,12 @@ public final class ClientEvents {
     public static void onRender(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES || event.getPoseStack() == null) return;
         TravellingItems.render(event.getPoseStack(), event.getCamera().getPosition(),
-                event.getPartialTick().getGameTimeDeltaPartialTick(false));
+                event.getPartialTick());
     }
 
     @SubscribeEvent
-    public static void onTick(ClientTickEvent.Post event) {
+    public static void onTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null) TravellingItems.tick(mc.level);
     }
