@@ -58,7 +58,7 @@
   "gui.flowline.rule.more": "  ...ve %s tane daha",
   "gui.flowline.library.sample": "Örnek",
   "gui.flowline.library.pick": "Eşya seç",
-  "gui.flowline.library.pick_hint": "Aşağıdan bir eşyaya tıkla ya da JEI/EMI'den sürükle",
+  "gui.flowline.library.pick_hint": "Aşağıdan tıkla ya da buraya sürükle",
   "gui.flowline.library.match_item": "Bu eşyayı eşleştir",
   "gui.flowline.library.tags": "Etiketler",
   "gui.flowline.library.search": "Tüm etiketlerde ara...",

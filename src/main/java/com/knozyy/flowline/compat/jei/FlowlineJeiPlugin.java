@@ -7,7 +7,6 @@ import com.knozyy.flowline.client.RuleEditorScreen;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.gui.handlers.IGhostIngredientHandler;
-import mezz.jei.api.gui.handlers.IGuiProperties;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
 import net.minecraft.client.gui.screens.Screen;
@@ -35,43 +34,6 @@ public class FlowlineJeiPlugin implements IModPlugin {
         registration.addGhostIngredientHandler(PipeScreen.class, new Handler<PipeScreen>(GhostTargets::slots));
         registration.addGhostIngredientHandler(RuleEditorScreen.class,
                 new Handler<RuleEditorScreen>(RuleEditorScreen::dropTargets));
-        // the rule editor is not an inventory screen: tell JEI where it is so the ingredient list shows beside it
-        registration.addGuiScreenHandler(RuleEditorScreen.class, screen -> new IGuiProperties() {
-            @Override
-            public Class<? extends Screen> getScreenClass() {
-                return RuleEditorScreen.class;
-            }
-
-            @Override
-            public int getGuiLeft() {
-                return screen.guiLeft();
-            }
-
-            @Override
-            public int getGuiTop() {
-                return screen.guiTop();
-            }
-
-            @Override
-            public int getGuiXSize() {
-                return RuleEditorScreen.W;
-            }
-
-            @Override
-            public int getGuiYSize() {
-                return RuleEditorScreen.H;
-            }
-
-            @Override
-            public int getScreenWidth() {
-                return screen.width;
-            }
-
-            @Override
-            public int getScreenHeight() {
-                return screen.height;
-            }
-        });
     }
 
     @FunctionalInterface

@@ -58,7 +58,7 @@
   "gui.flowline.rule.more": "  ...and %s more",
   "gui.flowline.library.sample": "Sample",
   "gui.flowline.library.pick": "Pick an item",
-  "gui.flowline.library.pick_hint": "Click an item below or drag one from JEI/EMI",
+  "gui.flowline.library.pick_hint": "Click an item below or drag one in",
   "gui.flowline.library.match_item": "Match this item",
   "gui.flowline.library.tags": "Tags",
   "gui.flowline.library.search": "Search all tags...",

@@ -7,22 +7,29 @@ import com.knozyy.flowline.network.SetFilterEntryPayload;
 import com.knozyy.flowline.pipe.PipeType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.MultiLineEditBox;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import com.knozyy.flowline.network.ModNetwork;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -34,9 +41,13 @@ import java.util.Set;
 /**
  * The filter "library": pick a sample from the inventory, then tick the tags and data components a rule should
  * match. Opened from {@link PipeScreen} while the pipe menu stays open; closing it returns there.
+ * <p>
+ * It is a container screen over a slotless {@link Blank} menu only so that recipe viewers (JEI, EMI) show their
+ * ingredient list beside it, which they do for container screens. The pipe's real menu stays open underneath and is
+ * what rules are sent to; no slot of it is drawn or clicked here.
  */
-public class RuleEditorScreen extends Screen {
-    public static final int W = 300, H = 270;
+public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.Blank> {
+    private static final int W = 300, H = 270;
     private static final int BG = 0xFF1E2229, BG_EDGE = 0xFF0E1014, PANEL = 0xFF262B33, PANEL_EDGE = 0xFF343A45;
     private static final int SLOT = 0xFF14171C, SLOT_EDGE = 0xFF3A404C, TEXT = 0xFFE6E9EF, MUTED = 0xFF8A93A3;
     private static final int ERROR = 0xFFFF6B6B, ROW_HOVER = 0xFF30363F;
@@ -52,6 +63,7 @@ public class RuleEditorScreen extends Screen {
     private static final int INV_Y = 190, HOTBAR_Y = 248, INV_X = (W - 9 * 18) / 2;
 
     private final PipeScreen parent;
+    /** The pipe's open menu (hides the container screen's own {@code menu}, which is the {@link Blank}). */
     private final PipeMenu menu;
     /** Registry kind of the rule being edited: FLUID for fluid rules, ITEM otherwise. */
     private PipeType type;
@@ -102,8 +114,28 @@ public class RuleEditorScreen extends Screen {
 
     private record NbtRow(String key) {}
 
+    /** A menu without slots, so the container screen machinery has nothing to draw, click or sync. */
+    public static final class Blank extends AbstractContainerMenu {
+        private Blank(int containerId) {
+            super(null, containerId);
+        }
+
+        @Override
+        public ItemStack quickMoveStack(Player player, int index) {
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+    }
+
     public RuleEditorScreen(PipeScreen parent, PipeMenu menu, int index, @Nullable FilterEntry entry, int accent) {
-        super(Component.translatable("gui.flowline.editor.title", index + 1));
+        super(new Blank(menu.containerId), Minecraft.getInstance().player.getInventory(),
+                Component.translatable("gui.flowline.editor.title", index + 1));
+        this.imageWidth = W;
+        this.imageHeight = H;
         this.parent = parent;
         this.menu = menu;
         this.index = index;
@@ -134,8 +166,9 @@ public class RuleEditorScreen extends Screen {
 
     @Override
     protected void init() {
-        left = (width - W) / 2;
-        top = (height - H) / 2;
+        super.init();
+        left = leftPos;
+        top = topPos;
 
         // header
         addRenderableWidget(new IconButton(left + 132, top + 4, 14, () -> invert ? "blacklist" : "whitelist", accent,
@@ -304,14 +337,6 @@ public class RuleEditorScreen extends Screen {
 
     // ---- recipe viewer drag and drop -----------------------------------------------------------------------
 
-    public int guiLeft() {
-        return left;
-    }
-
-    public int guiTop() {
-        return top;
-    }
-
     /**
      * Where an item or fluid dragged from JEI or EMI can be dropped: the sample column (becomes the sample and the
      * rule's item), the tag list (becomes the sample so its tags are listed to tick) and the mod box (its mod).
@@ -436,9 +461,18 @@ public class RuleEditorScreen extends Screen {
 
     // ---- input --------------------------------------------------------------------------------------------
 
+    // The container screen's own input handling is about slots (and would swallow every click, or close the
+    // screen on the inventory key while typing), so widgets get the events directly, like on a plain screen.
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (super.mouseClicked(mouseX, mouseY, button)) return true;
+        for (GuiEventListener child : children()) {
+            if (child.mouseClicked(mouseX, mouseY, button)) {
+                setFocused(child);
+                if (button == 0) setDragging(true);
+                return true;
+            }
+        }
         int mx = (int) mouseX - left, my = (int) mouseY - top;
 
         // "match this item" checkbox
@@ -477,6 +511,35 @@ public class RuleEditorScreen extends Screen {
         }
         return false;
     }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        setDragging(false);
+        return getChildAt(mouseX, mouseY).filter(child -> child.mouseReleased(mouseX, mouseY, button)).isPresent();
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        return getFocused() != null && isDragging() && button == 0
+                && getFocused().mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    /** Typing into a text field must not close the editor (inventory key) or reach the hotbar keys. */
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        GuiEventListener focused = getFocused();
+        if (keyCode != GLFW.GLFW_KEY_ESCAPE && keyCode != GLFW.GLFW_KEY_TAB
+                && (focused instanceof EditBox box && box.isFocused()
+                || focused instanceof MultiLineEditBox text && text.isFocused())) {
+            focused.keyPressed(keyCode, scanCode, modifiers);
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    /** No slots here; nothing may reach the pipe's menu as a slot click. */
+    @Override
+    protected void slotClicked(@Nullable Slot slot, int slotId, int button, ClickType type) {}
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
@@ -527,6 +590,13 @@ public class RuleEditorScreen extends Screen {
     }
 
     // ---- rendering ----------------------------------------------------------------------------------------
+
+    @Override
+    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {}
+
+    /** The container screen's title and "Inventory" labels; the header draws its own. */
+    @Override
+    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {}
 
     @Override
     public void renderBackground(GuiGraphics graphics) {
