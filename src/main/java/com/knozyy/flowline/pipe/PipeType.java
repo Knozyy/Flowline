@@ -98,25 +98,48 @@ public enum PipeType implements StringRepresentable {
                          int elapsed, @Nullable BiConsumer<PipeNetwork.Target, ItemStack> onItem) {
         int multiplier = Pacing.stackMultiplier(cfg.stackCount);
         boolean balanced = cfg.distribution == Distribution.BALANCED;
+        // overflow targets only get what the others could not take, in nearest-first order
+        List<PipeNetwork.Target> main = targets, spare = List.of();
+        if (targets.stream().anyMatch(t -> t.insert().overflow)) {
+            main = targets.stream().filter(t -> !t.insert().overflow).toList();
+            spare = targets.stream().filter(t -> t.insert().overflow)
+                    .sorted(java.util.Comparator.comparingInt(PipeNetwork.Target::distance)).toList();
+        }
+        List<PipeNetwork.Target> overflow = spare;
         long moved = 0;
         if (items && cfg.channel(CH_ITEMS, this)) {
-            moved += ItemTransfer.run(level, sourcePos, source, cfg, targets,
-                    Pacing.itemsPerOperation(cfg.stackCount), balanced, this, onItem);
+            moved += inTwoPasses(main, overflow, Pacing.itemsPerOperation(cfg.stackCount), (list, budget, first) ->
+                    ItemTransfer.run(level, sourcePos, source, cfg, list, budget, first && balanced, this, onItem));
         }
         if (fluids && cfg.channel(CH_FLUIDS, this)) {
-            moved += FluidTransfer.run(level, source, cfg, targets,
-                    Pacing.fluidPerOperation(cfg.stackCount), balanced, this);
+            moved += inTwoPasses(main, overflow, Pacing.fluidPerOperation(cfg.stackCount), (list, budget, first) ->
+                    FluidTransfer.run(level, source, cfg, list, budget, first && balanced, this));
         }
         if (energy && cfg.channel(CH_ENERGY, this)) {
             long ticks = Math.max(1, elapsed);
             long budget = (long) FlowlineConfig.ENERGY_PER_TICK.get() * multiplier * ticks;
             if (cfg.rate > 0) budget = Math.min(budget, (long) cfg.rate * ticks);
-            moved += EnergyTransfer.run(source, cfg, targets, (int) Math.min(Integer.MAX_VALUE, budget), balanced, this);
+            moved += inTwoPasses(main, overflow, (int) Math.min(Integer.MAX_VALUE, budget), (list, b, first) ->
+                    EnergyTransfer.run(source, cfg, list, b, first && balanced, this));
         }
         if (chemicals) {
-            moved += ChemicalCompat.transfer(source, targets,
-                    Pacing.chemicalPerOperation(cfg.stackCount), balanced);
+            moved += inTwoPasses(main, overflow, Pacing.chemicalPerOperation(cfg.stackCount), (list, budget, first) ->
+                    ChemicalCompat.transfer(source, list, budget, first && balanced));
         }
+        return moved;
+    }
+
+    @FunctionalInterface
+    private interface Pass {
+        /** Moves up to {@code budget} to {@code targets}; {@code first} is false for the overflow pass. */
+        long run(List<PipeNetwork.Target> targets, int budget, boolean first);
+    }
+
+    /** The main targets first, then the overflow targets with whatever budget is left. */
+    private static long inTwoPasses(List<PipeNetwork.Target> main, List<PipeNetwork.Target> overflow, int budget,
+                                    Pass pass) {
+        long moved = main.isEmpty() ? 0 : pass.run(main, budget, true);
+        if (!overflow.isEmpty() && moved < budget) moved += pass.run(overflow, (int) (budget - moved), false);
         return moved;
     }
 }

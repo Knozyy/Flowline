@@ -1013,6 +1013,9 @@ en.update({
     "pack.flowline.solid_pipes.description": "Opaque pipe walls instead of see-through ones",
     "key.categories.flowline": "Flowline",
     "key.flowline.build": "Build pipes to me (pipe in off hand)",
+    "gui.flowline.overflow.on": "Overflow: on",
+    "gui.flowline.overflow.off": "Overflow: off",
+    "gui.flowline.overflow.desc": "When on, this target only gets what the other targets could not take, like a spare chest for the rest.",
     "message.flowline.build.no_pipe": "Hold a pipe in your off hand to build",
     "message.flowline.build.nothing": "Look at a block within %s blocks",
     "message.flowline.build.blocked": "No free path from there to you",
@@ -1081,6 +1084,9 @@ tr.update({
     "pack.flowline.solid_pipes.description": "Şeffaf yerine opak boru duvarları",
     "key.categories.flowline": "Flowline",
     "key.flowline.build": "Boruyu bana kadar döşe (boru sol elde)",
+    "gui.flowline.overflow.on": "Taşma: açık",
+    "gui.flowline.overflow.off": "Taşma: kapalı",
+    "gui.flowline.overflow.desc": "Açıkken bu hedef sadece diğer hedeflerin alamadığını alır, fazlası için bir yedek sandık gibi.",
     "message.flowline.build.no_pipe": "Döşemek için sol eline bir boru al",
     "message.flowline.build.nothing": "%s blok içinde bir bloğa bak",
     "message.flowline.build.blocked": "Oradan sana kadar boş bir yol yok",
@@ -1310,7 +1316,21 @@ def bolt_icon(col):
     return c
 
 
+def overflow_icon():
+    """A full box spilling into a spare one."""
+    c = Canvas()
+    c.rect(1, 2, 8, 8, ORANGE)
+    c.rect(1, 2, 8, 3, tuple(min(255, int(v * 1.25)) for v in ORANGE))
+    c.rect(8, 11, 14, 14, GREY)
+    c.line(9, 5, 12, 5, WHITE)
+    c.line(12, 5, 12, 9, WHITE)
+    c.dot(11, 8, WHITE)
+    c.dot(13, 8, WHITE)
+    return c
+
+
 GUI_ICONS = {
+    "overflow": overflow_icon(),
     "redstone_pulse": pulse(),
     "distribution_balanced": balanced(),
     "distribution_priority": priority_icon(),

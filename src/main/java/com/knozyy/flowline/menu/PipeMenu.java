@@ -55,6 +55,8 @@ public class PipeMenu extends AbstractContainerMenu {
     public static final int BTN_REDSTONE_BACK = 9;
     /** Toggles channel {@code id - BTN_CHANNEL} on universal pipes: 0 items, 1 fluids, 2 energy. */
     public static final int BTN_CHANNEL = 10;
+    /** Insert sides: toggle overflow. */
+    public static final int BTN_OVERFLOW = 13;
 
     /** Fields set through {@link com.knozyy.flowline.network.SetSideValuePayload}. */
     public static final int FIELD_PRIORITY = 0;
@@ -96,6 +98,7 @@ public class PipeMenu extends AbstractContainerMenu {
     private final SideMode openedMode;
 
     private final DataSlot modeData;
+    private final DataSlot overflowData;
     private final DataSlot distributionData;
     private final DataSlot redstoneData;
     private final DataSlot speedCountData;
@@ -174,6 +177,7 @@ public class PipeMenu extends AbstractContainerMenu {
         capacityData = track(() -> cfg.filterCapacity());
         priorityData = track(() -> cfg.priority);
         channelsData = track(() -> cfg.channels);
+        overflowData = track(() -> cfg.overflow ? 1 : 0);
         limitData = trackInt(() -> cfg.limit);
         rateData = trackInt(() -> cfg.rate);
         itemsData = trackInt(() -> Pacing.itemsPerOperation(cfg.stackCount));
@@ -304,6 +308,10 @@ public class PipeMenu extends AbstractContainerMenu {
         return channelsData.get();
     }
 
+    public boolean overflow() {
+        return overflowData.get() != 0;
+    }
+
     public int pageCount() {
         return Math.max(1, (capacity() + SideConfig.FILTER_PAGE - 1) / SideConfig.FILTER_PAGE);
     }
@@ -322,6 +330,10 @@ public class PipeMenu extends AbstractContainerMenu {
                 if (!type.hasChannels()) return false;
                 cfg.channels ^= 1 << (id - BTN_CHANNEL);
                 cfg.wake();
+            }
+            case BTN_OVERFLOW -> {
+                if (cfg.mode != SideMode.INSERT) return false;
+                cfg.overflow = !cfg.overflow;
             }
             case BTN_CLEAR -> {
                 if (!hasFilter()) return false;

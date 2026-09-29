@@ -58,6 +58,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private IconButton redstoneButton;
     private IconButton distributionButton;
     private IconButton clearButton;
+    private IconButton overflowButton;
     /** Until when (ms) the clear button is armed: the first click only arms it, so rules are not lost to a misclick. */
     private long clearArmedUntil = 0;
     private IconButton prevPageButton;
@@ -99,6 +100,9 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         distributionButton.visible = extract;
         clearButton = addRenderableWidget(new IconButton(x, extract ? y + 22 : y, 20,
                 () -> "clear", accent, b -> clickClear())).warnWhen(this::clearArmed);
+        overflowButton = addRenderableWidget(new IconButton(x + 22, y, 20, () -> "overflow", accent,
+                () -> !menu.overflow(), b -> press(PipeMenu.BTN_OVERFLOW)));
+        overflowButton.visible = !extract;
         prevPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 24, topPos + PANEL_TOP + 2, 10,
                 () -> "page_prev", accent, b -> press(PipeMenu.BTN_PREV_PAGE)));
         nextPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 13, topPos + PANEL_TOP + 2, 10,
@@ -467,6 +471,9 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             lines = List.of(Component.translatable("gui.flowline.filter_page", menu.page() + 1, menu.pageCount()),
                     Component.translatable("gui.flowline.filter_capacity", menu.capacity())
                             .withStyle(ChatFormatting.GRAY));
+        } else if (overflowButton.visible && overflowButton.isHovered()) {
+            lines = List.of(Component.translatable(menu.overflow() ? "gui.flowline.overflow.on" : "gui.flowline.overflow.off"),
+                    Component.translatable("gui.flowline.overflow.desc").withStyle(ChatFormatting.GRAY));
         } else if (clearButton.visible && clearButton.isHovered()) {
             lines = clearArmed()
                     ? List.of(Component.translatable("gui.flowline.clear.confirm").withStyle(ChatFormatting.RED))

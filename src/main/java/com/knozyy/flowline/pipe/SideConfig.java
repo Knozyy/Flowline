@@ -36,6 +36,8 @@ public class SideConfig {
      * least this much of each kind in the source. Items count items, fluids millibuckets, energy FE.
      */
     public int limit = 0;
+    /** Insert sides: only receive what the other targets of an operation could not take. */
+    public boolean overflow = false;
     /** Extract sides moving energy: at most this many FE per tick, 0 = unlimited. */
     public int rate = 0;
     /** Universal pipes: which kinds this side moves ({@link PipeType#CH_ITEMS} ...). */
@@ -172,6 +174,7 @@ public class SideConfig {
         if (priority != 0) tag.putInt("priority", priority);
         if (limit != 0) tag.putInt("limit", limit);
         if (rate != 0) tag.putInt("rate", rate);
+        if (overflow) tag.putBoolean("overflow", true);
         if (channels != PipeType.ALL_CHANNELS) tag.putInt("channels", channels);
         return tag;
     }
@@ -204,6 +207,7 @@ public class SideConfig {
         priority = Math.max(-MAX_PRIORITY, Math.min(MAX_PRIORITY, tag.getInt("priority")));
         limit = Math.max(0, Math.min(MAX_AMOUNT, tag.getInt("limit")));
         rate = Math.max(0, Math.min(MAX_AMOUNT, tag.getInt("rate")));
+        overflow = tag.getBoolean("overflow");
         channels = tag.contains("channels") ? tag.getInt("channels") & PipeType.ALL_CHANNELS : PipeType.ALL_CHANNELS;
     }
 

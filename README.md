@@ -34,7 +34,8 @@ make it **Extract**. Both kinds have a screen:
 - **Extract**: redstone mode, distribution, filter, upgrades, **Keep ≥** (regulator: leave at least this much of
   each kind in the source), and on energy-moving pipes **FE/t max** (rate limit).
 - **Insert**: **Priority**, an **insert filter** (only matching stacks go into this target), **Max ≤** (regulator:
-  keep at most this much of each kind in the target) and Filter upgrades.
+  keep at most this much of each kind in the target) and Filter upgrades, and **Overflow** (this target only gets what the other targets
+  could not take, like a spare chest).
 
 Distributions: Nearest, Farthest, Round robin, Random, **Balanced** (splits every operation evenly between the
 targets) and **Priority** (highest insert priority first, ties to the nearest). Redstone: ignored, needs signal,

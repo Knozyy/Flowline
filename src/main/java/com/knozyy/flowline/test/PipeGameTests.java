@@ -514,6 +514,27 @@ public class PipeGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = TEMPLATE, timeoutTicks = 400)
+    public static void overflowTargetOnlyTakesTheRest(GameTestHelper helper) {
+        twoTargets(helper);
+        nearSide(helper).overflow = true;
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 16));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(stored(helper, FAR, Items.DIAMOND) == 16,
+                        "the normal far barrel takes everything while it has room"))
+                .thenExecute(() -> {
+                    helper.assertTrue(stored(helper, NEAR, Items.DIAMOND) == 0,
+                            "the near overflow barrel gets nothing while the far one accepts");
+                    net.minecraft.world.Container far = (net.minecraft.world.Container) be(helper, FAR);
+                    for (int i = 0; i < far.getContainerSize(); i++) far.setItem(i, new ItemStack(Items.DIRT, 64));
+                    chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 16));
+                })
+                .thenWaitUntil(() -> helper.assertTrue(stored(helper, NEAR, Items.DIAMOND) == 16,
+                        "with the far barrel full, the rest goes to the overflow barrel"))
+                .thenSucceed();
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 300)
     public static void insertFilterRoutesItems(GameTestHelper helper) {
         twoTargets(helper);
