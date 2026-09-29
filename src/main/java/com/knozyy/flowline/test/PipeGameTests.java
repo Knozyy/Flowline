@@ -293,7 +293,8 @@ public class PipeGameTests {
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
 
         helper.startSequence()
-                .thenIdle(2)   // connections are computed one tick after placement
+                // connections are computed by a scheduled tick after placement: wait for it, not a fixed time
+                .thenWaitUntil(() -> helper.assertTrue(westConn(helper) == Conn.ENDPOINT, "the pipe should connect"))
                 .thenExecute(() -> {
                     PipeBlockEntity pipe = helper.getBlockEntity(FIRST_PIPE);
                     SideConfig cfg = pipe.side(Direction.WEST);
@@ -577,7 +578,9 @@ public class PipeGameTests {
         BlockPos second = new BlockPos(2, 1, 1);
 
         helper.startSequence()
-                .thenIdle(2)
+                .thenWaitUntil(() -> helper.assertTrue(
+                        helper.getBlockState(FIRST_PIPE).getValue(PipeBlock.prop(Direction.EAST)) == Conn.PIPE,
+                        "the two pipes should connect first"))
                 .thenExecute(() -> {
                     paint(helper, FIRST_PIPE, net.minecraft.world.item.DyeColor.RED.getId());
                     paint(helper, second, net.minecraft.world.item.DyeColor.BLUE.getId());
