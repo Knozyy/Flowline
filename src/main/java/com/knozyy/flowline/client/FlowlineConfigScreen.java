@@ -49,6 +49,7 @@ public class FlowlineConfigScreen extends Screen {
             new Section("filter", FlowlineConfig.SPEC, false, List.of(FlowlineConfig.BASE_FILTER_SLOTS,
                     FlowlineConfig.FILTER_SLOTS_PER_UPGRADE)),
             new Section("network", FlowlineConfig.SPEC, false, List.of(FlowlineConfig.MAX_NETWORK_SIZE)),
+            new Section("building", FlowlineConfig.SPEC, false, List.of(FlowlineConfig.BUILD_RANGE)),
             new Section("animations", FlowlineConfig.SPEC, false, List.of(FlowlineConfig.SEND_ANIMATIONS)));
 
     public static void register() {

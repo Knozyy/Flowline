@@ -113,6 +113,16 @@ public final class FlowlineConfig {
 
     static {
         BUILDER.pop();
+        BUILDER.comment("\"Build for me\": with a pipe in the off hand, a key (B by default) lays pipes from the block",
+                "the player looks at back to the player.").push("building");
+    }
+
+    public static final ForgeConfigSpec.IntValue BUILD_RANGE = BUILDER
+            .comment("How far away the looked-at block may be. Paths may be up to three times as long.")
+            .defineInRange("buildRange", 32, 4, 128);
+
+    static {
+        BUILDER.pop();
         BUILDER.comment("Items drawn travelling through see-through pipes.").push("animations");
     }
 

@@ -8,6 +8,7 @@ import com.knozyy.flowline.pipe.Conn;
 import com.knozyy.flowline.pipe.Pacing;
 import com.knozyy.flowline.pipe.PipeBlock;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
+import com.knozyy.flowline.pipe.PipeBuilder;
 import com.knozyy.flowline.pipe.RedstoneMode;
 import com.knozyy.flowline.pipe.SideConfig;
 import com.knozyy.flowline.pipe.SideMode;
@@ -25,6 +26,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -804,5 +806,45 @@ public class PipeGameTests {
                 .thenWaitUntil(() -> helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 4,
                         "a new target should wake the side up"))
                 .thenSucceed();
+    }
+
+    // ---- build for me -------------------------------------------------------------------------------------
+
+    /** A standing player's box in the cell at {@code feet}. */
+    private static AABB playerAt(BlockPos feet) {
+        return new AABB(feet.getX() + 0.2, feet.getY(), feet.getZ() + 0.2, feet.getX() + 0.8, feet.getY() + 1.8,
+                feet.getZ() + 0.8);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void buildPathGoesAroundWalls(GameTestHelper helper) {
+        for (int y = 1; y <= 2; y++) {
+            for (int z = 0; z <= 2; z++) helper.setBlock(new BlockPos(2, y, z), Blocks.STONE);
+        }
+        BlockPos start = helper.absolutePos(new BlockPos(0, 1, 1));
+        BlockPos feet = helper.absolutePos(new BlockPos(5, 1, 1));
+        List<BlockPos> path = PipeBuilder.path(helper.getLevel(), start, playerAt(feet), 64);
+        helper.assertTrue(path != null && !path.isEmpty(), "a wall with a way around it must not block the path");
+        helper.assertTrue(path.get(0).equals(start), "the path starts at the looked-at face");
+        for (int i = 0; i < path.size(); i++) {
+            BlockPos pos = path.get(i);
+            helper.assertTrue(helper.getLevel().getBlockState(pos).canBeReplaced(), "the path runs through air: " + pos);
+            helper.assertTrue(!pos.equals(feet) && !pos.equals(feet.above()), "no pipe where the player stands");
+            if (i > 0) helper.assertTrue(pos.distManhattan(path.get(i - 1)) == 1, "the path is connected at " + pos);
+        }
+        BlockPos last = path.get(path.size() - 1);
+        helper.assertTrue(last.distManhattan(feet) == 1 || last.distManhattan(feet.above()) == 1,
+                "the path ends next to the player, not at " + last);
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void buildPathRefusesWhenWalledIn(GameTestHelper helper) {
+        BlockPos start = new BlockPos(1, 1, 1);
+        for (Direction dir : Direction.values()) helper.setBlock(start.relative(dir), Blocks.STONE);
+        List<BlockPos> path = PipeBuilder.path(helper.getLevel(), helper.absolutePos(start),
+                playerAt(helper.absolutePos(new BlockPos(5, 1, 1))), 64);
+        helper.assertTrue(path == null, "a walled-in start has no path");
+        helper.succeed();
     }
 }

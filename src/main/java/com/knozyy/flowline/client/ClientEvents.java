@@ -2,6 +2,7 @@ package com.knozyy.flowline.client;
 
 import com.knozyy.flowline.Flowline;
 import com.knozyy.flowline.item.WrenchItem;
+import com.knozyy.flowline.network.BuildPayload;
 import com.knozyy.flowline.network.WrenchScrollPayload;
 import com.knozyy.flowline.pipe.PipeBlock;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
@@ -53,6 +54,10 @@ public final class ClientEvents {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null) TravellingItems.tick(mc.level);
+        while (Keys.BUILD.consumeClick()) {
+            // the server checks the off hand and looks where the player looks itself
+            if (mc.player != null && mc.screen == null) ModNetwork.sendToServer(new BuildPayload());
+        }
     }
 
     @SubscribeEvent

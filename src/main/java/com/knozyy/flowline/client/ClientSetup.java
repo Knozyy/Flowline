@@ -20,6 +20,7 @@ import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.server.packs.repository.PackSource;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ModelEvent;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.RegisterColorHandlersEvent;
 import net.minecraftforge.event.AddPackFindersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -75,6 +76,11 @@ public final class ClientSetup {
                 false, id -> new PathPackResources(id, path, true), PackType.CLIENT_RESOURCES, Pack.Position.TOP,
                 PackSource.BUILT_IN);
         if (pack != null) event.addRepositorySource(consumer -> consumer.accept(pack));
+    }
+
+    @SubscribeEvent
+    public static void registerKeys(RegisterKeyMappingsEvent event) {
+        event.register(Keys.BUILD);
     }
 
     /** Wraps every pipe model so a facade can replace it. */

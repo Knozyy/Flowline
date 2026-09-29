@@ -244,5 +244,14 @@
   "flowline.configuration.maxTravellingItems": "Max travelling items",
   "flowline.configuration.ticksPerPipe": "Ticks per pipe",
   "pack.flowline.solid_pipes": "Flowline: Solid Pipes",
-  "pack.flowline.solid_pipes.description": "Opaque pipe walls instead of see-through ones"
+  "pack.flowline.solid_pipes.description": "Opaque pipe walls instead of see-through ones",
+  "key.categories.flowline": "Flowline",
+  "key.flowline.build": "Build pipes to me (pipe in off hand)",
+  "message.flowline.build.no_pipe": "Hold a pipe in your off hand to build",
+  "message.flowline.build.nothing": "Look at a block within %s blocks",
+  "message.flowline.build.blocked": "No free path from there to you",
+  "message.flowline.build.done": "Placed %s pipes",
+  "message.flowline.build.partial": "Placed %s of %s pipes (out of pipes, or something is in the way)",
+  "flowline.configuration.building": "Build for me",
+  "flowline.configuration.buildRange": "Build range"
 }

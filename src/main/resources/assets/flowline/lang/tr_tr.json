@@ -265,5 +265,15 @@
   "flowline.configuration.ticksPerPipe": "Boru başına tick",
   "flowline.configuration.ticksPerPipe.tooltip": "İlerleyen bir eşyanın bir boruyu geçmesi için gereken tick.",
   "pack.flowline.solid_pipes": "Flowline: Opak Borular",
-  "pack.flowline.solid_pipes.description": "Şeffaf yerine opak boru duvarları"
+  "pack.flowline.solid_pipes.description": "Şeffaf yerine opak boru duvarları",
+  "key.categories.flowline": "Flowline",
+  "key.flowline.build": "Boruyu bana kadar döşe (boru sol elde)",
+  "message.flowline.build.no_pipe": "Döşemek için sol eline bir boru al",
+  "message.flowline.build.nothing": "%s blok içinde bir bloğa bak",
+  "message.flowline.build.blocked": "Oradan sana kadar boş bir yol yok",
+  "message.flowline.build.done": "%s boru yerleştirildi",
+  "message.flowline.build.partial": "%2$s borudan %1$s tanesi yerleştirildi (boru bitti ya da yolda bir şey var)",
+  "flowline.configuration.building": "Benim için döşe",
+  "flowline.configuration.buildRange": "Döşeme mesafesi",
+  "flowline.configuration.buildRange.tooltip": "Bakılan blok en fazla bu kadar uzakta olabilir. Yol bunun en fazla üç katı uzunlukta olabilir."
 }

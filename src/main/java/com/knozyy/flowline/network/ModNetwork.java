@@ -16,7 +16,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import java.util.function.Supplier;
 
 public final class ModNetwork {
-    private static final String PROTOCOL = "2";
+    private static final String PROTOCOL = "3";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Flowline.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
 
@@ -39,6 +39,9 @@ public final class ModNetwork {
         CHANNEL.messageBuilder(TravelPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(TravelPayload::encode).decoder(TravelPayload::decode)
                 .consumerMainThread(ModNetwork::onTravel).add();
+        CHANNEL.messageBuilder(BuildPayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(BuildPayload::encode).decoder(BuildPayload::decode)
+                .consumerMainThread(ModNetwork::onBuild).add();
     }
 
     public static void sendToServer(Object message) {
@@ -67,6 +70,12 @@ public final class ModNetwork {
                 && player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(payload.pos())) <= 64) {
             WrenchItem.scroll(player, payload.pos(), payload.side(), payload.forward(), payload.redstone());
         }
+        context.get().setPacketHandled(true);
+    }
+
+    private static void onBuild(BuildPayload payload, Supplier<NetworkEvent.Context> context) {
+        ServerPlayer player = context.get().getSender();
+        if (player != null) com.knozyy.flowline.pipe.PipeBuilder.build(player);
         context.get().setPacketHandled(true);
     }
 

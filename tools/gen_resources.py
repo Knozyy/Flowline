@@ -1008,6 +1008,15 @@ en.update({
     "flowline.configuration.ticksPerPipe": "Ticks per pipe",
     "pack.flowline.solid_pipes": "Flowline: Solid Pipes",
     "pack.flowline.solid_pipes.description": "Opaque pipe walls instead of see-through ones",
+    "key.categories.flowline": "Flowline",
+    "key.flowline.build": "Build pipes to me (pipe in off hand)",
+    "message.flowline.build.no_pipe": "Hold a pipe in your off hand to build",
+    "message.flowline.build.nothing": "Look at a block within %s blocks",
+    "message.flowline.build.blocked": "No free path from there to you",
+    "message.flowline.build.done": "Placed %s pipes",
+    "message.flowline.build.partial": "Placed %s of %s pipes (out of pipes, or something is in the way)",
+    "flowline.configuration.building": "Build for me",
+    "flowline.configuration.buildRange": "Build range",
 })
 tr.update({
     "flowline.configuration.title": "Flowline Ayarları",
@@ -1067,6 +1076,16 @@ tr.update({
     "flowline.configuration.ticksPerPipe.tooltip": "İlerleyen bir eşyanın bir boruyu geçmesi için gereken tick.",
     "pack.flowline.solid_pipes": "Flowline: Opak Borular",
     "pack.flowline.solid_pipes.description": "Şeffaf yerine opak boru duvarları",
+    "key.categories.flowline": "Flowline",
+    "key.flowline.build": "Boruyu bana kadar döşe (boru sol elde)",
+    "message.flowline.build.no_pipe": "Döşemek için sol eline bir boru al",
+    "message.flowline.build.nothing": "%s blok içinde bir bloğa bak",
+    "message.flowline.build.blocked": "Oradan sana kadar boş bir yol yok",
+    "message.flowline.build.done": "%s boru yerleştirildi",
+    "message.flowline.build.partial": "%2$s borudan %1$s tanesi yerleştirildi (boru bitti ya da yolda bir şey var)",
+    "flowline.configuration.building": "Benim için döşe",
+    "flowline.configuration.buildRange": "Döşeme mesafesi",
+    "flowline.configuration.buildRange.tooltip": "Bakılan blok en fazla bu kadar uzakta olabilir. Yol bunun en fazla üç katı uzunlukta olabilir.",
 })
 lang("en_us", en)
 lang("tr_tr", tr)
