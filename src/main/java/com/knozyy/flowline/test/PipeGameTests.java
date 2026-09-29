@@ -218,7 +218,7 @@ public class PipeGameTests {
     public static void nbtRuleMatchesComponents(GameTestHelper helper) {
         SideConfig cfg = line(helper, 1).side(Direction.WEST);
         CompoundTag damaged = new CompoundTag();
-        damaged.putInt("minecraft:damage", 5);
+        damaged.putInt("Damage", 5);   // 1.20.1 keeps damage in the stack NBT
         cfg.setEntry(0, FilterEntry.ofItem("minecraft:diamond_sword").withNbt(Optional.of(damaged)));
         ItemStack worn = new ItemStack(Items.DIAMOND_SWORD);
         worn.setDamageValue(5);
