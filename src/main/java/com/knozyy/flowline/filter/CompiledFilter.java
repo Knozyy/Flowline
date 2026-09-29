@@ -77,6 +77,28 @@ public final class CompiledFilter {
         return false;
     }
 
+    /** The amount of the first Allow rule with one that matches {@code stack}, or 0. */
+    public int itemAmount(ItemStack stack) {
+        Lazy data = null;
+        for (Rule rule : itemAllow) {
+            if (rule.amount <= 0) continue;
+            if (data == null) data = new Lazy(() -> FilterEntry.encode(stack.getTag()));
+            if (rule.matchesItem(stack, data)) return rule.amount;
+        }
+        return 0;
+    }
+
+    /** The amount of the first Allow rule with one that matches {@code fluid}, or 0. */
+    public int fluidAmount(FluidStack fluid) {
+        Lazy data = null;
+        for (Rule rule : fluidAllow) {
+            if (rule.amount <= 0) continue;
+            if (data == null) data = new Lazy(() -> FilterEntry.encode(fluid.getTag()));
+            if (rule.matchesFluid(fluid, data)) return rule.amount;
+        }
+        return 0;
+    }
+
     public boolean allowsFluid(FluidStack fluid) {
         if (fluidAllow.isEmpty() && fluidDeny.isEmpty()) return true;
         Lazy data = new Lazy(() -> FilterEntry.encode(fluid.getTag()));
@@ -120,12 +142,13 @@ public final class CompiledFilter {
         private final int minDurability;
         private final int maxDurability;
         private final boolean durability;
+        private final int amount;
         @Nullable private List<TagKey<Item>> itemTags;
         @Nullable private List<TagKey<Fluid>> fluidTags;
 
         private Rule(@Nullable ResourceLocation id, List<ResourceLocation> tags, boolean allTags,
                      @Nullable CompoundTag nbt, boolean exact, @Nullable String mod, @Nullable Pattern name,
-                     int minDurability, int maxDurability, boolean durability) {
+                     int minDurability, int maxDurability, boolean durability, int amount) {
             this.id = id;
             this.tags = tags;
             this.allTags = allTags;
@@ -136,6 +159,7 @@ public final class CompiledFilter {
             this.minDurability = minDurability;
             this.maxDurability = maxDurability;
             this.durability = durability;
+            this.amount = amount;
         }
 
         @Nullable
@@ -161,7 +185,7 @@ public final class CompiledFilter {
             }
             return new Rule(id, List.copyOf(tags), entry.allTags(), entry.nbt().orElse(null), entry.exactNbt(),
                     entry.mod().orElse(null), name, entry.minDurability(), entry.maxDurability(),
-                    entry.hasDurability());
+                    entry.hasDurability(), entry.amount());
         }
 
         boolean matchesItem(ItemStack stack, Lazy data) {

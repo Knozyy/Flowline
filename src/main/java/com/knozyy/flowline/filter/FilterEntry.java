@@ -47,10 +47,13 @@ import java.util.stream.Stream;
  * @param maxDurability highest remaining durability in percent (0..100); a range other than 0..100 needs a
  *                      damageable item
  * @param fluid         on universal pipes: the rule is about fluids instead of items (fluid pipes always are)
+ * @param amount        Allow rules, 0 = off: a regulator just for matching stacks, used instead of the side's own.
+ *                      Extract sides leave at least this much of each matching kind in the source, Insert sides keep
+ *                      at most this much in the target (items, or mB for fluids)
  */
 public record FilterEntry(Optional<String> item, List<String> tags, boolean allTags, Optional<CompoundTag> nbt,
                           boolean exactNbt, boolean invert, Optional<String> mod, Optional<String> name,
-                          int minDurability, int maxDurability, boolean fluid) {
+                          int minDurability, int maxDurability, boolean fluid, int amount) {
     public static final int MAX_TAGS = 32;
     public static final int MAX_TEXT = 128;
 
@@ -66,16 +69,17 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
             Codec.INT.optionalFieldOf("min_durability", 0).forGetter(FilterEntry::minDurability),
             Codec.INT.optionalFieldOf("max_durability", 100).forGetter(FilterEntry::maxDurability),
             Codec.BOOL.optionalFieldOf("fluid", false).forGetter(FilterEntry::fluid),
+            Codec.INT.optionalFieldOf("amount", 0).forGetter(FilterEntry::amount),
             // Older saves stored a single "target": an id, or a tag starting with '#'. Read only.
             Codec.STRING.optionalFieldOf("target").forGetter(entry -> Optional.empty())
-    ).apply(i, (item, tags, allTags, nbt, exact, invert, mod, name, min, max, fluid, legacy) -> {
+    ).apply(i, (item, tags, allTags, nbt, exact, invert, mod, name, min, max, fluid, amount, legacy) -> {
         if (legacy.isPresent() && item.isEmpty() && tags.isEmpty() && !legacy.get().isEmpty()) {
             String target = legacy.get();
             return target.startsWith("#")
                     ? new FilterEntry(Optional.empty(), List.of(target.substring(1)), false, nbt, exact, invert)
                     : new FilterEntry(Optional.of(target), List.of(), false, nbt, exact, invert);
         }
-        return new FilterEntry(item, tags, allTags, nbt, exact, invert, mod, name, min, max, fluid);
+        return new FilterEntry(item, tags, allTags, nbt, exact, invert, mod, name, min, max, fluid, amount);
     }));
 
     /** Network form: the codec's NBT. */
@@ -87,6 +91,13 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
     public static FilterEntry read(FriendlyByteBuf buf) {
         CompoundTag tag = buf.readNbt();
         return tag == null ? null : CODEC.parse(NbtOps.INSTANCE, tag).result().orElse(null);
+    }
+
+    /** A rule without an amount. */
+    public FilterEntry(Optional<String> item, List<String> tags, boolean allTags, Optional<CompoundTag> nbt,
+                       boolean exactNbt, boolean invert, Optional<String> mod, Optional<String> name,
+                       int minDurability, int maxDurability, boolean fluid) {
+        this(item, tags, allTags, nbt, exactNbt, invert, mod, name, minDurability, maxDurability, fluid, 0);
     }
 
     /** An item/tag/NBT rule without the newer parts. */
@@ -101,6 +112,7 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
         maxDurability = Math.max(0, Math.min(100, maxDurability));
         mod = mod.map(String::trim).filter(m -> !m.isEmpty());
         name = name.filter(n -> !n.isEmpty());
+        amount = Math.max(0, amount);
     }
 
     public static FilterEntry ofMod(String mod) {
@@ -120,7 +132,12 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
 
     public FilterEntry withFluid(boolean value) {
         return new FilterEntry(item, tags, allTags, nbt, exactNbt, invert, mod, name, minDurability, maxDurability,
-                value);
+                value, amount);
+    }
+
+    public FilterEntry withAmount(int value) {
+        return new FilterEntry(item, tags, allTags, nbt, exactNbt, invert, mod, name, minDurability, maxDurability,
+                fluid, value);
     }
 
     public boolean hasDurability() {
@@ -147,12 +164,12 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
 
     public FilterEntry withInvert(boolean value) {
         return new FilterEntry(item, tags, allTags, nbt, exactNbt, value, mod, name, minDurability, maxDurability,
-                fluid);
+                fluid, amount);
     }
 
     public FilterEntry withNbt(Optional<CompoundTag> value) {
         return new FilterEntry(item, tags, allTags, value, exactNbt, invert, mod, name, minDurability, maxDurability,
-                fluid);
+                fluid, amount);
     }
 
     /** Whether both rules select the same stacks (Allow/Block aside); used to reject duplicates. */

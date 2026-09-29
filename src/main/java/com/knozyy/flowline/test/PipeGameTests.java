@@ -514,6 +514,38 @@ public class PipeGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void ruleAmountKeepsItemsInTheSource(GameTestHelper helper) {
+        PipeBlockEntity pipe = line(helper, 1);
+        install(pipe, UpgradeType.STACK);
+        pipe.side(Direction.WEST).setEntry(0, allow("minecraft:diamond").withAmount(4));
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 10));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 6,
+                        "everything above the rule's amount moves"))
+                .thenIdle(60)
+                .thenExecute(() -> helper.assertTrue(count(helper, SOURCE, Items.DIAMOND) == 4,
+                        "the extract rule's amount stays in the source"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void ruleAmountCapsTheTarget(GameTestHelper helper) {
+        PipeBlockEntity pipe = line(helper, 1);
+        install(pipe, UpgradeType.STACK);
+        pipe.side(Direction.EAST).setEntry(0, allow("minecraft:diamond").withAmount(5));
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 10));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 5,
+                        "the insert rule's amount fills the target"))
+                .thenIdle(60)
+                .thenExecute(() -> helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 5
+                        && count(helper, SOURCE, Items.DIAMOND) == 5, "and nothing goes past it"))
+                .thenSucceed();
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 400)
     public static void overflowTargetOnlyTakesTheRest(GameTestHelper helper) {
         twoTargets(helper);

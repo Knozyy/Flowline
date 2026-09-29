@@ -46,9 +46,10 @@ public final class FluidTransfer {
                 if (offered.isEmpty()) return budget - remaining;
                 if (!cfg.allowsFluid(offered)) return budget - remaining;
                 int want = Math.min(offered.getAmount(), cap - given[i]);
-                if (cfg.limit > 0) {
-                    // regulator: leave at least `limit` mB of this fluid in the source
-                    int spare = amount(source, offered) - cfg.limit;
+                int keep = cfg.limitFor(offered);
+                if (keep > 0) {
+                    // regulator (the side's, or a matching rule's amount): leave at least this much in the source
+                    int spare = amount(source, offered) - keep;
                     if (spare <= 0) return budget - remaining;
                     want = Math.min(want, spare);
                 }
@@ -56,8 +57,9 @@ public final class FluidTransfer {
 
                 Dest dest = destinations.get(i);
                 if (!dest.cfg().allowsFluid(offered)) continue;
-                if (dest.cfg().limit > 0) {
-                    want = Math.min(want, dest.cfg().limit - amount(dest.handler(), offered));
+                int max = dest.cfg().limitFor(offered);
+                if (max > 0) {
+                    want = Math.min(want, max - amount(dest.handler(), offered));
                     if (want <= 0) continue;
                 }
                 FluidStack moved = FluidUtil.tryFluidTransfer(dest.handler(), source, copy(offered, want), true);

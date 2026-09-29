@@ -70,6 +70,9 @@ counts). A rule can combine:
 - a **mod** (`@create`: everything from that mod),
 - a **name pattern** (case-insensitive regular expression searched in the display name, renames included),
 - a **durability range** in percent (e.g. 0–10 for nearly broken tools),
+- an **amount** (Allow rules): a regulator just for matching stacks, used instead of the side's own. Extract
+  sides leave at least this many of each matching kind in the source, Insert sides keep at most this many in the
+  target (mB for fluids),
 - **Allow** or **Block**.
 
 A stack matching any Block rule never passes; if there are Allow rules it must match one of them; with only Block

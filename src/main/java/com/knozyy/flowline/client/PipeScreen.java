@@ -417,6 +417,10 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             lines.add(Component.translatable("gui.flowline.rule.durability", entry.minDurability(), entry.maxDurability())
                     .withStyle(ChatFormatting.AQUA));
         }
+        if (entry.amount() > 0 && !entry.invert()) {
+            lines.add(Component.translatable(menu.extracting() ? "gui.flowline.rule.amount.keep"
+                    : "gui.flowline.rule.amount.max", entry.amount()).withStyle(ChatFormatting.YELLOW));
+        }
         if (!entry.tags().isEmpty()) {
             lines.add(Component.translatable(entry.allTags() ? "gui.flowline.rule.tags_all" : "gui.flowline.rule.tags_any")
                     .withStyle(ChatFormatting.GRAY));

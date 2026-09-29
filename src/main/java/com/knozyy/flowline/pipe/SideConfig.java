@@ -157,6 +157,18 @@ public class SideConfig {
         return compiled().allowsFluid(fluid);
     }
 
+    /** Regulator for {@code stack}: the amount of a matching rule if one has it, else {@link #limit}; 0 = off. */
+    public int limitFor(ItemStack stack) {
+        int rule = compiled().itemAmount(stack);
+        return rule > 0 ? rule : limit;
+    }
+
+    /** Regulator for {@code fluid} in mB: the amount of a matching rule if one has it, else {@link #limit}. */
+    public int limitFor(FluidStack fluid) {
+        int rule = compiled().fluidAmount(fluid);
+        return rule > 0 ? rule : limit;
+    }
+
     // ---- persistence --------------------------------------------------------------------------------------
 
     public CompoundTag save() {

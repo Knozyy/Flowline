@@ -59,7 +59,8 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     private static final int TAG_LIST_T = 50, NBT_LIST_T = 38;
     /** Row under the columns: mod, name pattern, durability range. */
     private static final int EXTRA_T = 128, EXTRA_B = 152;
-    private static final int MOD_L = 6, MOD_R = 76, NAME_L = 80, NAME_R = 204, DUR_L = 208, DUR_R = 294;
+    private static final int MOD_L = 6, MOD_R = 76, NAME_L = 80, NAME_R = 158, AMT_L = 162, AMT_R = 204;
+    private static final int DUR_L = 208, DUR_R = 294;
     private static final int INV_Y = 190, HOTBAR_Y = 248, INV_X = (W - 9 * 18) / 2;
 
     private final PipeScreen parent;
@@ -82,6 +83,8 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     private boolean fluidRule;
     private String mod = "";
     private String name = "";
+    /** Per-rule regulator, 0 = off (see {@link FilterEntry#amount}). */
+    private int amount = 0;
     private int minDurability = 0, maxDurability = 100;
 
     // library state
@@ -103,6 +106,7 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     private EditBox searchBox;
     private EditBox modBox;
     private EditBox nameBox;
+    private EditBox amountBox;
     private EditBox minBox;
     private EditBox maxBox;
     private MultiLineEditBox nbtText;
@@ -157,6 +161,7 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
         this.type = fluidRule ? PipeType.FLUID : PipeType.ITEM;
         this.mod = rule.mod().orElse("");
         this.name = rule.name().orElse("");
+        this.amount = rule.amount();
         this.minDurability = rule.minDurability();
         this.maxDurability = rule.maxDurability();
         if (rule.item().isPresent()) setSample(rule.displayStack(menu.type, menu.registries()), false);
@@ -241,6 +246,16 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
         nameBox.setValue(name);
         nameBox.setResponder(value -> {
             name = value;
+            validate();
+        });
+        amountBox = addRenderableWidget(new EditBox(font, left + AMT_L + 3, top + EXTRA_T + 11, AMT_R - AMT_L - 6, 12,
+                Component.empty()));
+        amountBox.setMaxLength(9);
+        amountBox.setFilter(text -> text.matches("\\d{0,9}"));
+        amountBox.setHint(Component.literal("-").withStyle(ChatFormatting.DARK_GRAY));
+        amountBox.setValue(amount == 0 ? "" : Integer.toString(amount));
+        amountBox.setResponder(text -> {
+            amount = text.isEmpty() ? 0 : Integer.parseInt(text);
             validate();
         });
         minBox = addRenderableWidget(percentBox(DUR_L + 3, minDurability, value -> minDurability = value));
@@ -404,7 +419,7 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
                 nbt.isEmpty() ? Optional.empty() : Optional.of(nbt.copy()), exact, invert,
                 mod.isEmpty() ? Optional.empty() : Optional.of(mod), name.isEmpty() ? Optional.empty() : Optional.of(name),
                 fluidRule ? 0 : minDurability, fluidRule ? 100 : maxDurability,
-                fluidRule && menu.type == PipeType.UNIVERSAL);
+                fluidRule && menu.type == PipeType.UNIVERSAL, amount);
     }
 
     @Nullable
@@ -609,7 +624,7 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
         panel(graphics, LEFT_L, LEFT_R);
         panel(graphics, MID_L, MID_R);
         panel(graphics, RIGHT_L, RIGHT_R);
-        for (int[] p : new int[][]{{MOD_L, MOD_R}, {NAME_L, NAME_R}, {DUR_L, DUR_R}}) {
+        for (int[] p : new int[][]{{MOD_L, MOD_R}, {NAME_L, NAME_R}, {AMT_L, AMT_R}, {DUR_L, DUR_R}}) {
             graphics.fill(left + p[0], top + EXTRA_T, left + p[1], top + EXTRA_B, PANEL_EDGE);
             graphics.fill(left + p[0] + 1, top + EXTRA_T + 1, left + p[1] - 1, top + EXTRA_B - 1, PANEL);
         }
@@ -727,6 +742,7 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     private void renderExtraRow(GuiGraphics graphics) {
         small(graphics, caption("gui.flowline.library.mod"), MOD_L + 4, EXTRA_T + 3, MUTED);
         small(graphics, caption("gui.flowline.library.name"), NAME_L + 4, EXTRA_T + 3, MUTED);
+        small(graphics, caption("gui.flowline.library.amount"), AMT_L + 4, EXTRA_T + 3, MUTED);
         if (!fluidRule) {
             small(graphics, caption("gui.flowline.library.durability"), DUR_L + 4, EXTRA_T + 3, MUTED);
             small(graphics, Component.literal("-"), DUR_L + 40, EXTRA_T + 14, MUTED);
@@ -821,6 +837,10 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
         } else if (in(mx, my, MOD_L, EXTRA_T, MOD_R, EXTRA_B)) {
             graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.flowline.library.mod"),
                     Component.translatable("gui.flowline.library.mod.desc").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
+        } else if (in(mx, my, AMT_L, EXTRA_T, AMT_R, EXTRA_B)) {
+            graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.flowline.library.amount"),
+                    Component.translatable(menu.extracting() ? "gui.flowline.library.amount.keep"
+                            : "gui.flowline.library.amount.max").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
         } else if (in(mx, my, NAME_L, EXTRA_T, NAME_R, EXTRA_B)) {
             graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.flowline.library.name"),
                     Component.translatable("gui.flowline.library.name.desc").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);

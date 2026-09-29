@@ -63,9 +63,10 @@ public final class ItemTransfer {
                 ItemStack offered = source.extractItem(slot, budget, true);
                 if (offered.isEmpty()) continue;
                 if (!cfg.allowsItem(offered)) continue;
-                if (cfg.limit > 0) {
-                    // regulator: leave at least `limit` of this item in the source
-                    int spare = count(source, offered) - cfg.limit;
+                int keep = cfg.limitFor(offered);
+                if (keep > 0) {
+                    // regulator (the side's, or a matching rule's amount): leave at least this much in the source
+                    int spare = count(source, offered) - keep;
                     if (spare <= 0) continue;
                     if (spare < offered.getCount()) offered = Stacks.withCount(offered, spare);
                 }
@@ -75,9 +76,10 @@ public final class ItemTransfer {
                     int want = Math.min(offered.getCount(), cap - given[i]);
                     if (want <= 0) continue;
                     if (!dest.cfg().allowsItem(offered)) continue;
-                    if (dest.cfg().limit > 0) {
-                        // regulator: keep at most `limit` of this item in the target
-                        want = Math.min(want, dest.cfg().limit - count(dest.handler(), offered));
+                    int max = dest.cfg().limitFor(offered);
+                    if (max > 0) {
+                        // regulator (the side's, or a matching rule's amount): keep at most this much in the target
+                        want = Math.min(want, max - count(dest.handler(), offered));
                         if (want <= 0) continue;
                     }
 
