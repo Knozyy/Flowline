@@ -14,10 +14,7 @@ import net.minecraft.world.phys.HitResult;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 @EventBusSubscriber(modid = Flowline.MODID, value = Dist.CLIENT)
@@ -41,21 +38,4 @@ public final class ClientEvents {
         event.setCanceled(true);
     }
 
-    @SubscribeEvent
-    public static void onRender(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES || event.getPoseStack() == null) return;
-        TravellingItems.render(event.getPoseStack(), event.getCamera().getPosition(),
-                event.getPartialTick().getGameTimeDeltaPartialTick(false));
-    }
-
-    @SubscribeEvent
-    public static void onTick(ClientTickEvent.Post event) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.level != null) TravellingItems.tick(mc.level);
-    }
-
-    @SubscribeEvent
-    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
-        TravellingItems.clear();
-    }
 }

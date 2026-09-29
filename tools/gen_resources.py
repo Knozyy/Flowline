@@ -62,11 +62,6 @@ def mix(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
-def window(x, y):
-    """The glass slit of a pipe wall: arms show it along their axis, the core as a cross."""
-    return (x in (7, 8) and y <= 10) or (y in (7, 8) and x <= 10)
-
-
 def metal(base, x, y, seed):
     """Brushed metal in the pipe colour: soft vertical gradient, fine noise, bevelled tube edges at 5 and 10."""
     steel = (0x9A, 0xA1, 0xAC)
@@ -83,14 +78,12 @@ def metal(base, x, y, seed):
 
 for idx, (name, base) in enumerate(TYPES.items()):
     seed = idx + 1
-    # pipe wall with a window; the window is cut out so travelling items can be seen inside
-    rows = [[CLEAR if window(x, y) else metal(base, x, y, seed) for x in range(16)] for y in range(16)]
-    # glass edge: a light rim around the window
+    # solid pipe wall: brushed metal with a light seam along the middle
+    rows = [[metal(base, x, y, seed) for x in range(16)] for y in range(16)]
     for y in range(16):
         for x in range(16):
-            if rows[y][x] is not CLEAR and any(0 <= x + dx < 16 and 0 <= y + dy < 16 and window(x + dx, y + dy)
-                                               for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
-                rows[y][x] = shade(mix(base, (0xFF, 0xFF, 0xFF), 0.35), 1.0)
+            if (x in (7, 8) and y <= 10) or (y in (7, 8) and x <= 10):
+                rows[y][x] = shade(mix(base, (0xFF, 0xFF, 0xFF), 0.18), 0.95 + 0.1 * noise(x, y, seed + 5))
     if name == "universal":
         # three kind markers in the corners of the core faces
         for (px, py), kind in (((5, 5), "item"), ((10, 5), "fluid"), ((5, 10), "energy")):
@@ -106,11 +99,6 @@ for idx, (name, base) in enumerate(TYPES.items()):
             elif 7 <= x <= 8 and 7 <= y <= 8:
                 collar[y][x] = shade(base, 0.4)            # port opening
     write_png(f"assets/{MODID}/textures/block/{name}_pipe_collar.png", collar)
-
-    # inside of the tube, seen through the window
-    inner = [[shade(mix((0x18, 0x1A, 0x20), base, 0.18), 0.85 + 0.2 * noise(x, y, seed + 3)) for x in range(16)]
-             for y in range(16)]
-    write_png(f"assets/{MODID}/textures/block/{name}_pipe_inner.png", inner)
 
     # extract collar: a bright green ring (same "extract" colour on every pipe) around the pipe's own colour
     green = (0x5A, 0xE0, 0x7A)
@@ -299,45 +287,25 @@ write_png(f"assets/{MODID}/textures/item/facade.png", facade_texture())
 
 # ---------------------------------------------------------------- models
 ALL_FACES = ("down", "up", "north", "south", "west", "east")
-CUTOUT = "minecraft:cutout"   # the windows in the walls are transparent
+CUTOUT = "minecraft:cutout"   # only the dye band around the core has transparent pixels
 
-
-def inner_walls(z0, z1):
-    """Zero-thickness planes facing inwards just inside the four walls of a tube along z, so the window shows the
-    inside of the pipe (and travelling items) instead of the world behind it."""
-    uv = [5, 5, 11, 11]
-    e = 0.02
-    return [
-        {"from": [5 + e, 5, z0], "to": [5 + e, 11, z1], "shade": False, "faces": {"east": {"uv": uv, "texture": "#inner"}}},
-        {"from": [11 - e, 5, z0], "to": [11 - e, 11, z1], "shade": False, "faces": {"west": {"uv": uv, "texture": "#inner"}}},
-        {"from": [5, 5 + e, z0], "to": [11, 5 + e, z1], "shade": False, "faces": {"up": {"uv": uv, "texture": "#inner"}}},
-        {"from": [5, 11 - e, z0], "to": [11, 11 - e, z1], "shade": False, "faces": {"down": {"uv": uv, "texture": "#inner"}}},
-    ]
 
 
 for name in TYPES:
     tex = f"{MODID}:block/{name}_pipe"
-    textures = {"pipe": tex, "inner": f"{tex}_inner", "collar": f"{tex}_collar", "particle": f"{tex}_collar"}
-    core_inner = inner_walls(5, 11) + [
-        {"from": [5, 5, 5.02], "to": [11, 11, 5.02], "shade": False,
-         "faces": {"south": {"uv": [5, 5, 11, 11], "texture": "#inner"}}},
-        {"from": [5, 5, 10.98], "to": [11, 11, 10.98], "shade": False,
-         "faces": {"north": {"uv": [5, 5, 11, 11], "texture": "#inner"}}},
-    ]
+    textures = {"pipe": tex, "collar": f"{tex}_collar", "particle": f"{tex}_collar"}
     write_json(f"assets/{MODID}/models/block/{name}_pipe_core.json", {
         "render_type": CUTOUT,
         "textures": {**textures, "band": f"{MODID}:block/pipe_band"},
         "elements": [
             {"from": [5, 5, 5], "to": [11, 11, 11],
              "faces": {d: {"uv": [5, 5, 11, 11], "texture": "#pipe"} for d in ALL_FACES}},
-            *core_inner,
             # dye band: a frame just outside the core, tinted with the pipe's colour
             {"from": [4.9, 4.9, 4.9], "to": [11.1, 11.1, 11.1],
              "faces": {d: {"uv": [5, 5, 11, 11], "texture": "#band", "tintindex": 0} for d in ALL_FACES}},
         ],
     })
     write_json(f"assets/{MODID}/models/block/{name}_pipe_arm.json", {
-        "render_type": CUTOUT,
         "textures": textures,
         "elements": [{
             "from": [5, 5, 0], "to": [11, 11, 5],
@@ -347,10 +315,9 @@ for name in TYPES:
                 "west": {"uv": [0, 5, 5, 11], "texture": "#pipe"},
                 "east": {"uv": [0, 5, 5, 11], "texture": "#pipe"},
             },
-        }, *inner_walls(0, 5)],
+        }],
     })
     write_json(f"assets/{MODID}/models/block/{name}_pipe_endpoint.json", {
-        "render_type": CUTOUT,
         "textures": textures,
         "elements": [
             {
@@ -362,7 +329,6 @@ for name in TYPES:
                     "east": {"uv": [0, 5, 3, 11], "texture": "#pipe"},
                 },
             },
-            *inner_walls(2, 5),
             {
                 "from": [4, 4, 0], "to": [12, 12, 2],
                 "faces": {d: {"uv": [4, 4, 12, 12], "texture": "#collar"} for d in ALL_FACES},
@@ -371,7 +337,6 @@ for name in TYPES:
     })
     # extracting end: a larger, thicker collar with a green ring so it stands out from inserting ends
     write_json(f"assets/{MODID}/models/block/{name}_pipe_extract.json", {
-        "render_type": CUTOUT,
         "textures": {**textures, "ring": f"{tex}_extract"},
         "elements": [
             {
@@ -383,7 +348,6 @@ for name in TYPES:
                     "east": {"uv": [0, 5, 2.5, 11], "texture": "#pipe"},
                 },
             },
-            *inner_walls(2.5, 5),
             {
                 "from": [3, 3, 0], "to": [13, 13, 2.5],
                 "faces": {

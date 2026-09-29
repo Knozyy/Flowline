@@ -82,33 +82,9 @@ public final class FlowlineConfig {
             .comment("Maximum number of pipes in one cached network graph.")
             .defineInRange("maxNetworkSize", 512, 16, 8192);
 
-    public static final ModConfigSpec.BooleanValue SEND_ANIMATIONS = BUILDER
-            .comment("Tell nearby players about moved items so they can draw them travelling through the pipes.",
-                    "Each player can still turn the drawing off in the client config.")
-            .define("sendItemAnimations", true);
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 
-    /** Per-player settings (config/flowline-client.toml). */
-    public static final class Client {
-        private static final ModConfigSpec.Builder CLIENT = new ModConfigSpec.Builder();
-
-        public static final ModConfigSpec.BooleanValue RENDER_ITEMS = CLIENT
-                .comment("Draw items travelling through pipes (needs sendItemAnimations on the server).")
-                .define("renderTravellingItems", true);
-
-        public static final ModConfigSpec.IntValue MAX_TRAVELLING = CLIENT
-                .comment("Most travelling items drawn at once; older ones are dropped first.")
-                .defineInRange("maxTravellingItems", 256, 0, 4096);
-
-        public static final ModConfigSpec.IntValue TICKS_PER_PIPE = CLIENT
-                .comment("Ticks a travelling item needs to pass one pipe.")
-                .defineInRange("ticksPerPipe", 4, 1, 40);
-
-        public static final ModConfigSpec SPEC = CLIENT.build();
-
-        private Client() {}
-    }
 
     private FlowlineConfig() {}
 }

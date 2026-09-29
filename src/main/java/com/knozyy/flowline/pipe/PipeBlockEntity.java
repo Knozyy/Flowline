@@ -1,9 +1,7 @@
 package com.knozyy.flowline.pipe;
 
-import com.knozyy.flowline.FlowlineConfig;
 import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.item.UpgradeType;
-import com.knozyy.flowline.network.TravelPayload;
 import com.knozyy.flowline.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -25,12 +23,10 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import net.neoforged.neoforge.client.model.data.ModelProperty;
-import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiConsumer;
 
 public class PipeBlockEntity extends BlockEntity {
     /** Model data: the block a facade makes the pipe look like. */
@@ -304,23 +300,7 @@ public class PipeBlockEntity extends BlockEntity {
         }
         BlockPos source = worldPosition.relative(dir);
         if (cfg.sourceCaps == null) cfg.sourceCaps = Caps.create(type, level, source, dir.getOpposite());
-        return type.transfer(level, source, cfg.sourceCaps, cfg, targets, elapsed, animation(level, source));
-    }
-
-    /** Sends moved items to nearby players for the travel animation, or null when nobody would see it. */
-    @Nullable
-    private BiConsumer<PipeNetwork.Target, ItemStack> animation(ServerLevel level, BlockPos source) {
-        if (!type.movesItems() || !FlowlineConfig.SEND_ANIMATIONS.get()) return null;
-        double x = worldPosition.getX() + 0.5, y = worldPosition.getY() + 0.5, z = worldPosition.getZ() + 0.5;
-        if (level.getNearestPlayer(x, y, z, TravelPayload.RANGE, false) == null) return null;
-        return (target, stack) -> {
-            List<BlockPos> path = new ArrayList<>(target.path().size() + 2);
-            path.add(source);
-            path.addAll(target.path());
-            path.add(target.endpointPos());
-            PacketDistributor.sendToPlayersNear(level, null, x, y, z, TravelPayload.RANGE,
-                    new TravelPayload(stack.copyWithCount(Math.min(stack.getCount(), stack.getMaxStackSize())), path));
-        };
+        return type.transfer(level, source, cfg.sourceCaps, cfg, targets, elapsed);
     }
 
     // ---- world hooks --------------------------------------------------------------------------------------

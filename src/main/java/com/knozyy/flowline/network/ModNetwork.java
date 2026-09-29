@@ -21,9 +21,6 @@ public final class ModNetwork {
         registrar.playToServer(SetSideValuePayload.TYPE, SetSideValuePayload.STREAM_CODEC, ModNetwork::onSetValue);
         registrar.playToServer(WrenchScrollPayload.TYPE, WrenchScrollPayload.STREAM_CODEC, ModNetwork::onWrenchScroll);
         registrar.playToClient(FilterPagePayload.TYPE, FilterPagePayload.STREAM_CODEC, ModNetwork::onFilterPage);
-        // the handler only touches the client class when it runs, i.e. on the client
-        registrar.playToClient(TravelPayload.TYPE, TravelPayload.STREAM_CODEC, (payload, context) ->
-                context.enqueueWork(() -> com.knozyy.flowline.client.TravellingItems.add(payload)));
     }
 
     private static void onSetEntry(SetFilterEntryPayload payload, IPayloadContext context) {

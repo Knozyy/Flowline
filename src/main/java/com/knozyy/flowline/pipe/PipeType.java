@@ -8,13 +8,10 @@ import com.knozyy.flowline.pipe.transfer.ItemTransfer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.StringRepresentable;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.capabilities.Capabilities;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-import java.util.function.BiConsumer;
 
 public enum PipeType implements StringRepresentable {
     ITEM("item", true, false, false, false),
@@ -88,17 +85,16 @@ public enum PipeType implements StringRepresentable {
      * Runs one operation for every kind this pipe moves.
      *
      * @param elapsed ticks since the previous operation, for rate limits
-     * @param onItem  told about the first item stack moved to each target (for the travel animation); may be null
      * @return how much was moved in total (items + mB + FE); 0 means the operation found no work
      */
     public long transfer(Level level, BlockPos sourcePos, Caps source, SideConfig cfg, List<PipeNetwork.Target> targets,
-                         int elapsed, @Nullable BiConsumer<PipeNetwork.Target, ItemStack> onItem) {
+                         int elapsed) {
         int multiplier = Pacing.stackMultiplier(cfg.stackCount);
         boolean balanced = cfg.distribution == Distribution.BALANCED;
         long moved = 0;
         if (items && cfg.channel(CH_ITEMS, this)) {
             moved += ItemTransfer.run(level, sourcePos, source, cfg, targets,
-                    FlowlineConfig.ITEMS_PER_OPERATION.get() * multiplier, balanced, this, onItem);
+                    FlowlineConfig.ITEMS_PER_OPERATION.get() * multiplier, balanced, this);
         }
         if (fluids && cfg.channel(CH_FLUIDS, this)) {
             moved += FluidTransfer.run(level, source, cfg, targets,

@@ -25,6 +25,5 @@ public class Flowline {
         ModComponents.COMPONENTS.register(modBus);
         ModRecipes.SERIALIZERS.register(modBus);
         container.registerConfig(ModConfig.Type.COMMON, FlowlineConfig.SPEC);
-        container.registerConfig(ModConfig.Type.CLIENT, FlowlineConfig.Client.SPEC);
     }
 }

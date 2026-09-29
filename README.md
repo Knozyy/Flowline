@@ -18,8 +18,7 @@ modes, filters, distribution modes and speed upgrades.
 | Filter Card | Same, but only the filter rules. |
 | Facade | Craft 8 blank facades (4 iron nuggets + paper), then a blank facade + any full block → a facade of that block. Right-click a pipe to hide it behind the block; the pipe keeps working. |
 
-Pipes can be **waterlogged**. Pipe walls have a window, and items moved by a pipe are drawn **travelling through
-it** (server: `sendItemAnimations`, client: `renderTravellingItems`, both can be turned off).
+Pipes can be **waterlogged**. Transfers are instant and nothing is drawn per item, so pipes cost no extra FPS.
 
 ### Sides
 
@@ -87,10 +86,7 @@ Older rules load automatically.
 
 `config/flowline-common.toml`: per-operation amounts (items, fluid, energy, chemicals), Stack multipliers
 (`[1, 8, 16, 32, 64, 96, 128]` by number of Stack upgrades), filter entries (`baseFilterSlots` = 9,
-`filterSlotsPerUpgrade` = 9), every pacing value above (`idleBackoffFactor` = 2), the max network size and
-`sendItemAnimations`.
-
-`config/flowline-client.toml`: `renderTravellingItems`, `maxTravellingItems`, `ticksPerPipe`.
+`filterSlotsPerUpgrade` = 9), every pacing value above (`idleBackoffFactor` = 2) and the max network size.
 
 ## Building
 
