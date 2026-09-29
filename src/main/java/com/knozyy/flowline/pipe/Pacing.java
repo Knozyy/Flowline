@@ -40,16 +40,29 @@ public final class Pacing {
         return Math.min(maxIdle(speedCount), Math.max(interval + 1, next));
     }
 
-    /** Multiplier on the fluid, energy and chemical amounts for {@code stackCount} Stack upgrades. */
+    /** Multiplier on the energy amount for {@code stackCount} Stack upgrades. */
     public static int stackMultiplier(int stackCount) {
         return pick(FlowlineConfig.STACK_MULTIPLIERS.get(), stackCount);
     }
 
     /** Items one operation may move with {@code stackCount} Stack upgrades (16, 32, 64... by default). */
     public static int itemsPerOperation(int stackCount) {
-        long items = (long) FlowlineConfig.ITEMS_PER_OPERATION.get()
-                * pick(FlowlineConfig.ITEM_STACK_MULTIPLIERS.get(), stackCount);
-        return (int) Math.min(Integer.MAX_VALUE, items);
+        return scaled(FlowlineConfig.ITEMS_PER_OPERATION.get(), FlowlineConfig.ITEM_STACK_MULTIPLIERS.get(), stackCount);
+    }
+
+    /** Millibuckets of fluid one operation may move (1000 to 64000 by default). */
+    public static int fluidPerOperation(int stackCount) {
+        return scaled(FlowlineConfig.FLUID_PER_OPERATION.get(), FlowlineConfig.FLUID_STACK_MULTIPLIERS.get(), stackCount);
+    }
+
+    /** Millibuckets of Mekanism chemicals one operation may move (1000 to 64000 by default). */
+    public static int chemicalPerOperation(int stackCount) {
+        return scaled(FlowlineConfig.CHEMICAL_PER_OPERATION.get(), FlowlineConfig.CHEMICAL_STACK_MULTIPLIERS.get(),
+                stackCount);
+    }
+
+    private static int scaled(int base, List<? extends Integer> multipliers, int stackCount) {
+        return (int) Math.min(Integer.MAX_VALUE, (long) base * pick(multipliers, stackCount));
     }
 
     private static int pick(List<? extends Integer> multipliers, int stackCount) {

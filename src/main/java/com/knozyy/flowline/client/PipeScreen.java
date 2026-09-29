@@ -147,6 +147,11 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         }
     }
 
+    /** 1000 mB -> "1B", 1500 mB -> "1500mB". */
+    private static String buckets(int millibuckets) {
+        return millibuckets % 1000 == 0 ? millibuckets / 1000 + "B" : millibuckets + "mB";
+    }
+
     private static String key(Enum<?> value) {
         return value.name().toLowerCase(Locale.ROOT);
     }
@@ -300,7 +305,10 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         small(graphics, sub, 26, 18, MUTED);
 
         // badge: stack multiplier and current interval (extract), priority (insert)
-        String amount = menu.type.movesItems() ? Integer.toString(menu.itemsPerOperation()) : "x" + menu.multiplier();
+        String amount = menu.type.movesItems() ? Integer.toString(menu.itemsPerOperation())
+                : menu.type.movesFluids() ? buckets(menu.fluidPerOperation())
+                : menu.type.movesChemicals() ? buckets(menu.chemicalPerOperation())
+                : "x" + menu.multiplier();
         String badge = !menu.extracting() ? "P " + menu.priority()
                 : menu.redstone() == com.knozyy.flowline.pipe.RedstoneMode.PULSE ? amount + " · ⚡"
                 : amount + " · " + (menu.sleeping() ? "zZ" : menu.interval() + "t");
@@ -507,7 +515,15 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             lines.add(Component.translatable("gui.flowline.pacing.items", menu.itemsPerOperation())
                     .withStyle(ChatFormatting.GRAY));
         }
-        if (!menu.type.movesItems() || menu.type.movesFluids()) {
+        if (menu.type.movesFluids()) {
+            lines.add(Component.translatable("gui.flowline.pacing.fluid", menu.fluidPerOperation())
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        if (menu.type.movesChemicals()) {
+            lines.add(Component.translatable("gui.flowline.pacing.chemical", menu.chemicalPerOperation())
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        if (menu.type.movesEnergy()) {
             lines.add(Component.translatable("gui.flowline.pacing.amount", menu.multiplier())
                     .withStyle(ChatFormatting.GRAY));
         }

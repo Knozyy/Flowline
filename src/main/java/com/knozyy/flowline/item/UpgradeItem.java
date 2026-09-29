@@ -66,6 +66,14 @@ public class UpgradeItem extends Item implements PipeInteractable {
                     .reduce((a, b) -> a + " > " + b).orElse("16");
             lines.add(Component.translatable("item.flowline.upgrade.effect.stack_items", items)
                     .withStyle(ChatFormatting.GOLD));
+            lines.add(Component.translatable("item.flowline.upgrade.effect.stack_fluid",
+                    curve(FlowlineConfig.FLUID_PER_OPERATION.get(), FlowlineConfig.FLUID_STACK_MULTIPLIERS.get()))
+                    .withStyle(ChatFormatting.AQUA));
+            if (com.knozyy.flowline.compat.ChemicalCompat.available()) {
+                lines.add(Component.translatable("item.flowline.upgrade.effect.stack_chemical",
+                        curve(FlowlineConfig.CHEMICAL_PER_OPERATION.get(), FlowlineConfig.CHEMICAL_STACK_MULTIPLIERS.get()))
+                        .withStyle(ChatFormatting.GREEN));
+            }
             lines.add(Component.translatable("item.flowline.upgrade.effect.stack", curve).withStyle(s -> s.withColor(STACK_COLOR)));
         }
         if (type.filter > 0) {
@@ -73,6 +81,12 @@ public class UpgradeItem extends Item implements PipeInteractable {
                     FlowlineConfig.FILTER_SLOTS_PER_UPGRADE.get()).withStyle(s -> s.withColor(FILTER_COLOR)));
         }
         return lines;
+    }
+
+    /** "1000 > 2000 > ... > 64000" for a base amount and its multipliers. */
+    private static String curve(int base, List<? extends Integer> multipliers) {
+        return multipliers.stream().map(m -> Long.toString((long) base * m)).reduce((a, b) -> a + " > " + b)
+                .orElse(Integer.toString(base));
     }
 
     public static final int SPEED_COLOR = 0x4AE6F0, STACK_COLOR = 0xF09A3A, FILTER_COLOR = 0x5AE07A, KNOZY_COLOR = 0xD24AF5;
