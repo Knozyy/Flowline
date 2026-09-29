@@ -345,6 +345,7 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
                     buf.writeBlockPos(pos);
                     buf.writeEnum(side);
                     buf.writeEnum(be.type());
+                    buf.writeEnum(be.side(side).mode);
                 });
     }
 

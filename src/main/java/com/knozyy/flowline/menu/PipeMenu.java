@@ -91,7 +91,7 @@ public class PipeMenu extends AbstractContainerMenu {
     private final FilterEntry[] clientEntries = new FilterEntry[SideConfig.FILTER_PAGE];
     private final int ghostCount;
     private final int inventoryStart;
-    /** Server: the mode the side had when the menu opened; the menu closes if it changes. */
+    /** The mode the side had when the menu opened (sent with the open packet); the menu closes if it changes. */
     private final SideMode openedMode;
 
     private final DataSlot modeData;
@@ -114,15 +114,17 @@ public class PipeMenu extends AbstractContainerMenu {
 
     /** Client constructor, fed by the extra data written in {@code PipeBlock}. */
     public PipeMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
-        this(id, inventory, buf.readBlockPos(), buf.readEnum(Direction.class), buf.readEnum(PipeType.class), null);
+        this(id, inventory, buf.readBlockPos(), buf.readEnum(Direction.class), buf.readEnum(PipeType.class),
+                buf.readEnum(SideMode.class), null);
     }
 
     /** Server constructor. */
     public PipeMenu(int id, Inventory inventory, PipeBlockEntity pipe, Direction side) {
-        this(id, inventory, pipe.getBlockPos(), side, pipe.type(), pipe);
+        this(id, inventory, pipe.getBlockPos(), side, pipe.type(), pipe.side(side).mode, pipe);
     }
 
-    private PipeMenu(int id, Inventory inventory, BlockPos pos, Direction side, PipeType type, PipeBlockEntity pipe) {
+    private PipeMenu(int id, Inventory inventory, BlockPos pos, Direction side, PipeType type, SideMode mode,
+                     PipeBlockEntity pipe) {
         super(ModMenus.PIPE.get(), id);
         this.pos = pos;
         this.side = side;
@@ -132,7 +134,7 @@ public class PipeMenu extends AbstractContainerMenu {
         this.player = inventory.player instanceof ServerPlayer serverPlayer ? serverPlayer : null;
         this.registries = inventory.player.level().registryAccess();
         this.ghostCount = type.hasFilter() ? SideConfig.FILTER_PAGE : 0;
-        this.openedMode = cfg == null ? SideMode.INSERT : cfg.mode;
+        this.openedMode = mode;
 
         // The client mirrors the whole upgrade container so slot indices match the server's.
         Container upgrades = pipe != null ? pipe.upgrades() : new SimpleContainer(6 * UPGRADES);
@@ -259,8 +261,9 @@ public class PipeMenu extends AbstractContainerMenu {
         return capacityData.get();
     }
 
+    /** Known from the open packet, so the screen can lay itself out before any data slot arrives. */
     public boolean extracting() {
-        return mode() == SideMode.EXTRACT;
+        return openedMode == SideMode.EXTRACT;
     }
 
     public int priority() {
