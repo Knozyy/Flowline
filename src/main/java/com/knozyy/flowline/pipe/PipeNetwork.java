@@ -37,10 +37,8 @@ public final class PipeNetwork {
      * capability cache for that block, so transfers do not look the block entity up again on every operation.
      *
      * @param pipe the pipe owning the side; its {@link SideConfig} carries the insert filter, priority and limit
-     * @param path pipes from the extracting pipe to {@code pipePos}, both included (for the travel animation)
      */
-    public record Target(BlockPos pipePos, Direction side, int distance, Caps caps, PipeBlockEntity pipe,
-                         List<BlockPos> path) {
+    public record Target(BlockPos pipePos, Direction side, int distance, Caps caps, PipeBlockEntity pipe) {
         public BlockPos endpointPos() {
             return pipePos.relative(side);
         }
@@ -172,11 +170,10 @@ public final class PipeNetwork {
         return order(new ArrayList<>(cfg.cachedTargets), cfg);
     }
 
-    /** Breadth-first search over the graph's links: distances, paths and every inserting side. */
+    /** Breadth-first search over the graph's links: distances and every inserting side. */
     private static List<Target> scan(ServerLevel level, Graph graph, BlockPos origin, Direction extractSide,
                                      PipeType type) {
         List<Target> targets = new ArrayList<>();
-        Map<BlockPos, BlockPos> parent = new HashMap<>();
         Map<BlockPos, Integer> depth = new HashMap<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
         BlockPos start = origin.immutable();
@@ -195,14 +192,13 @@ public final class PipeNetwork {
                     BlockPos next = pos.relative(dir);
                     if (graph.pipes.containsKey(next) && !depth.containsKey(next)) {
                         depth.put(next, dist + 1);
-                        parent.put(next, pos);
                         queue.add(next);
                     }
                 } else if (state.getValue(PipeBlock.prop(dir)).isEndpoint()
                         && be.side(dir).mode == SideMode.INSERT
                         && !(pos.equals(start) && dir == extractSide)) {
                     targets.add(new Target(pos, dir, dist, Caps.create(type, level, pos.relative(dir), dir.getOpposite()),
-                            be, path(parent, start, pos)));
+                            be));
                 }
             }
         }
@@ -211,13 +207,6 @@ public final class PipeNetwork {
                 .thenComparingLong(t -> t.pipePos().asLong())
                 .thenComparingInt(t -> t.side().ordinal()));
         return List.copyOf(targets);
-    }
-
-    private static List<BlockPos> path(Map<BlockPos, BlockPos> parent, BlockPos start, BlockPos end) {
-        List<BlockPos> path = new ArrayList<>();
-        for (BlockPos p = end; p != null && path.size() < 256; p = p.equals(start) ? null : parent.get(p)) path.add(p);
-        Collections.reverse(path);
-        return List.copyOf(path);
     }
 
     private static List<Target> order(List<Target> targets, SideConfig cfg) {

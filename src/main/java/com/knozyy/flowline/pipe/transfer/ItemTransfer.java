@@ -11,11 +11,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiConsumer;
 
 public final class ItemTransfer {
     private ItemTransfer() {}
@@ -29,8 +27,7 @@ public final class ItemTransfer {
      * @return number of items moved
      */
     public static int run(Level level, BlockPos sourcePos, Caps sourceCaps, SideConfig cfg, List<Target> targets,
-                          int budget, boolean balanced, PipeType pipe,
-                          @Nullable BiConsumer<Target, ItemStack> onMove) {
+                          int budget, boolean balanced, PipeType pipe) {
         IItemHandler source = sourceCaps.itemHandler();
         if (source == null) return 0;
 
@@ -45,7 +42,6 @@ public final class ItemTransfer {
         if (destinations.isEmpty()) return 0;
 
         int[] given = new int[destinations.size()];
-        boolean[] announced = new boolean[destinations.size()];
         int cap = balanced ? Math.max(1, (budget + destinations.size() - 1) / destinations.size()) : Integer.MAX_VALUE;
         int total = 0;
 
@@ -86,10 +82,6 @@ public final class ItemTransfer {
                         if (!rest.isEmpty()) Block.popResource(level, sourcePos, rest);
                     }
                     int moved = extracted.getCount() - rest.getCount();
-                    if (moved > 0 && onMove != null && !announced[i]) {
-                        announced[i] = true;
-                        onMove.accept(dest.target(), Stacks.withCount(extracted, moved));
-                    }
                     given[i] += moved;
                     total += moved;
                     budget -= moved;

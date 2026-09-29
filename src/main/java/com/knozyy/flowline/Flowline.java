@@ -28,6 +28,5 @@ public class Flowline {
         ModRecipes.SERIALIZERS.register(modBus);
         modBus.addListener((FMLCommonSetupEvent event) -> event.enqueueWork(ModNetwork::register));
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, FlowlineConfig.SPEC);
-        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, FlowlineConfig.Client.SPEC);
     }
 }
