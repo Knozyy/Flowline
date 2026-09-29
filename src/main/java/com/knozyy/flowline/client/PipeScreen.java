@@ -59,6 +59,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private IconButton distributionButton;
     private IconButton clearButton;
     private IconButton overflowButton;
+    private IconButton signalButton;
     /** Until when (ms) the clear button is armed: the first click only arms it, so rules are not lost to a misclick. */
     private long clearArmedUntil = 0;
     private IconButton prevPageButton;
@@ -103,6 +104,9 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         overflowButton = addRenderableWidget(new IconButton(x + 22, y, 20, () -> "overflow", accent,
                 () -> !menu.overflow(), b -> press(PipeMenu.BTN_OVERFLOW)));
         overflowButton.visible = !extract;
+        signalButton = addRenderableWidget(new IconButton(x + 22, y + 22, 20,
+                () -> "signal_" + key(menu.signal()), accent, b -> press(PipeMenu.BTN_SIGNAL)));
+        signalButton.visible = extract;
         prevPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 24, topPos + PANEL_TOP + 2, 10,
                 () -> "page_prev", accent, b -> press(PipeMenu.BTN_PREV_PAGE)));
         nextPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 13, topPos + PANEL_TOP + 2, 10,
@@ -176,6 +180,10 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         }
         if (button == 1 && redstoneButton.visible && redstoneButton.isMouseOver(mouseX, mouseY)) {
             press(PipeMenu.BTN_REDSTONE_BACK);
+            return true;
+        }
+        if (button == 1 && signalButton.visible && signalButton.isMouseOver(mouseX, mouseY)) {
+            press(PipeMenu.BTN_SIGNAL_BACK);
             return true;
         }
         if (button == 1 && distributionButton.visible && distributionButton.isMouseOver(mouseX, mouseY)) {
@@ -475,6 +483,8 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             lines = List.of(Component.translatable("gui.flowline.filter_page", menu.page() + 1, menu.pageCount()),
                     Component.translatable("gui.flowline.filter_capacity", menu.capacity())
                             .withStyle(ChatFormatting.GRAY));
+        } else if (signalButton.visible && signalButton.isHovered()) {
+            lines = describe("gui.flowline.signal", "signal.flowline." + key(menu.signal()), true);
         } else if (overflowButton.visible && overflowButton.isHovered()) {
             lines = List.of(Component.translatable(menu.overflow() ? "gui.flowline.overflow.on" : "gui.flowline.overflow.off"),
                     Component.translatable("gui.flowline.overflow.desc").withStyle(ChatFormatting.GRAY));

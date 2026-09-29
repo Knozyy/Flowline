@@ -36,6 +36,8 @@ public class SideConfig {
      * least this much of each kind in the source. Items count items, fluids millibuckets, energy FE.
      */
     public int limit = 0;
+    /** Extract sides: when the pipe gives a redstone signal. */
+    public SignalMode signal = SignalMode.OFF;
     /** Insert sides: only receive what the other targets of an operation could not take. */
     public boolean overflow = false;
     /** Extract sides moving energy: at most this many FE per tick, 0 = unlimited. */
@@ -55,6 +57,8 @@ public class SideConfig {
 
     // ---- runtime state, derived or reset on load, never saved ---------------------------------------------
 
+    /** Whether this side's {@link #signal} condition held at its last operation. */
+    public boolean signalling = false;
     /** Speed, Stack and Filter contributions of the installed upgrades; kept in sync by the block entity. */
     public int speedCount = 0;
     public int stackCount = 0;
@@ -81,6 +85,7 @@ public class SideConfig {
 
     /** Forget pacing and cached targets, e.g. when the side stops extracting. */
     public void resetRuntime() {
+        signalling = false;
         interval = -1;
         cooldown = 0;
         sleeping = false;
@@ -187,6 +192,7 @@ public class SideConfig {
         if (limit != 0) tag.putInt("limit", limit);
         if (rate != 0) tag.putInt("rate", rate);
         if (overflow) tag.putBoolean("overflow", true);
+        if (signal != SignalMode.OFF) tag.putString("signal", signal.name());
         if (channels != PipeType.ALL_CHANNELS) tag.putInt("channels", channels);
         return tag;
     }
@@ -220,6 +226,7 @@ public class SideConfig {
         limit = Math.max(0, Math.min(MAX_AMOUNT, tag.getInt("limit")));
         rate = Math.max(0, Math.min(MAX_AMOUNT, tag.getInt("rate")));
         overflow = tag.getBoolean("overflow");
+        signal = SignalMode.byName(tag.getString("signal"));
         channels = tag.contains("channels") ? tag.getInt("channels") & PipeType.ALL_CHANNELS : PipeType.ALL_CHANNELS;
     }
 

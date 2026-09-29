@@ -31,7 +31,8 @@ it** (server: `sendItemAnimations`, client: `renderTravellingItems`, both can be
 Every side defaults to **Insert**; sneak-click the side facing your source chest/tank/generator with the wrench to
 make it **Extract**. Both kinds have a screen:
 
-- **Extract**: redstone mode, distribution, filter, upgrades, **Keep ≥** (regulator: leave at least this much of
+- **Extract**: redstone mode, distribution, **redstone output** (off / while moving / while stuck: the pipe powers
+  its neighbours, and only such pipes pull redstone dust), filter, upgrades, **Keep ≥** (regulator: leave at least this much of
   each kind in the source), and on energy-moving pipes **FE/t max** (rate limit).
 - **Insert**: **Priority**, an **insert filter** (only matching stacks go into this target), **Max ≤** (regulator:
   keep at most this much of each kind in the target) and Filter upgrades, and **Overflow** (this target only gets what the other targets

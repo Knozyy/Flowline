@@ -1018,6 +1018,13 @@ en.update({
     "gui.flowline.library.amount.max": "Keep at most this many of each matching kind in the target (mB for fluids). Empty: the side's Max <= value.",
     "gui.flowline.rule.amount.keep": "Keeps %s in the source",
     "gui.flowline.rule.amount.max": "At most %s in the target",
+    "gui.flowline.signal": "Redstone output: %s",
+    "signal.flowline.off": "Off",
+    "signal.flowline.off.desc": "The pipe gives no redstone signal.",
+    "signal.flowline.moving": "While moving",
+    "signal.flowline.moving.desc": "The pipe gives a signal while this side moves something.",
+    "signal.flowline.stuck": "While stuck",
+    "signal.flowline.stuck.desc": "The pipe gives a signal while the source has something for this side but nothing could be delivered (targets full or missing).",
     "gui.flowline.overflow.on": "Overflow: on",
     "gui.flowline.overflow.off": "Overflow: off",
     "gui.flowline.overflow.desc": "When on, this target only gets what the other targets could not take, like a spare chest for the rest.",
@@ -1094,6 +1101,13 @@ tr.update({
     "gui.flowline.library.amount.max": "Hedefte, uyan her türden en fazla bu kadar tut (sıvılarda mB). Boş: tarafın En çok değeri.",
     "gui.flowline.rule.amount.keep": "Kaynakta %s bırakır",
     "gui.flowline.rule.amount.max": "Hedefte en fazla %s",
+    "gui.flowline.signal": "Redstone çıkışı: %s",
+    "signal.flowline.off": "Kapalı",
+    "signal.flowline.off.desc": "Boru redstone sinyali vermez.",
+    "signal.flowline.moving": "Taşırken",
+    "signal.flowline.moving.desc": "Bu taraf bir şey taşırken boru sinyal verir.",
+    "signal.flowline.stuck": "Tıkanınca",
+    "signal.flowline.stuck.desc": "Kaynakta bu taraf için bir şey varken hiçbiri gönderilemezse (hedefler dolu ya da yok) boru sinyal verir.",
     "gui.flowline.overflow.on": "Taşma: açık",
     "gui.flowline.overflow.off": "Taşma: kapalı",
     "gui.flowline.overflow.desc": "Açıkken bu hedef sadece diğer hedeflerin alamadığını alır, fazlası için bir yedek sandık gibi.",
@@ -1339,8 +1353,23 @@ def overflow_icon():
     return c
 
 
+def signal_icon(kind):
+    c = torch(kind != "off")
+    if kind == "moving":
+        c.line(11, 11, 14, 11, GREEN)
+        c.dot(13, 10, GREEN)
+        c.dot(13, 12, GREEN)
+    elif kind == "stuck":
+        c.rect(11, 9, 14, 13, GREY_DK)
+        c.line(11, 9, 14, 13, RED)
+    return c
+
+
 GUI_ICONS = {
     "overflow": overflow_icon(),
+    "signal_off": signal_icon("off"),
+    "signal_moving": signal_icon("moving"),
+    "signal_stuck": signal_icon("stuck"),
     "redstone_pulse": pulse(),
     "distribution_balanced": balanced(),
     "distribution_priority": priority_icon(),

@@ -57,6 +57,9 @@ public class PipeMenu extends AbstractContainerMenu {
     public static final int BTN_CHANNEL = 10;
     /** Insert sides: toggle overflow. */
     public static final int BTN_OVERFLOW = 13;
+    /** Extract sides: cycle the redstone output (back: the other way). */
+    public static final int BTN_SIGNAL = 14;
+    public static final int BTN_SIGNAL_BACK = 15;
 
     /** Fields set through {@link com.knozyy.flowline.network.SetSideValuePayload}. */
     public static final int FIELD_PRIORITY = 0;
@@ -99,6 +102,7 @@ public class PipeMenu extends AbstractContainerMenu {
 
     private final DataSlot modeData;
     private final DataSlot overflowData;
+    private final DataSlot signalData;
     private final DataSlot distributionData;
     private final DataSlot redstoneData;
     private final DataSlot speedCountData;
@@ -178,6 +182,7 @@ public class PipeMenu extends AbstractContainerMenu {
         priorityData = track(() -> cfg.priority);
         channelsData = track(() -> cfg.channels);
         overflowData = track(() -> cfg.overflow ? 1 : 0);
+        signalData = track(() -> cfg.signal.ordinal());
         limitData = trackInt(() -> cfg.limit);
         rateData = trackInt(() -> cfg.rate);
         itemsData = trackInt(() -> Pacing.itemsPerOperation(cfg.stackCount));
@@ -308,6 +313,11 @@ public class PipeMenu extends AbstractContainerMenu {
         return channelsData.get();
     }
 
+    public com.knozyy.flowline.pipe.SignalMode signal() {
+        com.knozyy.flowline.pipe.SignalMode[] modes = com.knozyy.flowline.pipe.SignalMode.values();
+        return modes[Math.max(0, Math.min(modes.length - 1, signalData.get()))];
+    }
+
     public boolean overflow() {
         return overflowData.get() != 0;
     }
@@ -330,6 +340,12 @@ public class PipeMenu extends AbstractContainerMenu {
                 if (!type.hasChannels()) return false;
                 cfg.channels ^= 1 << (id - BTN_CHANNEL);
                 cfg.wake();
+            }
+            case BTN_SIGNAL, BTN_SIGNAL_BACK -> {
+                if (cfg.mode != SideMode.EXTRACT) return false;
+                cfg.signal = id == BTN_SIGNAL ? cfg.signal.next() : cfg.signal.previous();
+                // redstone dust next to the pipe reconsiders whether it points at it
+                pipe.getBlockState().updateNeighbourShapes(pipe.getLevel(), pipe.getBlockPos(), 3);
             }
             case BTN_OVERFLOW -> {
                 if (cfg.mode != SideMode.INSERT) return false;

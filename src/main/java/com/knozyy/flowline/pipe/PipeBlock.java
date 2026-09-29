@@ -176,6 +176,24 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
+    // ---- redstone output (see SideConfig#signal) --------------------------------------------------------------
+
+    @Override
+    public boolean isSignalSource(BlockState state) {
+        return true;
+    }
+
+    @Override
+    public int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
+        return level.getBlockEntity(pos) instanceof PipeBlockEntity be && be.emitsSignal() ? 15 : 0;
+    }
+
+    /** Only pipes with a redstone output pull redstone dust towards them. */
+    @Override
+    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
+        return direction != null && level.getBlockEntity(pos) instanceof PipeBlockEntity be && be.hasSignalOutput();
+    }
+
     @Override
     public void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
                                    BlockPos neighborPos, boolean movedByPiston) {

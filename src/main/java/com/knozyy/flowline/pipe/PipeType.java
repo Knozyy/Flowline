@@ -12,6 +12,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.energy.IEnergyStorage;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -127,6 +131,24 @@ public enum PipeType implements StringRepresentable {
                     ChemicalCompat.transfer(source, list, budget, first && balanced));
         }
         return moved;
+    }
+
+    /** Whether the source holds something this side may take (for the "stuck" redstone output). */
+    public boolean hasWork(Caps source, SideConfig cfg) {
+        IItemHandler items = this.items && cfg.channel(CH_ITEMS, this) ? source.itemHandler() : null;
+        if (items != null) {
+            for (int slot = 0; slot < items.getSlots(); slot++) {
+                ItemStack stack = items.extractItem(slot, 1, true);
+                if (!stack.isEmpty() && cfg.allowsItem(stack)) return true;
+            }
+        }
+        IFluidHandler fluids = this.fluids && cfg.channel(CH_FLUIDS, this) ? source.fluidHandler() : null;
+        if (fluids != null) {
+            FluidStack fluid = fluids.drain(Integer.MAX_VALUE, IFluidHandler.FluidAction.SIMULATE);
+            if (!fluid.isEmpty() && cfg.allowsFluid(fluid)) return true;
+        }
+        IEnergyStorage energy = this.energy && cfg.channel(CH_ENERGY, this) ? source.energyStorage() : null;
+        return energy != null && energy.extractEnergy(1, true) > 0;
     }
 
     @FunctionalInterface

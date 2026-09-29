@@ -41,6 +41,8 @@ public class PipeBlockEntity extends BlockEntity {
     public static final int NO_COLOR = -1;
 
     private final PipeType type;
+    /** Redstone output, recomputed every tick from the sides; not saved, sides report again after loading. */
+    private boolean emitting = false;
     private final SideConfig[] sides = new SideConfig[6];
     /** Bit per {@link Direction#ordinal()}: the wrench disconnected that side. */
     private int disconnected = 0;
@@ -254,12 +256,13 @@ public class PipeBlockEntity extends BlockEntity {
             SideConfig cfg = sides[dir.ordinal()];
             if (cfg.mode != SideMode.EXTRACT || !state.getValue(PipeBlock.prop(dir)).isEndpoint()) {
                 if (cfg.interval >= 0 || cfg.graph != null) cfg.resetRuntime();
+                cfg.signalling = false;
                 continue;
             }
             if (cfg.redstone == RedstoneMode.PULSE) {
                 if (cfg.pulsePending) {
                     cfg.pulsePending = false;
-                    operate(level, dir, cfg, 1);
+                    cfg.signalling = signalAfter(level, dir, cfg, operate(level, dir, cfg, 1), false);
                 }
                 continue;
             }
@@ -284,8 +287,12 @@ public class PipeBlockEntity extends BlockEntity {
             }
             if (!blocked) {
                 moved = operate(level, dir, cfg, cfg.interval);
-                if (moved < 0) continue;   // asleep
+                if (moved < 0) {   // asleep
+                    cfg.signalling = signalAfter(level, dir, cfg, moved, false);
+                    continue;
+                }
             }
+            cfg.signalling = signalAfter(level, dir, cfg, moved, blocked);
             cfg.interval = moved <= 0 ? Pacing.afterIdle(cfg.interval, cfg.speedCount)
                     // energy flows every tick while there is work, like a cable: many sources only give one
                     // tick's worth per call, so a slower pipe would get less out of them
@@ -293,6 +300,41 @@ public class PipeBlockEntity extends BlockEntity {
                     : Pacing.afterWork(cfg.interval, cfg.speedCount);
             cfg.cooldown = cfg.interval;
         }
+
+        boolean emit = false;
+        for (SideConfig cfg : sides) emit |= cfg.mode == SideMode.EXTRACT && cfg.signal != SignalMode.OFF && cfg.signalling;
+        if (emit != emitting) {
+            emitting = emit;
+            level.updateNeighborsAt(worldPosition, state.getBlock());
+        }
+    }
+
+    /** Whether a side's redstone output condition holds after an operation that moved {@code moved} (-1: asleep). */
+    private boolean signalAfter(ServerLevel level, Direction dir, SideConfig cfg, long moved, boolean blocked) {
+        return switch (cfg.signal) {
+            case OFF -> false;
+            case MOVING -> moved > 0;
+            case STUCK -> {
+                if (blocked || moved > 0) yield false;
+                if (cfg.sourceCaps == null) {
+                    cfg.sourceCaps = Caps.create(type, level, worldPosition.relative(dir), dir.getOpposite());
+                }
+                yield type.hasWork(cfg.sourceCaps, cfg);
+            }
+        };
+    }
+
+    /** Whether the pipe gives a redstone signal (see {@link SideConfig#signal}). */
+    public boolean emitsSignal() {
+        return emitting;
+    }
+
+    /** Whether any side has a redstone output, so redstone dust should connect to the pipe. */
+    public boolean hasSignalOutput() {
+        for (SideConfig cfg : sides) {
+            if (cfg.mode == SideMode.EXTRACT && cfg.signal != SignalMode.OFF) return true;
+        }
+        return false;
     }
 
     /**
