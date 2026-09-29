@@ -203,13 +203,13 @@ public class PipeGameTests {
         CompoundTag legacy = new CompoundTag();
         legacy.putString("target", "#minecraft:logs");
         legacy.putBoolean("invert", true);
-        FilterEntry entry = FilterEntry.CODEC.parse(NbtOps.INSTANCE, legacy).getOrThrow();
+        FilterEntry entry = FilterEntry.CODEC.parse(NbtOps.INSTANCE, legacy).result().orElseThrow();
         helper.assertTrue(entry.tags().equals(List.of("minecraft:logs")), "legacy tag target becomes a tag");
         helper.assertTrue(entry.item().isEmpty() && entry.invert(), "other fields survive");
 
         CompoundTag legacyItem = new CompoundTag();
         legacyItem.putString("target", "minecraft:stone");
-        FilterEntry itemEntry = FilterEntry.CODEC.parse(NbtOps.INSTANCE, legacyItem).getOrThrow();
+        FilterEntry itemEntry = FilterEntry.CODEC.parse(NbtOps.INSTANCE, legacyItem).result().orElseThrow();
         helper.assertTrue(itemEntry.item().equals(Optional.of("minecraft:stone")), "legacy id target becomes an item");
         helper.succeed();
     }

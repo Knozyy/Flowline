@@ -9,6 +9,7 @@ import com.knozyy.flowline.network.TravelPayload;
 import com.knozyy.flowline.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -355,7 +356,9 @@ public class PipeBlockEntity extends BlockEntity {
         tag.put("sides", list);
         tag.putInt("disconnected", disconnected);
         tag.putBoolean("powered", powered);
-        tag.put("upgrades", ContainerHelper.saveAllItems(new CompoundTag(), upgrades.getItems()));
+        NonNullList<ItemStack> items = NonNullList.withSize(upgrades.getContainerSize(), ItemStack.EMPTY);
+        for (int i = 0; i < items.size(); i++) items.set(i, upgrades.getItem(i));
+        tag.put("upgrades", ContainerHelper.saveAllItems(new CompoundTag(), items));
         saveVisuals(tag);
     }
 
@@ -366,8 +369,10 @@ public class PipeBlockEntity extends BlockEntity {
         for (int i = 0; i < sides.length && i < list.size(); i++) sides[i].load(list.getCompound(i));
         disconnected = tag.getInt("disconnected");
         powered = tag.getBoolean("powered");
-        upgrades.getItems().clear();
-        ContainerHelper.loadAllItems(tag.getCompound("upgrades"), upgrades.getItems());
+        // slot by slot: upgrade positions belong to sides (slot = side * UPGRADE_SLOTS + index)
+        NonNullList<ItemStack> items = NonNullList.withSize(upgrades.getContainerSize(), ItemStack.EMPTY);
+        ContainerHelper.loadAllItems(tag.getCompound("upgrades"), items);
+        for (int i = 0; i < items.size(); i++) upgrades.setItem(i, items.get(i));
         syncUpgrades();
         loadVisuals(tag);
     }
