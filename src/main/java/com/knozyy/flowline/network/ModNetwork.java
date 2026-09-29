@@ -66,7 +66,7 @@ public final class ModNetwork {
 
     private static void onWrenchScroll(WrenchScrollPayload payload, Supplier<NetworkEvent.Context> context) {
         Player player = context.get().getSender();
-        if (player != null && player.getMainHandItem().getItem() instanceof WrenchItem
+        if (player != null && WrenchItem.isWrench(player.getMainHandItem())
                 && player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(payload.pos())) <= 64) {
             WrenchItem.scroll(player, payload.pos(), payload.side(), payload.forward(), payload.redstone());
         }

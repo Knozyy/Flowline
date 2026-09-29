@@ -30,7 +30,7 @@ public final class ClientEvents {
     public static void onScroll(InputEvent.MouseScrollingEvent event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null || mc.screen != null || !mc.player.isShiftKeyDown()) return;
-        if (!(mc.player.getMainHandItem().getItem() instanceof WrenchItem)) return;
+        if (!WrenchItem.isWrench(mc.player.getMainHandItem())) return;
         if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) return;
         BlockPos pos = hit.getBlockPos();
         if (!(mc.level.getBlockState(pos).getBlock() instanceof PipeBlock)) return;

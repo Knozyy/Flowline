@@ -7,6 +7,9 @@ import com.knozyy.flowline.pipe.SideConfig;
 import com.knozyy.flowline.pipe.SideMode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
 import java.util.Locale;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -23,8 +26,24 @@ import net.minecraft.world.item.context.UseOnContext;
  * sides change their priority.
  */
 public class WrenchItem extends Item implements PipeInteractable {
+    /** Wrenches of any mod (Create, Mekanism, Thermal...): they configure pipes too, see {@code CommonEvents}. */
+    public static final TagKey<Item> WRENCHES = ItemTags.create(new ResourceLocation("forge", "tools/wrench"));
+
+    /** What a wrench does to a pipe side; shared with other mods' wrenches. */
+    public static final PipeInteractable ACTIONS = (pipe, side, conn, player, hand, stack) -> {
+        if (player.isShiftKeyDown()) {
+            PipeBlock.cycleSide(pipe, side, conn, player);
+        } else {
+            PipeBlock.openConfig(pipe, side, conn, player);
+        }
+    };
+
     public WrenchItem(Properties properties) {
         super(properties);
+    }
+
+    public static boolean isWrench(ItemStack stack) {
+        return stack.getItem() instanceof WrenchItem || stack.is(WRENCHES);
     }
 
     @Override
@@ -35,11 +54,7 @@ public class WrenchItem extends Item implements PipeInteractable {
     @Override
     public void useOnPipe(PipeBlockEntity pipe, Direction side, Conn conn, Player player, InteractionHand hand,
                           ItemStack stack) {
-        if (player.isShiftKeyDown()) {
-            PipeBlock.cycleSide(pipe, side, conn, player);
-        } else {
-            PipeBlock.openConfig(pipe, side, conn, player);
-        }
+        ACTIONS.useOnPipe(pipe, side, conn, player, hand, stack);
     }
 
     /** Server side of the sneak + scroll shortcut. */

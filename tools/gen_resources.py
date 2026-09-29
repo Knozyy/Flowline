@@ -474,6 +474,9 @@ for name in ("wrench", "speed_upgrade", "stack_upgrade", "filter_upgrade", "knoz
         "textures": {"layer0": f"{MODID}:item/{name}"},
     })
 
+# the common wrench tag: other mods treat the Flowline Wrench as a wrench, and their wrenches work on pipes
+write_json("data/forge/tags/items/tools/wrench.json", {"replace": False, "values": [f"{MODID}:wrench"]})
+
 write_json("data/minecraft/tags/blocks/mineable/pickaxe.json", {
     "replace": False,
     # optional pipes are only registered with their mod, so they must not be required here
