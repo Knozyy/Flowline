@@ -98,7 +98,7 @@ public enum PipeType implements StringRepresentable {
         }
         if (fluids && cfg.channel(CH_FLUIDS, this)) {
             moved += FluidTransfer.run(level, source, cfg, targets,
-                    FlowlineConfig.FLUID_PER_OPERATION.get() * multiplier, balanced, this);
+                    Pacing.fluidPerOperation(cfg.stackCount), balanced, this);
         }
         if (energy && cfg.channel(CH_ENERGY, this)) {
             long budget = (long) FlowlineConfig.ENERGY_PER_OPERATION.get() * multiplier;
@@ -107,7 +107,7 @@ public enum PipeType implements StringRepresentable {
         }
         if (chemicals) {
             moved += ChemicalCompat.transfer(source, targets,
-                    (long) FlowlineConfig.CHEMICAL_PER_OPERATION.get() * multiplier, balanced);
+                    Pacing.chemicalPerOperation(cfg.stackCount), balanced);
         }
         return moved;
     }

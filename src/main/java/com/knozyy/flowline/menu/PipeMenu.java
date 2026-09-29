@@ -112,6 +112,8 @@ public class PipeMenu extends AbstractContainerMenu {
     private final IntSupplier limitData;
     private final IntSupplier rateData;
     private final IntSupplier itemsData;
+    private final IntSupplier fluidData;
+    private final IntSupplier chemicalData;
 
     /** Client constructor, fed by the extra data written in {@code PipeBlock}. */
     public PipeMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
@@ -174,6 +176,8 @@ public class PipeMenu extends AbstractContainerMenu {
         limitData = trackInt(() -> cfg.limit);
         rateData = trackInt(() -> cfg.rate);
         itemsData = trackInt(() -> Pacing.itemsPerOperation(cfg.stackCount));
+        fluidData = trackInt(() -> Pacing.fluidPerOperation(cfg.stackCount));
+        chemicalData = trackInt(() -> Pacing.chemicalPerOperation(cfg.stackCount));
 
         if (cfg != null) loadPage();
     }
@@ -283,6 +287,16 @@ public class PipeMenu extends AbstractContainerMenu {
     /** Items one operation of this side may move. */
     public int itemsPerOperation() {
         return itemsData.getAsInt();
+    }
+
+    /** Millibuckets of fluid one operation of this side may move. */
+    public int fluidPerOperation() {
+        return fluidData.getAsInt();
+    }
+
+    /** Millibuckets of chemicals one operation of this side may move. */
+    public int chemicalPerOperation() {
+        return chemicalData.getAsInt();
     }
 
     public int channels() {

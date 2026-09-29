@@ -411,6 +411,11 @@ public class PipeGameTests {
                     stacks + " Stack upgrades: " + expected[stacks] + " items, got " + Pacing.itemsPerOperation(stacks));
         }
         helper.assertTrue(Pacing.itemsPerOperation(20) == 1024, "more upgrades stay at the last step");
+        helper.assertTrue(Pacing.fluidPerOperation(0) == 1000 && Pacing.fluidPerOperation(6) == 64000,
+                "fluids have their own curve: 1 to 64 buckets");
+        helper.assertTrue(Pacing.chemicalPerOperation(0) == 1000 && Pacing.chemicalPerOperation(6) == 64000,
+                "chemicals have their own curve: 1 to 64 buckets");
+        helper.assertTrue(Pacing.stackMultiplier(6) == 128, "energy keeps its multipliers");
         helper.succeed();
     }
 
