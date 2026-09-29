@@ -36,10 +36,11 @@ import java.util.Optional;
 import java.util.function.IntSupplier;
 
 /**
- * Configuration screen for one extracting side of a pipe. The server owns the {@link SideConfig}; the client only
+ * Configuration screen for one side of a pipe (extracting or inserting). The server owns the {@link SideConfig}; the client only
  * mirrors its scalar values through data slots, its filter through ghost slots and its upgrades through real slots.
  *
- * <p>Slot layout: 0..5 = upgrades, 6..14 = filter (not on energy pipes), then the player inventory.
+ * <p>Slot layout: 0..5 = upgrades, 6..14 = filter (not on energy pipes), then the player inventory. Inserting sides
+ * only take Filter upgrades.
  * Filter slots hold the samples themselves: items for item pipes, filled containers for fluid pipes. The nine filter
  * slots show one page of the side's filter; Filter upgrades raise the capacity and add pages.
  */
@@ -49,6 +50,15 @@ public class PipeMenu extends AbstractContainerMenu {
     public static final int BTN_CLEAR = 4;
     public static final int BTN_PREV_PAGE = 6;
     public static final int BTN_NEXT_PAGE = 7;
+    public static final int BTN_DISTRIBUTION_BACK = 8;
+    public static final int BTN_REDSTONE_BACK = 9;
+    /** Toggles channel {@code id - BTN_CHANNEL} on universal pipes: 0 items, 1 fluids, 2 energy. */
+    public static final int BTN_CHANNEL = 10;
+
+    /** Fields set through {@link com.knozyy.flowline.network.SetSideValuePayload}. */
+    public static final int FIELD_PRIORITY = 0;
+    public static final int FIELD_LIMIT = 1;
+    public static final int FIELD_RATE = 2;
 
     /** Top-left of the 2x3 upgrade grid. */
     public static final int UPGRADE_X = 128;
@@ -56,8 +66,8 @@ public class PipeMenu extends AbstractContainerMenu {
     /** Top-left of the 3x3 filter grid. */
     public static final int FILTER_X = 60;
     public static final int FILTER_Y = 44;
-    public static final int INVENTORY_Y = 114;
-    public static final int HOTBAR_Y = 172;
+    public static final int INVENTORY_Y = 136;
+    public static final int HOTBAR_Y = 194;
 
     private static final int UPGRADES = SideConfig.UPGRADE_SLOTS;
 
@@ -81,6 +91,8 @@ public class PipeMenu extends AbstractContainerMenu {
     private final FilterEntry[] clientEntries = new FilterEntry[SideConfig.FILTER_PAGE];
     private final int ghostCount;
     private final int inventoryStart;
+    /** Server: the mode the side had when the menu opened; the menu closes if it changes. */
+    private final SideMode openedMode;
 
     private final DataSlot modeData;
     private final DataSlot distributionData;
@@ -95,6 +107,10 @@ public class PipeMenu extends AbstractContainerMenu {
     private final DataSlot sleepingData;
     private final DataSlot pageData;
     private final DataSlot capacityData;
+    private final DataSlot priorityData;
+    private final DataSlot channelsData;
+    private final IntSupplier limitData;
+    private final IntSupplier rateData;
 
     /** Client constructor, fed by the extra data written in {@code PipeBlock}. */
     public PipeMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
@@ -116,6 +132,7 @@ public class PipeMenu extends AbstractContainerMenu {
         this.player = inventory.player instanceof ServerPlayer serverPlayer ? serverPlayer : null;
         this.registries = inventory.player.level().registryAccess();
         this.ghostCount = type.hasFilter() ? SideConfig.FILTER_PAGE : 0;
+        this.openedMode = cfg == null ? SideMode.INSERT : cfg.mode;
 
         // The client mirrors the whole upgrade container so slot indices match the server's.
         Container upgrades = pipe != null ? pipe.upgrades() : new SimpleContainer(6 * UPGRADES);
@@ -149,6 +166,10 @@ public class PipeMenu extends AbstractContainerMenu {
         sleepingData = track(() -> cfg.sleeping ? 1 : 0);
         pageData = track(() -> page);
         capacityData = track(() -> cfg.filterCapacity());
+        priorityData = track(() -> cfg.priority);
+        channelsData = track(() -> cfg.channels);
+        limitData = trackInt(() -> cfg.limit);
+        rateData = trackInt(() -> cfg.rate);
 
         if (cfg != null) loadPage();
     }
@@ -164,6 +185,13 @@ public class PipeMenu extends AbstractContainerMenu {
             @Override
             public void set(int value) {}
         });
+    }
+
+    /** Data slots only carry 16 bits: an int travels as two of them. */
+    private IntSupplier trackInt(IntSupplier server) {
+        DataSlot low = track(() -> server.getAsInt() & 0xFFFF);
+        DataSlot high = track(() -> server.getAsInt() >>> 16);
+        return () -> (high.get() & 0xFFFF) << 16 | low.get() & 0xFFFF;
     }
 
     public HolderLookup.Provider registries() {
@@ -231,6 +259,26 @@ public class PipeMenu extends AbstractContainerMenu {
         return capacityData.get();
     }
 
+    public boolean extracting() {
+        return mode() == SideMode.EXTRACT;
+    }
+
+    public int priority() {
+        return (short) priorityData.get();
+    }
+
+    public int limit() {
+        return limitData.getAsInt();
+    }
+
+    public int rate() {
+        return rateData.getAsInt();
+    }
+
+    public int channels() {
+        return channelsData.get();
+    }
+
     public int pageCount() {
         return Math.max(1, (capacity() + SideConfig.FILTER_PAGE - 1) / SideConfig.FILTER_PAGE);
     }
@@ -242,7 +290,14 @@ public class PipeMenu extends AbstractContainerMenu {
         if (cfg == null) return false;
         switch (id) {
             case BTN_DISTRIBUTION -> cfg.distribution = cfg.distribution.next();
+            case BTN_DISTRIBUTION_BACK -> cfg.distribution = cfg.distribution.previous();
             case BTN_REDSTONE -> cfg.redstone = cfg.redstone.next();
+            case BTN_REDSTONE_BACK -> cfg.redstone = cfg.redstone.previous();
+            case BTN_CHANNEL, BTN_CHANNEL + 1, BTN_CHANNEL + 2 -> {
+                if (!type.hasChannels()) return false;
+                cfg.channels ^= 1 << (id - BTN_CHANNEL);
+                cfg.wake();
+            }
             case BTN_CLEAR -> {
                 if (!hasFilter()) return false;
                 cfg.clearFilter();
@@ -261,6 +316,21 @@ public class PipeMenu extends AbstractContainerMenu {
         }
         pipe.setChanged();
         return true;
+    }
+
+    /** Server: a number typed or scrolled in the screen. */
+    public void setValue(int field, int value) {
+        if (cfg == null) return;
+        switch (field) {
+            case FIELD_PRIORITY -> cfg.priority = Math.max(-SideConfig.MAX_PRIORITY, Math.min(SideConfig.MAX_PRIORITY, value));
+            case FIELD_LIMIT -> cfg.limit = Math.max(0, Math.min(SideConfig.MAX_AMOUNT, value));
+            case FIELD_RATE -> cfg.rate = Math.max(0, Math.min(SideConfig.MAX_AMOUNT, value));
+            default -> {
+                return;
+            }
+        }
+        cfg.wake();
+        pipe.setChanged();
     }
 
     // ---- ghost filter slots -------------------------------------------------------------------------------
@@ -327,7 +397,7 @@ public class PipeMenu extends AbstractContainerMenu {
         for (int i = 0; i < filterInv.getContainerSize(); i++) {
             FilterEntry entry = cfg.getEntry(page * SideConfig.FILTER_PAGE + i);
             // fluid rules are drawn by the screen with the fluid's own texture, not as a bucket
-            filterInv.setItem(i, entry == null || type.filtersFluids() ? ItemStack.EMPTY
+            filterInv.setItem(i, entry == null || entry.isFluidRule(type) ? ItemStack.EMPTY
                     : entry.displayStack(type, registries));
         }
         pageDirty = true;
@@ -363,7 +433,7 @@ public class PipeMenu extends AbstractContainerMenu {
 
         if (index < UPGRADES) {
             if (!moveItemStackTo(stack, inventoryStart, slots.size(), true)) return ItemStack.EMPTY;
-        } else if (index >= inventoryStart && stack.getItem() instanceof UpgradeItem) {
+        } else if (index >= inventoryStart && slots.get(0).mayPlace(stack)) {
             if (!moveItemStackTo(stack, 0, UPGRADES, false)) return ItemStack.EMPTY;
         } else {
             return ItemStack.EMPTY;
@@ -380,7 +450,7 @@ public class PipeMenu extends AbstractContainerMenu {
     @Override
     public boolean stillValid(Player player) {
         if (pipe == null) return true;
-        return !pipe.isRemoved() && cfg.mode == SideMode.EXTRACT
+        return !pipe.isRemoved() && cfg.mode == openedMode
                 && player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64;
     }
 
@@ -392,7 +462,9 @@ public class PipeMenu extends AbstractContainerMenu {
 
         @Override
         public boolean mayPlace(ItemStack stack) {
-            return stack.getItem() instanceof UpgradeItem;
+            if (pipe != null) return pipe.accepts(side, stack);
+            return stack.getItem() instanceof UpgradeItem
+                    && (extracting() || UpgradeItem.typeOf(stack) == com.knozyy.flowline.item.UpgradeType.FILTER);
         }
 
         @Override

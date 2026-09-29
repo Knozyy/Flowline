@@ -1,7 +1,10 @@
 {
+  "render_type": "minecraft:cutout",
   "textures": {
     "pipe": "flowline:block/fluid_pipe",
-    "particle": "flowline:block/fluid_pipe"
+    "inner": "flowline:block/fluid_pipe_inner",
+    "collar": "flowline:block/fluid_pipe_collar",
+    "particle": "flowline:block/fluid_pipe_collar"
   },
   "elements": [
     {
@@ -56,6 +59,102 @@
     },
     {
       "from": [
+        5.02,
+        5,
+        2
+      ],
+      "to": [
+        5.02,
+        11,
+        5
+      ],
+      "shade": false,
+      "faces": {
+        "east": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
+        10.98,
+        5,
+        2
+      ],
+      "to": [
+        10.98,
+        11,
+        5
+      ],
+      "shade": false,
+      "faces": {
+        "west": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        5.02,
+        2
+      ],
+      "to": [
+        11,
+        5.02,
+        5
+      ],
+      "shade": false,
+      "faces": {
+        "up": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        10.98,
+        2
+      ],
+      "to": [
+        11,
+        10.98,
+        5
+      ],
+      "shade": false,
+      "faces": {
+        "down": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
         4,
         4,
         0
@@ -73,7 +172,7 @@
             12,
             12
           ],
-          "texture": "#pipe"
+          "texture": "#collar"
         },
         "up": {
           "uv": [
@@ -82,7 +181,7 @@
             12,
             12
           ],
-          "texture": "#pipe"
+          "texture": "#collar"
         },
         "north": {
           "uv": [
@@ -91,7 +190,7 @@
             12,
             12
           ],
-          "texture": "#pipe"
+          "texture": "#collar"
         },
         "south": {
           "uv": [
@@ -100,7 +199,7 @@
             12,
             12
           ],
-          "texture": "#pipe"
+          "texture": "#collar"
         },
         "west": {
           "uv": [
@@ -109,7 +208,7 @@
             12,
             12
           ],
-          "texture": "#pipe"
+          "texture": "#collar"
         },
         "east": {
           "uv": [
@@ -118,7 +217,7 @@
             12,
             12
           ],
-          "texture": "#pipe"
+          "texture": "#collar"
         }
       }
     }

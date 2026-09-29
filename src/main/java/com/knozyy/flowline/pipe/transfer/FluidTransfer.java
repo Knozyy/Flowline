@@ -1,45 +1,77 @@
 package com.knozyy.flowline.pipe.transfer;
 
-import com.knozyy.flowline.pipe.PipeNetwork.Target;
-import com.knozyy.flowline.pipe.SideConfig;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.Level;
 import com.knozyy.flowline.pipe.Caps;
+import com.knozyy.flowline.pipe.PipeNetwork.Target;
+import com.knozyy.flowline.pipe.PipeType;
+import com.knozyy.flowline.pipe.SideConfig;
+import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public final class FluidTransfer {
     private FluidTransfer() {}
 
-    /**
-     * @param applyFilter false on pipes whose filter is about items (universal pipes)
-     * @return millibuckets moved
-     */
-    public static int run(Level level, Caps sourceCaps, SideConfig cfg, java.util.List<Target> targets, int budget,
-                          boolean applyFilter) {
+    private record Dest(IFluidHandler handler, SideConfig cfg) {}
+
+    /** @return millibuckets moved */
+    public static int run(Level level, Caps sourceCaps, SideConfig cfg, List<Target> targets, int budget,
+                          boolean balanced, PipeType pipe) {
         IFluidHandler source = sourceCaps.fluidHandler();
         if (source == null) return 0;
 
-        FluidStack offered = source.drain(budget, IFluidHandler.FluidAction.SIMULATE);
-        if (offered.isEmpty()) return 0;
-        if (applyFilter && !cfg.allowsFluid(offered, level.registryAccess())) return 0;
-
-        int remaining = budget;
+        List<Dest> destinations = new ArrayList<>();
         for (Target t : targets) {
-            if (remaining <= 0) break;
-            IFluidHandler dest = t.caps().fluidHandler();
-            if (dest == null || dest == source) continue;
+            IFluidHandler h = t.caps().fluidHandler();
+            SideConfig insert = t.insert();
+            if (h != null && h != source && insert.channel(PipeType.CH_FLUIDS, pipe)) destinations.add(new Dest(h, insert));
+        }
+        if (destinations.isEmpty()) return 0;
 
-            FluidStack request = offered.copyWithAmount(Math.min(remaining, offered.getAmount()));
-            FluidStack moved = FluidUtil.tryFluidTransfer(dest, source, request, true);
-            if (moved.isEmpty()) continue;
+        int[] given = new int[destinations.size()];
+        int cap = balanced ? Math.max(1, (budget + destinations.size() - 1) / destinations.size()) : Integer.MAX_VALUE;
+        int remaining = budget;
 
-            remaining -= moved.getAmount();
-            offered = source.drain(remaining, IFluidHandler.FluidAction.SIMULATE);
-            if (offered.isEmpty() || applyFilter && !cfg.allowsFluid(offered, level.registryAccess())) break;
+        for (int pass = 0; pass < (balanced ? 2 : 1) && remaining > 0; pass++) {
+            for (int i = 0; i < destinations.size() && remaining > 0; i++) {
+                FluidStack offered = source.drain(remaining, IFluidHandler.FluidAction.SIMULATE);
+                if (offered.isEmpty()) return budget - remaining;
+                if (!cfg.allowsFluid(offered, level.registryAccess())) return budget - remaining;
+                int want = Math.min(offered.getAmount(), cap - given[i]);
+                if (cfg.limit > 0) {
+                    // regulator: leave at least `limit` mB of this fluid in the source
+                    int spare = amount(source, offered) - cfg.limit;
+                    if (spare <= 0) return budget - remaining;
+                    want = Math.min(want, spare);
+                }
+                if (want <= 0) continue;
+
+                Dest dest = destinations.get(i);
+                if (!dest.cfg().allowsFluid(offered, level.registryAccess())) continue;
+                if (dest.cfg().limit > 0) {
+                    want = Math.min(want, dest.cfg().limit - amount(dest.handler(), offered));
+                    if (want <= 0) continue;
+                }
+                FluidStack moved = FluidUtil.tryFluidTransfer(dest.handler(), source, offered.copyWithAmount(want), true);
+                if (moved.isEmpty()) continue;
+                given[i] += moved.getAmount();
+                remaining -= moved.getAmount();
+            }
+            cap = Integer.MAX_VALUE;
         }
         return budget - remaining;
+    }
+
+    /** Millibuckets of {@code like} (same fluid and components) in all tanks of the handler. */
+    static int amount(IFluidHandler handler, FluidStack like) {
+        long amount = 0;
+        for (int tank = 0; tank < handler.getTanks(); tank++) {
+            FluidStack stack = handler.getFluidInTank(tank);
+            if (FluidStack.isSameFluidSameComponents(stack, like)) amount += stack.getAmount();
+        }
+        return (int) Math.min(Integer.MAX_VALUE, amount);
     }
 }

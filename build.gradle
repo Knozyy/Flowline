@@ -40,6 +40,33 @@ neoForge {
     }
 }
 
+// Optional integrations: compiled against their APIs only, never required at runtime.
+repositories {
+    exclusiveContent {
+        forRepository { maven { url = 'https://maven.blamejared.com' } }
+        filter { includeGroup 'mezz.jei' }
+    }
+    exclusiveContent {
+        forRepository { maven { url = 'https://maven.terraformersmc.com/releases/' } }
+        filter { includeGroup 'dev.emi' }
+    }
+    exclusiveContent {
+        forRepository { maven { url = 'https://www.cursemaven.com' } }
+        filter { includeGroup 'curse.maven' }
+    }
+    exclusiveContent {
+        forRepository { maven { url = 'https://modmaven.dev/' } }
+        filter { includeGroup 'mekanism' }
+    }
+}
+
+dependencies {
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
+    compileOnly "dev.emi:emi-neoforge:${emi_version}+${minecraft_version}:api"
+    compileOnly "curse.maven:jade-api-324717:${jade_api_id}"
+    compileOnly "mekanism:Mekanism:${minecraft_version}-${mekanism_version}:api"
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }

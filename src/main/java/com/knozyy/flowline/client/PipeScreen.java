@@ -6,6 +6,7 @@ import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.menu.PipeMenu;
 import com.knozyy.flowline.pipe.SideConfig;
 import com.knozyy.flowline.network.SetFilterEntryPayload;
+import com.knozyy.flowline.network.SetSideValuePayload;
 import com.knozyy.flowline.pipe.PipeType;
 import com.knozyy.flowline.registry.ModItems;
 import net.minecraft.ChatFormatting;
@@ -26,7 +27,8 @@ import java.util.Optional;
 
 /**
  * Dark, panel-based configuration screen drawn without a background texture: a header with the pipe and side,
- * then three panels (settings icons, 3x3 filter, upgrade), then the player inventory.
+ * three panels (settings icons, 3x3 filter, upgrade), a row of numbers (priority, regulator, rate) and channel
+ * toggles, then the player inventory. Extracting and inserting sides show different settings.
  */
 public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private static final int BG = 0xFF1E2229;
@@ -44,6 +46,8 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private static final int SETTINGS_L = 6, SETTINGS_R = 52;
     private static final int FILTER_L = 56, FILTER_R = 118;
     private static final int UPGRADE_L = 122, UPGRADE_R = 170;
+    private static final int VALUES_TOP = 100, VALUES_BOTTOM = 124;
+    private static final int FIELD_W = 44;
 
     private final int accent;
     /** Pacing badge in the header, relative to the screen origin; recomputed every frame. */
@@ -56,30 +60,41 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private IconButton prevPageButton;
     private IconButton nextPageButton;
     private IconButton upgradeHelp;
+    private final List<IconButton> channelButtons = new ArrayList<>();
+    /** Number fields with their label key and help key. */
+    private final List<Field> fields = new ArrayList<>();
+
+    private record Field(NumberBox box, String label, String help, int x) {}
 
     public PipeScreen(PipeMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 176;
-        this.imageHeight = 196;
+        this.imageHeight = 216;
         this.inventoryLabelY = PipeMenu.INVENTORY_Y - 10;
         this.accent = switch (menu.type) {
             case ITEM -> 0xFFE08A2B;
             case FLUID -> 0xFF2F7FE0;
             case ENERGY -> 0xFFD83A3A;
             case UNIVERSAL -> 0xFFA77BE8;
+            case CHEMICAL -> 0xFF7CD957;
         };
     }
 
     @Override
     protected void init() {
         super.init();
+        channelButtons.clear();
+        fields.clear();
         int x = leftPos + SETTINGS_L + 2;
         int y = topPos + PANEL_TOP + 12;
+        boolean extract = menu.extracting();
         redstoneButton = addRenderableWidget(new IconButton(x, y, 20,
                 () -> "redstone_" + key(menu.redstone()), accent, b -> press(PipeMenu.BTN_REDSTONE)));
         distributionButton = addRenderableWidget(new IconButton(x + 22, y, 20,
                 () -> "distribution_" + key(menu.distribution()), accent, b -> press(PipeMenu.BTN_DISTRIBUTION)));
-        clearButton = addRenderableWidget(new IconButton(x, y + 22, 20,
+        redstoneButton.visible = extract;
+        distributionButton.visible = extract;
+        clearButton = addRenderableWidget(new IconButton(x, extract ? y + 22 : y, 20,
                 () -> "clear", accent, b -> press(PipeMenu.BTN_CLEAR)));
         prevPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 24, topPos + PANEL_TOP + 2, 10,
                 () -> "page_prev", accent, b -> press(PipeMenu.BTN_PREV_PAGE)));
@@ -88,6 +103,42 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         upgradeHelp = addRenderableWidget(new IconButton(leftPos + UPGRADE_R - 11, topPos + PANEL_TOP + 2, 9,
                 () -> "help", accent, b -> {}));
 
+        // values row
+        int fx = SETTINGS_L + 3;
+        int fy = topPos + VALUES_TOP + 10;
+        if (!extract) {
+            addField(fx, fy, -SideConfig.MAX_PRIORITY, SideConfig.MAX_PRIORITY, menu::priority, PipeMenu.FIELD_PRIORITY,
+                    "gui.flowline.value.priority", "gui.flowline.value.priority.desc");
+            fx += FIELD_W + 4;
+        }
+        if (menu.type != PipeType.CHEMICAL) {
+            addField(fx, fy, 0, SideConfig.MAX_AMOUNT, menu::limit, PipeMenu.FIELD_LIMIT,
+                    extract ? "gui.flowline.value.keep" : "gui.flowline.value.max",
+                    extract ? "gui.flowline.value.keep.desc" : "gui.flowline.value.max.desc");
+            fx += FIELD_W + 4;
+        }
+        if (extract && menu.type.movesEnergy()) {
+            addField(fx, fy, 0, SideConfig.MAX_AMOUNT, menu::rate, PipeMenu.FIELD_RATE,
+                    "gui.flowline.value.rate", "gui.flowline.value.rate.desc");
+        }
+        if (menu.type.hasChannels()) {
+            String[] names = {"channel_items", "channel_fluids", "channel_energy"};
+            for (int i = 0; i < 3; i++) {
+                int bit = 1 << i;
+                String icon = names[i];
+                int id = PipeMenu.BTN_CHANNEL + i;
+                channelButtons.add(addRenderableWidget(new IconButton(leftPos + UPGRADE_R - 44 + i * 15, fy - 1, 13,
+                        () -> icon, accent, () -> (menu.channels() & bit) == 0, b -> press(id))));
+            }
+        }
+    }
+
+    private void addField(int x, int y, int min, int max, java.util.function.IntSupplier value, int field, String label,
+                          String help) {
+        NumberBox box = new NumberBox(font, leftPos + x, y, FIELD_W, min, max, value,
+                v -> PacketDistributor.sendToServer(new SetSideValuePayload(menu.containerId, field, v)));
+        addRenderableWidget(box);
+        fields.add(new Field(box, label, help, x));
     }
 
     private void press(int id) {
@@ -108,6 +159,17 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
      */
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        for (Field field : fields) {
+            if (!field.box().isMouseOver(mouseX, mouseY)) field.box().setFocused(false);
+        }
+        if (button == 1 && redstoneButton.visible && redstoneButton.isMouseOver(mouseX, mouseY)) {
+            press(PipeMenu.BTN_REDSTONE_BACK);
+            return true;
+        }
+        if (button == 1 && distributionButton.visible && distributionButton.isMouseOver(mouseX, mouseY)) {
+            press(PipeMenu.BTN_DISTRIBUTION_BACK);
+            return true;
+        }
         if (hoveredSlot instanceof PipeMenu.GhostSlot ghost && menu.getCarried().isEmpty() && minecraft != null) {
             if (button == 0 && hasShiftDown()) {
                 if (menu.clientEntry(ghost.getContainerSlot()) != null) {
@@ -123,9 +185,32 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    /** Mouse wheel over the filter panel flips filter pages. */
+    /** Typing into a number field must not close the screen or swap hotbar items. */
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        for (Field field : fields) {
+            if (field.box().isFocused() && keyCode != org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+                if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) {
+                    field.box().setFocused(false);
+                    setFocused(null);
+                } else {
+                    field.box().keyPressed(keyCode, scanCode, modifiers);
+                }
+                return true;
+            }
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    /** Mouse wheel over the filter panel flips filter pages; over a number field it steps the number. */
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        for (Field field : fields) {
+            if (field.box().isMouseOver(mouseX, mouseY) && scrollY != 0) {
+                field.box().step(scrollY);
+                return true;
+            }
+        }
         if (menu.hasFilter() && menu.pageCount() > 1 && scrollY != 0
                 && isHovering(FILTER_L, PANEL_TOP, FILTER_R - FILTER_L, PANEL_BOTTOM - PANEL_TOP, mouseX, mouseY)) {
             int target = menu.page() + (scrollY < 0 ? 1 : -1);
@@ -148,6 +233,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         nextPageButton.visible = paged;
         prevPageButton.active = menu.page() > 0;
         nextPageButton.active = menu.page() < menu.pageCount() - 1;
+        fields.forEach(field -> field.box().follow());
 
         super.render(graphics, mouseX, mouseY, partialTick);
         renderTooltip(graphics, mouseX, mouseY);
@@ -167,6 +253,8 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         panel(graphics, SETTINGS_L, SETTINGS_R);
         panel(graphics, FILTER_L, FILTER_R);
         panel(graphics, UPGRADE_L, UPGRADE_R);
+        graphics.fill(l + SETTINGS_L, t + VALUES_TOP, l + UPGRADE_R, t + VALUES_BOTTOM, PANEL_EDGE);
+        graphics.fill(l + SETTINGS_L + 1, t + VALUES_TOP + 1, l + UPGRADE_R - 1, t + VALUES_BOTTOM - 1, PANEL);
 
         for (Slot slot : menu.slots) {
             if (!slot.isActive()) continue;
@@ -195,6 +283,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
 
     private void panel(GuiGraphics graphics, int left, int right) {
         int l = leftPos + left, r = leftPos + right, t = topPos + PANEL_TOP, b = topPos + PANEL_BOTTOM;
+
         graphics.fill(l, t, r, b, PANEL_EDGE);
         graphics.fill(l + 1, t + 1, r - 1, b - 1, PANEL);
     }
@@ -205,14 +294,17 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         Component name = Component.translatable("block.flowline." + menu.type.getSerializedName() + "_pipe");
         graphics.drawString(font, name, 26, 7, TEXT, false);
         Component sub = Component.translatable("gui.flowline.side_line",
-                Component.translatable("direction.flowline." + menu.side.getName()));
+                Component.translatable("direction.flowline." + menu.side.getName()),
+                Component.translatable(menu.extracting() ? "mode.flowline.extract" : "mode.flowline.insert"));
         small(graphics, sub, 26, 18, MUTED);
 
-        // pacing badge: stack multiplier and current interval
-        String badge = "x" + menu.multiplier() + " · " + (menu.sleeping() ? "zZ" : menu.interval() + "t");
+        // badge: stack multiplier and current interval (extract), priority (insert)
+        String badge = !menu.extracting() ? "P " + menu.priority()
+                : menu.redstone() == com.knozyy.flowline.pipe.RedstoneMode.PULSE ? "x" + menu.multiplier() + " · ⚡"
+                : "x" + menu.multiplier() + " · " + (menu.sleeping() ? "zZ" : menu.interval() + "t");
         badgeW = font.width(badge) + 8;
         badgeX = imageWidth - 7 - badgeW;
-        boolean boosted = menu.speedCount() > 0 || menu.stackCount() > 0;
+        boolean boosted = menu.extracting() ? menu.speedCount() > 0 || menu.stackCount() > 0 : menu.priority() != 0;
         graphics.fill(badgeX, BADGE_Y, badgeX + badgeW, BADGE_Y + BADGE_H, boosted ? accent : PANEL_EDGE);
         graphics.drawString(font, badge, badgeX + 4, BADGE_Y + 2, TEXT, false);
 
@@ -222,6 +314,10 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         small(graphics, caption("gui.flowline.section.settings"), SETTINGS_L + 4, PANEL_TOP + 4, MUTED);
         small(graphics, caption("gui.flowline.section.filter"), FILTER_L + 4, PANEL_TOP + 4, MUTED);
         small(graphics, caption("gui.flowline.section.upgrade"), UPGRADE_L + 3, PANEL_TOP + 4, MUTED);
+        for (Field field : fields) small(graphics, caption(field.label()), field.x(), VALUES_TOP + 3, MUTED);
+        if (!channelButtons.isEmpty()) {
+            small(graphics, caption("gui.flowline.value.channels"), UPGRADE_R - 44, VALUES_TOP + 3, MUTED);
+        }
 
         renderRuleMarks(graphics);
     }
@@ -235,11 +331,15 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             FilterEntry entry = menu.clientEntry(ghost.getContainerSlot());
             if (entry == null) continue;
             int x = slot.x, y = slot.y;
-            if (menu.type.filtersFluids()) FluidIcon.draw(graphics, entry.displayFluid(), x, y, 16);
+            if (entry.isFluidRule(menu.type)) FluidIcon.draw(graphics, entry.displayFluid(), x, y, 16);
             if (!entry.tags().isEmpty()) {
                 small(graphics, Component.literal("#" + (entry.tags().size() > 1 ? entry.tags().size() : "")), x, y,
                         0xFF7FD3FF);
+            } else if (entry.mod().isPresent()) {
+                small(graphics, Component.literal("@"), x, y, 0xFFFFC857);
             }
+            if (entry.name().isPresent()) small(graphics, Component.literal("Aa"), x + 8, y + 9, 0xFF9CF0B0);
+            if (entry.hasDurability()) graphics.fill(x, y + 12, x + 2, y + 14, 0xFF4AE6F0);
             if (entry.nbt().isPresent()) graphics.fill(x + 13, y, x + 16, y + 3, 0xFFB86BFF);
             if (entry.invert()) graphics.fill(x, y + 14, x + 16, y + 16, 0xFFE04848);
         }
@@ -256,6 +356,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             case FLUID -> new ItemStack(ModItems.FLUID_PIPE.get());
             case ENERGY -> new ItemStack(ModItems.ENERGY_PIPE.get());
             case UNIVERSAL -> new ItemStack(ModItems.UNIVERSAL_PIPE.get());
+            case CHEMICAL -> ModItems.CHEMICAL_PIPE == null ? ItemStack.EMPTY : new ItemStack(ModItems.CHEMICAL_PIPE.get());
         };
     }
 
@@ -278,14 +379,26 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             lines.add(Component.translatable("gui.flowline.rule.empty_hint").withStyle(ChatFormatting.GRAY));
             return lines;
         }
-        if (entry.item().isPresent() && menu.type.filtersFluids()) {
+        if (entry.item().isPresent() && entry.isFluidRule(menu.type)) {
             lines.add(entry.displayFluid().getFluidType().getDescription().copy());
             lines.add(Component.literal(entry.item().get()).withStyle(ChatFormatting.DARK_GRAY));
         } else if (entry.item().isPresent()) {
             lines.add(entry.displayStack(menu.type, menu.registries()).getHoverName().copy());
             lines.add(Component.literal(entry.item().get()).withStyle(ChatFormatting.DARK_GRAY));
-        } else if (entry.tags().isEmpty()) {
+        } else if (entry.tags().isEmpty() && entry.mod().isEmpty() && entry.name().isEmpty() && !entry.hasDurability()) {
             lines.add(Component.translatable("gui.flowline.rule.any"));
+        }
+        if (menu.type == PipeType.UNIVERSAL) {
+            lines.add(Component.translatable(entry.fluid() ? "gui.flowline.rule.kind_fluid" : "gui.flowline.rule.kind_item")
+                    .withStyle(ChatFormatting.DARK_GRAY));
+        }
+        entry.mod().ifPresent(mod -> lines.add(Component.translatable("gui.flowline.rule.mod",
+                Component.literal("@" + mod).withStyle(ChatFormatting.GOLD)).withStyle(ChatFormatting.GRAY)));
+        entry.name().ifPresent(name -> lines.add(Component.translatable("gui.flowline.rule.name",
+                Component.literal(name).withStyle(ChatFormatting.GREEN)).withStyle(ChatFormatting.GRAY)));
+        if (entry.hasDurability()) {
+            lines.add(Component.translatable("gui.flowline.rule.durability", entry.minDurability(), entry.maxDurability())
+                    .withStyle(ChatFormatting.AQUA));
         }
         if (!entry.tags().isEmpty()) {
             lines.add(Component.translatable(entry.allTags() ? "gui.flowline.rule.tags_all" : "gui.flowline.rule.tags_any")
@@ -314,9 +427,28 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
 
     private void renderButtonTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
         List<Component> lines = null;
-        if (redstoneButton.isHovered()) {
+        for (Field field : fields) {
+            if (field.box().isHovered()) {
+                lines = List.of(Component.translatable(field.label()),
+                        Component.translatable(field.help()).withStyle(ChatFormatting.GRAY),
+                        Component.translatable("gui.flowline.value.hint").withStyle(ChatFormatting.DARK_GRAY));
+            }
+        }
+        for (int i = 0; i < channelButtons.size(); i++) {
+            if (channelButtons.get(i).isHovered()) {
+                boolean on = (menu.channels() & (1 << i)) != 0;
+                lines = List.of(Component.translatable("gui.flowline.channel." + i),
+                        Component.translatable(on ? "gui.flowline.channel.on" : "gui.flowline.channel.off")
+                                .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED));
+            }
+        }
+        if (lines != null) {
+            graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
+            return;
+        }
+        if (redstoneButton.visible && redstoneButton.isHovered()) {
             lines = describe("gui.flowline.redstone", "redstone.flowline." + key(menu.redstone()), true);
-        } else if (distributionButton.isHovered()) {
+        } else if (distributionButton.visible && distributionButton.isHovered()) {
             lines = describe("gui.flowline.distribution", "distribution.flowline." + key(menu.distribution()), true);
         } else if (prevPageButton.visible && (prevPageButton.isHovered() || nextPageButton.isHovered())) {
             lines = List.of(Component.translatable("gui.flowline.filter_page", menu.page() + 1, menu.pageCount()),
@@ -328,7 +460,9 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         } else if (upgradeHelp.isHovered()) {
             lines = upgradeLegend();
         } else if (isHovering(badgeX, BADGE_Y, badgeW, BADGE_H, mouseX, mouseY)) {
-            lines = pacingTooltip();
+            lines = menu.extracting() ? pacingTooltip() : List.of(
+                    Component.translatable("gui.flowline.priority", menu.priority()),
+                    Component.translatable("gui.flowline.value.priority.desc").withStyle(ChatFormatting.GRAY));
         } else if (hoveredSlot instanceof PipeMenu.UpgradeSlot && !hoveredSlot.hasItem() && menu.getCarried().isEmpty()) {
             lines = List.of(Component.translatable("gui.flowline.upgrade_slot"),
                     Component.translatable("gui.flowline.upgrade_slot.desc").withStyle(ChatFormatting.GRAY));
@@ -340,6 +474,9 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private List<Component> upgradeLegend() {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable("gui.flowline.upgrades.title", SideConfig.UPGRADE_SLOTS));
+        if (!menu.extracting()) {
+            lines.add(Component.translatable("gui.flowline.upgrades.insert").withStyle(ChatFormatting.GOLD));
+        }
         lines.add(Component.translatable("item.flowline.speed_upgrade").withColor(UpgradeItem.SPEED_COLOR));
         UpgradeItem.effectLines(UpgradeType.SPEED).forEach(line -> lines.add(indent(line)));
         lines.add(Component.translatable("item.flowline.stack_upgrade").withColor(UpgradeItem.STACK_COLOR));
@@ -379,6 +516,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable(labelKey, Component.translatable(valueKey).withColor(accent)));
         lines.add(Component.translatable(valueKey + ".desc").withStyle(ChatFormatting.GRAY));
+        lines.add(Component.translatable("gui.flowline.cycle_hint").withStyle(ChatFormatting.DARK_GRAY));
         return lines;
     }
 

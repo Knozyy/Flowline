@@ -1,32 +1,43 @@
 package com.knozyy.flowline.pipe;
 
 import com.knozyy.flowline.FlowlineConfig;
+import com.knozyy.flowline.compat.ChemicalCompat;
 import com.knozyy.flowline.pipe.transfer.EnergyTransfer;
 import com.knozyy.flowline.pipe.transfer.FluidTransfer;
 import com.knozyy.flowline.pipe.transfer.ItemTransfer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.StringRepresentable;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.capabilities.Capabilities;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 public enum PipeType implements StringRepresentable {
-    ITEM("item", true, false, false),
-    FLUID("fluid", false, true, false),
-    ENERGY("energy", false, false, true),
-    /** Moves items, fluids and energy at once. Its filter applies to items. */
-    UNIVERSAL("universal", true, true, true);
+    ITEM("item", true, false, false, false),
+    FLUID("fluid", false, true, false, false),
+    ENERGY("energy", false, false, true, false),
+    /** Moves items, fluids and energy at once. Rules are item rules unless marked as fluid rules. */
+    UNIVERSAL("universal", true, true, true, false),
+    /** Mekanism chemicals (gases, infuse types, pigments, slurries). Only registered when Mekanism is loaded. */
+    CHEMICAL("chemical", false, false, false, true);
+
+    /** Channel bits of {@link SideConfig#channels}. */
+    public static final int CH_ITEMS = 1, CH_FLUIDS = 2, CH_ENERGY = 4;
+    public static final int ALL_CHANNELS = CH_ITEMS | CH_FLUIDS | CH_ENERGY;
 
     private final String name;
-    private final boolean items, fluids, energy;
+    private final boolean items, fluids, energy, chemicals;
 
-    PipeType(String name, boolean items, boolean fluids, boolean energy) {
+    PipeType(String name, boolean items, boolean fluids, boolean energy, boolean chemicals) {
         this.name = name;
         this.items = items;
         this.fluids = fluids;
         this.energy = energy;
+        this.chemicals = chemicals;
     }
 
     public boolean movesItems() {
@@ -41,7 +52,11 @@ public enum PipeType implements StringRepresentable {
         return energy;
     }
 
-    /** Whether rule filters exist on this pipe (energy has nothing to filter). */
+    public boolean movesChemicals() {
+        return chemicals;
+    }
+
+    /** Whether rule filters exist on this pipe (energy and chemicals have nothing to filter). */
     public boolean hasFilter() {
         return items || fluids;
     }
@@ -49,6 +64,11 @@ public enum PipeType implements StringRepresentable {
     /** Whether filter rules name fluids (fluid pipes) rather than items. */
     public boolean filtersFluids() {
         return this == FLUID;
+    }
+
+    /** Whether sides of this pipe can switch its kinds on and off one by one. */
+    public boolean hasChannels() {
+        return this == UNIVERSAL;
     }
 
     @Override
@@ -60,27 +80,38 @@ public enum PipeType implements StringRepresentable {
     public boolean hasEndpoint(Level level, BlockPos pos, Direction access) {
         return items && level.getCapability(Capabilities.ItemHandler.BLOCK, pos, access) != null
                 || fluids && level.getCapability(Capabilities.FluidHandler.BLOCK, pos, access) != null
-                || energy && level.getCapability(Capabilities.EnergyStorage.BLOCK, pos, access) != null;
+                || energy && level.getCapability(Capabilities.EnergyStorage.BLOCK, pos, access) != null
+                || chemicals && ChemicalCompat.hasHandler(level, pos, access);
     }
 
     /**
      * Runs one operation for every kind this pipe moves.
      *
+     * @param elapsed ticks since the previous operation, for rate limits
+     * @param onItem  told about the first item stack moved to each target (for the travel animation); may be null
      * @return how much was moved in total (items + mB + FE); 0 means the operation found no work
      */
-    public int transfer(Level level, BlockPos sourcePos, Caps source, SideConfig cfg, List<PipeNetwork.Target> targets) {
+    public long transfer(Level level, BlockPos sourcePos, Caps source, SideConfig cfg, List<PipeNetwork.Target> targets,
+                         int elapsed, @Nullable BiConsumer<PipeNetwork.Target, ItemStack> onItem) {
         int multiplier = Pacing.stackMultiplier(cfg.stackCount);
-        int moved = 0;
-        if (items) {
+        boolean balanced = cfg.distribution == Distribution.BALANCED;
+        long moved = 0;
+        if (items && cfg.channel(CH_ITEMS, this)) {
             moved += ItemTransfer.run(level, sourcePos, source, cfg, targets,
-                    FlowlineConfig.ITEMS_PER_OPERATION.get() * multiplier);
+                    FlowlineConfig.ITEMS_PER_OPERATION.get() * multiplier, balanced, this, onItem);
         }
-        if (fluids) {
+        if (fluids && cfg.channel(CH_FLUIDS, this)) {
             moved += FluidTransfer.run(level, source, cfg, targets,
-                    FlowlineConfig.FLUID_PER_OPERATION.get() * multiplier, filtersFluids());
+                    FlowlineConfig.FLUID_PER_OPERATION.get() * multiplier, balanced, this);
         }
-        if (energy) {
-            moved += EnergyTransfer.run(source, targets, FlowlineConfig.ENERGY_PER_OPERATION.get() * multiplier);
+        if (energy && cfg.channel(CH_ENERGY, this)) {
+            long budget = (long) FlowlineConfig.ENERGY_PER_OPERATION.get() * multiplier;
+            if (cfg.rate > 0) budget = Math.min(budget, (long) cfg.rate * Math.max(1, elapsed));
+            moved += EnergyTransfer.run(source, cfg, targets, (int) Math.min(Integer.MAX_VALUE, budget), balanced, this);
+        }
+        if (chemicals) {
+            moved += ChemicalCompat.transfer(source, targets,
+                    (long) FlowlineConfig.CHEMICAL_PER_OPERATION.get() * multiplier, balanced);
         }
         return moved;
     }

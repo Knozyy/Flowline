@@ -83,7 +83,7 @@ public class UpgradeItem extends Item implements PipeInteractable {
             player.displayClientMessage(Component.translatable("message.flowline.no_endpoint"), true);
             return;
         }
-        if (pipe.side(side).mode != SideMode.EXTRACT) {
+        if (!pipe.accepts(side, stack)) {
             player.displayClientMessage(Component.translatable("message.flowline.upgrade_needs_extract"), true);
             return;
         }

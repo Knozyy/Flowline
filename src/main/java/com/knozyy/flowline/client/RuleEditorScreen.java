@@ -32,7 +32,7 @@ import java.util.Set;
  * match. Opened from {@link PipeScreen} while the pipe menu stays open; closing it returns there.
  */
 public class RuleEditorScreen extends Screen {
-    private static final int W = 300, H = 240;
+    private static final int W = 300, H = 270;
     private static final int BG = 0xFF1E2229, BG_EDGE = 0xFF0E1014, PANEL = 0xFF262B33, PANEL_EDGE = 0xFF343A45;
     private static final int SLOT = 0xFF14171C, SLOT_EDGE = 0xFF3A404C, TEXT = 0xFFE6E9EF, MUTED = 0xFF8A93A3;
     private static final int ERROR = 0xFFFF6B6B, ROW_HOVER = 0xFF30363F;
@@ -42,11 +42,15 @@ public class RuleEditorScreen extends Screen {
     private static final int BODY_T = 24, BODY_B = 126;
     private static final int LEFT_L = 6, LEFT_R = 92, MID_L = 96, MID_R = 204, RIGHT_L = 208, RIGHT_R = 294;
     private static final int TAG_LIST_T = 50, NBT_LIST_T = 38;
-    private static final int INV_Y = 160, HOTBAR_Y = 218, INV_X = (W - 9 * 18) / 2;
+    /** Row under the columns: mod, name pattern, durability range. */
+    private static final int EXTRA_T = 128, EXTRA_B = 152;
+    private static final int MOD_L = 6, MOD_R = 76, NAME_L = 80, NAME_R = 204, DUR_L = 208, DUR_R = 294;
+    private static final int INV_Y = 190, HOTBAR_Y = 248, INV_X = (W - 9 * 18) / 2;
 
     private final PipeScreen parent;
     private final PipeMenu menu;
-    private final PipeType type;
+    /** Registry kind of the rule being edited: FLUID for fluid rules, ITEM otherwise. */
+    private PipeType type;
     private final int index;
     private final boolean existing;
     private final int accent;
@@ -59,6 +63,10 @@ public class RuleEditorScreen extends Screen {
     private CompoundTag nbt;
     private boolean exact;
     private boolean invert;
+    private boolean fluidRule;
+    private String mod = "";
+    private String name = "";
+    private int minDurability = 0, maxDurability = 100;
 
     // library state
     private ItemStack sample = ItemStack.EMPTY;
@@ -77,6 +85,10 @@ public class RuleEditorScreen extends Screen {
     private int left, top;
     private EditBox itemBox;
     private EditBox searchBox;
+    private EditBox modBox;
+    private EditBox nameBox;
+    private EditBox minBox;
+    private EditBox maxBox;
     private MultiLineEditBox nbtText;
     private Button saveButton;
     private Button anyAllButton;
@@ -90,7 +102,6 @@ public class RuleEditorScreen extends Screen {
         super(Component.translatable("gui.flowline.editor.title", index + 1));
         this.parent = parent;
         this.menu = menu;
-        this.type = menu.type;
         this.index = index;
         this.existing = entry != null;
         this.accent = accent;
@@ -106,7 +117,13 @@ public class RuleEditorScreen extends Screen {
         this.nbt = rule.nbt().map(CompoundTag::copy).orElseGet(CompoundTag::new);
         this.exact = rule.exactNbt();
         this.invert = rule.invert();
-        if (rule.item().isPresent()) setSample(rule.displayStack(type, menu.registries()), false);
+        this.fluidRule = rule.isFluidRule(menu.type);
+        this.type = fluidRule ? PipeType.FLUID : PipeType.ITEM;
+        this.mod = rule.mod().orElse("");
+        this.name = rule.name().orElse("");
+        this.minDurability = rule.minDurability();
+        this.maxDurability = rule.maxDurability();
+        if (rule.item().isPresent()) setSample(rule.displayStack(menu.type, menu.registries()), false);
     }
 
     // ---- setup --------------------------------------------------------------------------------------------
@@ -124,6 +141,10 @@ public class RuleEditorScreen extends Screen {
             onClose();
         }));
         delete.active = existing;
+        if (menu.type == PipeType.UNIVERSAL) {
+            addRenderableWidget(new IconButton(left + 114, top + 4, 14, () -> fluidRule ? "rule_fluid" : "rule_item", accent,
+                    b -> setFluidRule(!fluidRule)));
+        }
         addRenderableWidget(Button.builder(Component.translatable("gui.flowline.editor.cancel"), b -> onClose())
                 .bounds(left + W - 94, top + 4, 40, 14).build());
         saveButton = addRenderableWidget(Button.builder(Component.translatable("gui.flowline.editor.save"), b -> save())
@@ -166,9 +187,73 @@ public class RuleEditorScreen extends Screen {
         nbtText.setValueListener(this::onNbtText);
         setTextMode(textMode);
 
+        // mod, name, durability
+        modBox = addRenderableWidget(new EditBox(font, left + MOD_L + 3, top + EXTRA_T + 11, MOD_R - MOD_L - 6, 12,
+                Component.empty()));
+        modBox.setMaxLength(64);
+        modBox.setHint(Component.literal("minecraft").withStyle(ChatFormatting.DARK_GRAY));
+        modBox.setValue(mod);
+        modBox.setResponder(value -> {
+            mod = value.trim().startsWith("@") ? value.trim().substring(1) : value.trim();
+            validate();
+        });
+        nameBox = addRenderableWidget(new EditBox(font, left + NAME_L + 3, top + EXTRA_T + 11, NAME_R - NAME_L - 6, 12,
+                Component.empty()));
+        nameBox.setMaxLength(FilterEntry.MAX_TEXT);
+        nameBox.setHint(Component.literal("ingot|gem").withStyle(ChatFormatting.DARK_GRAY));
+        nameBox.setValue(name);
+        nameBox.setResponder(value -> {
+            name = value;
+            validate();
+        });
+        minBox = addRenderableWidget(percentBox(DUR_L + 3, minDurability, value -> minDurability = value));
+        maxBox = addRenderableWidget(percentBox(DUR_L + 49, maxDurability, value -> maxDurability = value));
+
         rebuildTagRows();
         rebuildNbtRows();
+        updateKindWidgets();
         validate();
+    }
+
+    private EditBox percentBox(int x, int value, java.util.function.IntConsumer setter) {
+        EditBox box = new EditBox(font, left + x, top + EXTRA_T + 11, 32, 12, Component.empty());
+        box.setMaxLength(3);
+        box.setFilter(text -> text.matches("\\d{0,3}"));
+        box.setValue(Integer.toString(value));
+        box.setResponder(text -> {
+            setter.accept(text.isEmpty() ? 0 : Math.min(100, Integer.parseInt(text)));
+            validate();
+        });
+        return box;
+    }
+
+    /** Universal pipes: switch the rule between items and fluids. The sample and item-specific parts are reset. */
+    private void setFluidRule(boolean fluid) {
+        fluidRule = fluid;
+        type = fluid ? PipeType.FLUID : PipeType.ITEM;
+        selectedTags.clear();
+        nbt = new CompoundTag();
+        itemId = "";
+        itemBox.setValue("");
+        sample = ItemStack.EMPTY;
+        sampleTags = List.of();
+        sampleData = new CompoundTag();
+        if (fluid) {
+            minDurability = 0;
+            maxDurability = 100;
+            minBox.setValue("0");
+            maxBox.setValue("100");
+        }
+        itemBox.setHint(Component.literal(fluid ? "minecraft:water" : "minecraft:stone").withStyle(ChatFormatting.DARK_GRAY));
+        rebuildTagRows();
+        rebuildNbtRows();
+        updateKindWidgets();
+        validate();
+    }
+
+    private void updateKindWidgets() {
+        minBox.visible = !fluidRule;
+        maxBox.visible = !fluidRule;
     }
 
     private void setTextMode(boolean on) {
@@ -248,14 +333,17 @@ public class RuleEditorScreen extends Screen {
         String id = itemId.trim();
         List<String> tags = selectedTags.stream().map(ResourceLocation::toString).toList();
         return new FilterEntry(matchItem && !id.isEmpty() ? Optional.of(id) : Optional.empty(), tags, allTags,
-                nbt.isEmpty() ? Optional.empty() : Optional.of(nbt.copy()), exact, invert);
+                nbt.isEmpty() ? Optional.empty() : Optional.of(nbt.copy()), exact, invert,
+                mod.isEmpty() ? Optional.empty() : Optional.of(mod), name.isEmpty() ? Optional.empty() : Optional.of(name),
+                fluidRule ? 0 : minDurability, fluidRule ? 100 : maxDurability,
+                fluidRule && menu.type == PipeType.UNIVERSAL);
     }
 
     @Nullable
     private String problem() {
         if (textMode && !nbtTextValid) return "gui.flowline.editor.error.nbt";
         FilterEntry draft = draft();
-        String problem = draft.problem(type);
+        String problem = draft.problem(menu.type);
         if (problem != null) return problem;
         // the client only knows the visible page; the server checks the whole filter again
         int pageStart = index - index % com.knozyy.flowline.pipe.SideConfig.FILTER_PAGE;
@@ -273,6 +361,13 @@ public class RuleEditorScreen extends Screen {
         boolean itemBad = matchItem && problem != null && (problem.endsWith("unknown_item")
                 || problem.endsWith("unknown_fluid") || problem.endsWith("syntax"));
         itemBox.setTextColor(itemBad ? 0xFF6B6B : 0xE0E0E0);
+        if (modBox != null) {
+            modBox.setTextColor(problem != null && problem.endsWith("unknown_mod") ? 0xFF6B6B : 0xE0E0E0);
+            nameBox.setTextColor(problem != null && problem.endsWith("regex") ? 0xFF6B6B : 0xE0E0E0);
+            boolean durBad = problem != null && problem.endsWith("durability");
+            minBox.setTextColor(durBad ? 0xFF6B6B : 0xE0E0E0);
+            maxBox.setTextColor(durBad ? 0xFF6B6B : 0xE0E0E0);
+        }
         exactButton.active = !nbt.isEmpty();
     }
 
@@ -401,6 +496,10 @@ public class RuleEditorScreen extends Screen {
         panel(graphics, LEFT_L, LEFT_R);
         panel(graphics, MID_L, MID_R);
         panel(graphics, RIGHT_L, RIGHT_R);
+        for (int[] p : new int[][]{{MOD_L, MOD_R}, {NAME_L, NAME_R}, {DUR_L, DUR_R}}) {
+            graphics.fill(left + p[0], top + EXTRA_T, left + p[1], top + EXTRA_B, PANEL_EDGE);
+            graphics.fill(left + p[0] + 1, top + EXTRA_T + 1, left + p[1] - 1, top + EXTRA_B - 1, PANEL);
+        }
     }
 
     private void panel(GuiGraphics graphics, int l, int r) {
@@ -422,6 +521,7 @@ public class RuleEditorScreen extends Screen {
         renderSampleColumn(graphics, mx, my);
         renderTagColumn(graphics, mx, my);
         renderNbtColumn(graphics, mx, my);
+        renderExtraRow(graphics);
         renderTagPreview(graphics);
         renderInventory(graphics, mx, my);
         graphics.pose().popPose();
@@ -510,9 +610,19 @@ public class RuleEditorScreen extends Screen {
         scrollbar(graphics, RIGHT_R - 3, NBT_LIST_T, BODY_B - 2, nbtScroll, nbtRows.size(), visible);
     }
 
+    private void renderExtraRow(GuiGraphics graphics) {
+        small(graphics, caption("gui.flowline.library.mod"), MOD_L + 4, EXTRA_T + 3, MUTED);
+        small(graphics, caption("gui.flowline.library.name"), NAME_L + 4, EXTRA_T + 3, MUTED);
+        if (!fluidRule) {
+            small(graphics, caption("gui.flowline.library.durability"), DUR_L + 4, EXTRA_T + 3, MUTED);
+            small(graphics, Component.literal("-"), DUR_L + 40, EXTRA_T + 14, MUTED);
+            small(graphics, Component.literal("%"), DUR_R - 8, EXTRA_T + 14, MUTED);
+        }
+    }
+
     /** Members of the hovered tag, below the columns. */
     private void renderTagPreview(GuiGraphics graphics) {
-        int y = BODY_B + 4;
+        int y = EXTRA_B + 3;
         if (hoveredTag == null) {
             small(graphics, Component.translatable("gui.flowline.library.preview_hint"), LEFT_L, y + 5, MUTED);
             return;
@@ -589,6 +699,20 @@ public class RuleEditorScreen extends Screen {
                             .withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
         } else if (in(mx, my, 150, 4, 164, 18)) {
             graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.flowline.editor.delete")),
+                    mouseX, mouseY);
+        } else if (menu.type == PipeType.UNIVERSAL && in(mx, my, 114, 4, 128, 18)) {
+            graphics.renderComponentTooltip(font, List.of(
+                    Component.translatable(fluidRule ? "gui.flowline.rule.kind_fluid" : "gui.flowline.rule.kind_item"),
+                    Component.translatable("gui.flowline.editor.kind.desc").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
+        } else if (in(mx, my, MOD_L, EXTRA_T, MOD_R, EXTRA_B)) {
+            graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.flowline.library.mod"),
+                    Component.translatable("gui.flowline.library.mod.desc").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
+        } else if (in(mx, my, NAME_L, EXTRA_T, NAME_R, EXTRA_B)) {
+            graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.flowline.library.name"),
+                    Component.translatable("gui.flowline.library.name.desc").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
+        } else if (!fluidRule && in(mx, my, DUR_L, EXTRA_T, DUR_R, EXTRA_B)) {
+            graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.flowline.library.durability"),
+                    Component.translatable("gui.flowline.library.durability.desc").withStyle(ChatFormatting.GRAY)),
                     mouseX, mouseY);
         }
     }

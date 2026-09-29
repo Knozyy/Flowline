@@ -5,10 +5,18 @@ public enum Distribution {
     NEAREST,
     FARTHEST,
     ROUND_ROBIN,
-    RANDOM;
+    RANDOM,
+    /** Splits every operation evenly between the targets that accept. */
+    BALANCED,
+    /** Highest insert priority first; ties go to the nearest target. */
+    PRIORITY;
 
     public Distribution next() {
         return values()[(ordinal() + 1) % values().length];
+    }
+
+    public Distribution previous() {
+        return values()[Math.floorMod(ordinal() - 1, values().length)];
     }
 
     public static Distribution byName(String name) {

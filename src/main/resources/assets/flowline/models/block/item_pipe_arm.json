@@ -1,7 +1,10 @@
 {
+  "render_type": "minecraft:cutout",
   "textures": {
     "pipe": "flowline:block/item_pipe",
-    "particle": "flowline:block/item_pipe"
+    "inner": "flowline:block/item_pipe_inner",
+    "collar": "flowline:block/item_pipe_collar",
+    "particle": "flowline:block/item_pipe_collar"
   },
   "elements": [
     {
@@ -34,15 +37,6 @@
           ],
           "texture": "#pipe"
         },
-        "north": {
-          "uv": [
-            5,
-            5,
-            11,
-            11
-          ],
-          "texture": "#pipe"
-        },
         "west": {
           "uv": [
             0,
@@ -60,6 +54,102 @@
             11
           ],
           "texture": "#pipe"
+        }
+      }
+    },
+    {
+      "from": [
+        5.02,
+        5,
+        0
+      ],
+      "to": [
+        5.02,
+        11,
+        5
+      ],
+      "shade": false,
+      "faces": {
+        "east": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
+        10.98,
+        5,
+        0
+      ],
+      "to": [
+        10.98,
+        11,
+        5
+      ],
+      "shade": false,
+      "faces": {
+        "west": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        5.02,
+        0
+      ],
+      "to": [
+        11,
+        5.02,
+        5
+      ],
+      "shade": false,
+      "faces": {
+        "up": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        10.98,
+        0
+      ],
+      "to": [
+        11,
+        10.98,
+        5
+      ],
+      "shade": false,
+      "faces": {
+        "down": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
         }
       }
     }

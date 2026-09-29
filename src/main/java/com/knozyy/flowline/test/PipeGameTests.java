@@ -428,6 +428,325 @@ public class PipeGameTests {
         });
     }
 
+    // ---- insert sides: priority, filter, regulator ----------------------------------------------------------
+
+    private static final BlockPos NEAR = new BlockPos(1, 1, 0);   // barrel north of the first pipe (distance 0)
+    private static final BlockPos FAR = new BlockPos(2, 1, 2);    // barrel south of the second pipe (distance 1)
+
+    /** Source chest, two pipes, a near and a far barrel; the first pipe extracts from the chest. */
+    private static PipeBlockEntity twoTargets(GameTestHelper helper) {
+        helper.setBlock(SOURCE, Blocks.CHEST);
+        helper.setBlock(NEAR, Blocks.BARREL);
+        helper.setBlock(FAR, Blocks.BARREL);
+        helper.setBlock(FIRST_PIPE, ModBlocks.ITEM_PIPE.get());
+        helper.setBlock(new BlockPos(2, 1, 1), ModBlocks.ITEM_PIPE.get());
+        PipeBlockEntity first = helper.getBlockEntity(FIRST_PIPE);
+        first.side(Direction.WEST).mode = SideMode.EXTRACT;
+        install(first, UpgradeType.STACK);
+        return first;
+    }
+
+    private static SideConfig farSide(GameTestHelper helper) {
+        return ((PipeBlockEntity) helper.getBlockEntity(new BlockPos(2, 1, 1))).side(Direction.SOUTH);
+    }
+
+    private static SideConfig nearSide(GameTestHelper helper) {
+        return ((PipeBlockEntity) helper.getBlockEntity(FIRST_PIPE)).side(Direction.NORTH);
+    }
+
+    private static int stored(GameTestHelper helper, BlockPos pos, Item item) {
+        return ((net.minecraft.world.Container) helper.getBlockEntity(pos)).countItem(item);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void priorityDistributionPrefersHigherPriority(GameTestHelper helper) {
+        PipeBlockEntity pipe = twoTargets(helper);
+        pipe.side(Direction.WEST).distribution = com.knozyy.flowline.pipe.Distribution.PRIORITY;
+        farSide(helper).priority = 5;
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 16));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(stored(helper, FAR, Items.DIAMOND) == 16,
+                        "the far barrel has the higher priority and takes everything"))
+                .thenExecute(() -> helper.assertTrue(stored(helper, NEAR, Items.DIAMOND) == 0,
+                        "the near barrel gets nothing while the far one accepts"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void insertFilterRoutesItems(GameTestHelper helper) {
+        twoTargets(helper);
+        nearSide(helper).setEntry(0, allow("minecraft:dirt"));
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 4));
+        chest(helper, SOURCE).setItem(1, new ItemStack(Items.DIAMOND, 4));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(stored(helper, NEAR, Items.DIRT) == 4
+                        && stored(helper, FAR, Items.DIAMOND) == 4, "dirt goes near, diamonds go far"))
+                .thenExecute(() -> helper.assertTrue(stored(helper, NEAR, Items.DIAMOND) == 0,
+                        "the near barrel only accepts dirt"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void insertLimitKeepsAtMost(GameTestHelper helper) {
+        twoTargets(helper);
+        nearSide(helper).limit = 3;
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 8));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(stored(helper, FAR, Items.DIAMOND) == 5,
+                        "what the near barrel may not take goes on"))
+                .thenExecute(() -> helper.assertTrue(stored(helper, NEAR, Items.DIAMOND) == 3,
+                        "the near barrel stops at its limit of 3"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void extractLimitLeavesAtLeast(GameTestHelper helper) {
+        PipeBlockEntity pipe = line(helper, 1);
+        install(pipe, UpgradeType.STACK);
+        pipe.side(Direction.WEST).limit = 2;
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 8));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 6, "6 of 8 move"))
+                .thenIdle(60)
+                .thenExecute(() -> helper.assertTrue(count(helper, SOURCE, Items.DIAMOND) == 2,
+                        "the source keeps 2"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void balancedSplitsEvenly(GameTestHelper helper) {
+        PipeBlockEntity pipe = twoTargets(helper);
+        pipe.side(Direction.WEST).distribution = com.knozyy.flowline.pipe.Distribution.BALANCED;
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 16));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(count(helper, SOURCE, Items.DIAMOND) == 0, "all 16 move"))
+                .thenExecute(() -> helper.assertTrue(stored(helper, NEAR, Items.DIAMOND) == 8
+                        && stored(helper, FAR, Items.DIAMOND) == 8, "8 and 8, got " + stored(helper, NEAR, Items.DIAMOND)
+                        + " and " + stored(helper, FAR, Items.DIAMOND)))
+                .thenSucceed();
+    }
+
+    // ---- redstone pulse -----------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void pulseMovesOncePerRisingEdge(GameTestHelper helper) {
+        PipeBlockEntity pipe = line(helper, 1);
+        pipe.side(Direction.WEST).redstone = RedstoneMode.PULSE;
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 16));
+        BlockPos lever = FIRST_PIPE.above();
+
+        helper.startSequence()
+                .thenIdle(60)
+                .thenExecute(() -> {
+                    helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 0, "no pulse, no transfer");
+                    helper.setBlock(lever, Blocks.REDSTONE_BLOCK);
+                })
+                .thenIdle(40)
+                .thenExecute(() -> {
+                    helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 1,
+                            "one pulse moves one operation, got " + count(helper, target(1), Items.DIAMOND));
+                    helper.setBlock(lever, Blocks.AIR);
+                })
+                .thenIdle(5)
+                .thenExecute(() -> helper.setBlock(lever, Blocks.REDSTONE_BLOCK))
+                .thenIdle(20)
+                .thenExecute(() -> helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 2,
+                        "a second pulse moves a second one"))
+                .thenSucceed();
+    }
+
+    // ---- colours, channels, network cache -----------------------------------------------------------------
+
+    private static void paint(GameTestHelper helper, BlockPos pos, int color) {
+        PipeBlockEntity pipe = helper.getBlockEntity(pos);
+        pipe.setColor(color);
+        PipeBlock.updateConnections(helper.getLevel(), helper.absolutePos(pos));
+        for (Direction dir : Direction.values()) {
+            PipeBlock.updateConnections(helper.getLevel(), helper.absolutePos(pos).relative(dir));
+        }
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void differentColorsDoNotConnect(GameTestHelper helper) {
+        install(line(helper, 2), UpgradeType.STACK);
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 4));
+        BlockPos second = new BlockPos(2, 1, 1);
+
+        helper.startSequence()
+                .thenIdle(2)
+                .thenExecute(() -> {
+                    paint(helper, FIRST_PIPE, net.minecraft.world.item.DyeColor.RED.getId());
+                    paint(helper, second, net.minecraft.world.item.DyeColor.BLUE.getId());
+                    helper.assertTrue(helper.getBlockState(FIRST_PIPE).getValue(PipeBlock.prop(Direction.EAST)) == Conn.NONE,
+                            "red and blue pipes must not connect");
+                })
+                .thenIdle(60)
+                .thenExecute(() -> {
+                    helper.assertTrue(count(helper, target(2), Items.DIAMOND) == 0, "nothing crosses a colour border");
+                    paint(helper, second, net.minecraft.world.item.DyeColor.RED.getId());
+                })
+                .thenWaitUntil(() -> helper.assertTrue(count(helper, target(2), Items.DIAMOND) == 4,
+                        "same colour: connected again"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 200)
+    public static void universalChannelCanBeSwitchedOff(GameTestHelper helper) {
+        helper.setBlock(SOURCE, Blocks.CHEST);
+        helper.setBlock(target(1), Blocks.CHEST);
+        helper.setBlock(FIRST_PIPE, ModBlocks.UNIVERSAL_PIPE.get());
+        PipeBlockEntity pipe = helper.getBlockEntity(FIRST_PIPE);
+        SideConfig cfg = pipe.side(Direction.WEST);
+        cfg.mode = SideMode.EXTRACT;
+        cfg.channels = com.knozyy.flowline.pipe.PipeType.ALL_CHANNELS & ~com.knozyy.flowline.pipe.PipeType.CH_ITEMS;
+        install(pipe, UpgradeType.STACK);
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.IRON_INGOT, 8));
+
+        helper.startSequence()
+                .thenIdle(80)
+                .thenExecute(() -> {
+                    helper.assertTrue(count(helper, target(1), Items.IRON_INGOT) == 0, "items channel is off");
+                    cfg.channels = com.knozyy.flowline.pipe.PipeType.ALL_CHANNELS;
+                    cfg.wake();
+                })
+                .thenWaitUntil(() -> helper.assertTrue(count(helper, target(1), Items.IRON_INGOT) == 8,
+                        "items move once the channel is on"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void networkCacheIsLocal(GameTestHelper helper) {
+        line(helper, 1);
+        BlockPos lonely = new BlockPos(4, 1, 2);
+        helper.setBlock(lonely, ModBlocks.ITEM_PIPE.get());
+
+        helper.startSequence()
+                .thenIdle(2)
+                .thenExecute(() -> {
+                    var graph = com.knozyy.flowline.pipe.PipeNetwork.graphAt(helper.getLevel(),
+                            helper.absolutePos(FIRST_PIPE), com.knozyy.flowline.pipe.PipeType.ITEM);
+                    helper.assertTrue(graph.valid() && graph.size() == 1, "one pipe in the first network");
+                    helper.setBlock(new BlockPos(5, 1, 2), ModBlocks.ITEM_PIPE.get());
+                    helper.assertTrue(graph.valid(), "a change elsewhere keeps this network cached");
+                    helper.setBlock(new BlockPos(1, 1, 2), ModBlocks.ITEM_PIPE.get());
+                    helper.assertTrue(!graph.valid(), "a pipe placed next to it invalidates it");
+                    var rebuilt = com.knozyy.flowline.pipe.PipeNetwork.graphAt(helper.getLevel(),
+                            helper.absolutePos(FIRST_PIPE), com.knozyy.flowline.pipe.PipeType.ITEM);
+                    helper.assertTrue(rebuilt.valid() && rebuilt != graph, "the next lookup rebuilds it");
+                })
+                .thenSucceed();
+    }
+
+    // ---- rule types ---------------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void modNameAndDurabilityRules(GameTestHelper helper) {
+        var registries = helper.getLevel().registryAccess();
+        SideConfig cfg = new SideConfig(com.knozyy.flowline.pipe.PipeType.ITEM);
+        cfg.setEntry(0, FilterEntry.ofMod("minecraft"));
+        helper.assertTrue(cfg.allowsItem(new ItemStack(Items.DIRT), registries), "@minecraft matches dirt");
+        helper.assertTrue(!cfg.allowsItem(new ItemStack(ModItems.WRENCH.get()), registries), "@minecraft skips the wrench");
+
+        cfg.clearFilter();
+        cfg.setEntry(0, FilterEntry.ofName("^diam"));
+        helper.assertTrue(cfg.allowsItem(new ItemStack(Items.DIAMOND), registries), "name ^diam matches Diamond");
+        helper.assertTrue(!cfg.allowsItem(new ItemStack(Items.DIRT), registries), "name ^diam does not match Dirt");
+        ItemStack named = new ItemStack(Items.DIRT);
+        named.set(DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("Diamond dirt"));
+        helper.assertTrue(cfg.allowsItem(named, registries), "the display name counts, renames included");
+
+        cfg.clearFilter();
+        cfg.setEntry(0, FilterEntry.ofDurability(0, 50));
+        ItemStack worn = new ItemStack(Items.IRON_PICKAXE);
+        worn.setDamageValue(worn.getMaxDamage() * 3 / 4);
+        helper.assertTrue(cfg.allowsItem(worn, registries), "25% left is inside 0..50");
+        helper.assertTrue(!cfg.allowsItem(new ItemStack(Items.IRON_PICKAXE), registries), "a new pickaxe is at 100%");
+        helper.assertTrue(!cfg.allowsItem(new ItemStack(Items.DIRT), registries), "dirt has no durability");
+
+        helper.assertTrue(FilterEntry.ofName("[").problem(com.knozyy.flowline.pipe.PipeType.ITEM) != null,
+                "a broken pattern is rejected");
+        helper.assertTrue(FilterEntry.ofMod("no_such_mod").problem(com.knozyy.flowline.pipe.PipeType.ITEM) != null,
+                "an unknown mod is rejected");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void universalFluidRulesOnlyAffectFluids(GameTestHelper helper) {
+        var registries = helper.getLevel().registryAccess();
+        SideConfig cfg = new SideConfig(com.knozyy.flowline.pipe.PipeType.UNIVERSAL);
+        cfg.setEntry(0, FilterEntry.ofItem("minecraft:water").withFluid(true));
+        helper.assertTrue(cfg.allowsItem(new ItemStack(Items.DIRT), registries), "a fluid rule does not filter items");
+        helper.assertTrue(cfg.allowsFluid(new net.neoforged.neoforge.fluids.FluidStack(
+                net.minecraft.world.level.material.Fluids.WATER, 100), registries), "water is allowed");
+        helper.assertTrue(!cfg.allowsFluid(new net.neoforged.neoforge.fluids.FluidStack(
+                net.minecraft.world.level.material.Fluids.LAVA, 100), registries), "lava is not");
+        helper.succeed();
+    }
+
+    // ---- cards, facades, water ----------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void configCardCopiesAndPastes(GameTestHelper helper) {
+        PipeBlockEntity pipe = twoTargets(helper);
+        SideConfig from = pipe.side(Direction.WEST);
+        from.distribution = com.knozyy.flowline.pipe.Distribution.BALANCED;
+        from.limit = 7;
+        from.setEntry(0, allow("minecraft:diamond"));
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        ItemStack card = new ItemStack(ModItems.CONFIG_CARD.get());
+
+        helper.startSequence()
+                .thenIdle(2)
+                .thenExecute(() -> {
+                    player.setShiftKeyDown(true);
+                    ModItems.CONFIG_CARD.get().useOnPipe(pipe, Direction.WEST, Conn.EXTRACT, player,
+                            net.minecraft.world.InteractionHand.MAIN_HAND, card);
+                    player.setShiftKeyDown(false);
+                    PipeBlockEntity other = helper.getBlockEntity(new BlockPos(2, 1, 1));
+                    ModItems.CONFIG_CARD.get().useOnPipe(other, Direction.SOUTH, Conn.ENDPOINT, player,
+                            net.minecraft.world.InteractionHand.MAIN_HAND, card);
+                    SideConfig to = other.side(Direction.SOUTH);
+                    helper.assertTrue(to.mode == SideMode.EXTRACT, "the mode is pasted");
+                    helper.assertTrue(to.distribution == com.knozyy.flowline.pipe.Distribution.BALANCED && to.limit == 7,
+                            "settings are pasted");
+                    helper.assertTrue(to.getEntry(0) != null && to.getEntry(0).sameMatch(allow("minecraft:diamond")),
+                            "rules are pasted");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void facadeMakesFullBlockAndDrops(GameTestHelper helper) {
+        helper.setBlock(FIRST_PIPE, ModBlocks.ITEM_PIPE.get());
+        PipeBlockEntity pipe = helper.getBlockEntity(FIRST_PIPE);
+        helper.assertTrue(com.knozyy.flowline.item.FacadeItem.isValid(Blocks.STONE.defaultBlockState()), "stone is a facade");
+        helper.assertTrue(!com.knozyy.flowline.item.FacadeItem.isValid(Blocks.CHEST.defaultBlockState()),
+                "chests are not");
+        pipe.setFacade(Blocks.STONE.defaultBlockState());
+        helper.assertTrue(helper.getBlockState(FIRST_PIPE).getShape(helper.getLevel(), helper.absolutePos(FIRST_PIPE))
+                .equals(net.minecraft.world.phys.shapes.Shapes.block()), "a facaded pipe is a full block");
+        helper.destroyBlock(FIRST_PIPE);
+        helper.succeedWhen(() -> helper.assertItemEntityPresent(ModItems.FACADE.get(), FIRST_PIPE, 2.0));
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void pipesCanBeWaterlogged(GameTestHelper helper) {
+        helper.setBlock(FIRST_PIPE, ModBlocks.ITEM_PIPE.get().defaultBlockState().setValue(PipeBlock.WATERLOGGED, true));
+        helper.startSequence()
+                .thenIdle(3)
+                .thenExecute(() -> {
+                    helper.assertTrue(helper.getBlockState(FIRST_PIPE).getValue(PipeBlock.WATERLOGGED),
+                            "the connection refresh keeps the water");
+                    helper.assertTrue(helper.getBlockState(FIRST_PIPE).getFluidState().isSource(), "it holds water");
+                })
+                .thenSucceed();
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 300)
     public static void sleepsWithoutTargets(GameTestHelper helper) {
         helper.setBlock(SOURCE, Blocks.CHEST);

@@ -1,6 +1,8 @@
 package com.knozyy.flowline.registry;
 
 import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.item.ConfigCardItem;
+import com.knozyy.flowline.item.FacadeItem;
 import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.item.WrenchItem;
@@ -8,6 +10,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -18,6 +21,9 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> FLUID_PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.FLUID_PIPE);
     public static final DeferredItem<BlockItem> ENERGY_PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.ENERGY_PIPE);
     public static final DeferredItem<BlockItem> UNIVERSAL_PIPE = ITEMS.registerSimpleBlockItem(ModBlocks.UNIVERSAL_PIPE);
+    @Nullable
+    public static final DeferredItem<BlockItem> CHEMICAL_PIPE =
+            ModBlocks.CHEMICAL_PIPE == null ? null : ITEMS.registerSimpleBlockItem(ModBlocks.CHEMICAL_PIPE);
 
     public static final DeferredItem<WrenchItem> WRENCH =
             ITEMS.registerItem("wrench", WrenchItem::new, new Item.Properties().stacksTo(1));
@@ -29,6 +35,13 @@ public final class ModItems {
 
     public static final List<DeferredItem<UpgradeItem>> UPGRADES =
             List.of(SPEED_UPGRADE, STACK_UPGRADE, FILTER_UPGRADE, KNOZY_UPGRADE);
+
+    public static final DeferredItem<ConfigCardItem> CONFIG_CARD = ITEMS.registerItem("config_card",
+            props -> new ConfigCardItem(props, false), new Item.Properties().stacksTo(1));
+    public static final DeferredItem<ConfigCardItem> FILTER_CARD = ITEMS.registerItem("filter_card",
+            props -> new ConfigCardItem(props, true), new Item.Properties().stacksTo(1));
+    public static final DeferredItem<FacadeItem> FACADE =
+            ITEMS.registerItem("facade", FacadeItem::new, new Item.Properties());
 
     private static DeferredItem<UpgradeItem> upgrade(String name, UpgradeType type) {
         return ITEMS.registerItem(name, props -> new UpgradeItem(props, type), new Item.Properties());

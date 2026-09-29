@@ -1,5 +1,6 @@
 package com.knozyy.flowline.pipe;
 
+import com.knozyy.flowline.item.FacadeItem;
 import com.knozyy.flowline.item.PipeInteractable;
 import com.knozyy.flowline.menu.PipeMenu;
 import com.knozyy.flowline.registry.ModBlockEntities;
@@ -18,19 +19,27 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.DyeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.SimpleWaterloggedBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
@@ -41,7 +50,9 @@ import org.jetbrains.annotations.Nullable;
 import java.util.EnumMap;
 import java.util.Map;
 
-public class PipeBlock extends Block implements EntityBlock {
+public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBlock {
+    public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
+
     public static final MapCodec<PipeBlock> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             propertiesCodec(),
             StringRepresentable.fromEnum(PipeType::values).fieldOf("pipe_type").forGetter(PipeBlock::type)
@@ -75,7 +86,7 @@ public class PipeBlock extends Block implements EntityBlock {
         this.type = type;
         BlockState def = stateDefinition.any();
         for (Direction d : Direction.values()) def = def.setValue(prop(d), Conn.NONE);
-        registerDefaultState(def);
+        registerDefaultState(def.setValue(WATERLOGGED, false));
     }
 
     public PipeType type() {
@@ -94,6 +105,21 @@ public class PipeBlock extends Block implements EntityBlock {
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         for (Direction d : Direction.values()) builder.add(prop(d));
+        builder.add(WATERLOGGED);
+    }
+
+    // ---- water ------------------------------------------------------------------------------------------------
+
+    @Override
+    protected FluidState getFluidState(BlockState state) {
+        return state.getValue(WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(state);
+    }
+
+    @Override
+    protected BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
+                                     LevelAccessor level, BlockPos pos, BlockPos neighborPos) {
+        if (state.getValue(WATERLOGGED)) level.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
+        return super.updateShape(state, direction, neighborState, level, pos, neighborPos);
     }
 
     // ---- connections ------------------------------------------------------------------------------------------
@@ -107,9 +133,10 @@ public class PipeBlock extends Block implements EntityBlock {
             if (self != null && self.isDisconnected(dir)) {
                 conn = Conn.NONE;
             } else if (ns.getBlock() instanceof PipeBlock other && other.type == type) {
-                boolean otherCut = level.getBlockEntity(neighbor) instanceof PipeBlockEntity nb
-                        && nb.isDisconnected(dir.getOpposite());
-                conn = otherCut ? Conn.NONE : Conn.PIPE;
+                PipeBlockEntity nb = level.getBlockEntity(neighbor) instanceof PipeBlockEntity be ? be : null;
+                boolean otherCut = nb != null && nb.isDisconnected(dir.getOpposite());
+                boolean otherColor = nb != null && self != null && !PipeBlockEntity.colorsMatch(self.color(), nb.color());
+                conn = otherCut || otherColor ? Conn.NONE : Conn.PIPE;
             } else if (type.hasEndpoint(level, neighbor, dir.getOpposite())) {
                 conn = self != null && self.side(dir).mode == SideMode.EXTRACT ? Conn.EXTRACT : Conn.ENDPOINT;
             } else {
@@ -122,7 +149,8 @@ public class PipeBlock extends Block implements EntityBlock {
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext ctx) {
-        return withConnections(ctx.getLevel(), ctx.getClickedPos(), defaultBlockState());
+        boolean water = ctx.getLevel().getFluidState(ctx.getClickedPos()).getType() == Fluids.WATER;
+        return withConnections(ctx.getLevel(), ctx.getClickedPos(), defaultBlockState().setValue(WATERLOGGED, water));
     }
 
     @Override
@@ -153,7 +181,8 @@ public class PipeBlock extends Block implements EntityBlock {
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
             Containers.dropContents(level, pos, be.upgrades());
-            PipeNetwork.invalidate();
+            if (be.facade() != null) popResource(level, pos, FacadeItem.of(be.facade()));
+            PipeNetwork.invalidate(level, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
@@ -163,7 +192,10 @@ public class PipeBlock extends Block implements EntityBlock {
                                    BlockPos neighborPos, boolean movedByPiston) {
         super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
         refresh(state, level, pos);
-        if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be) be.wake();
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
+            be.wake();
+            be.onSignal(level.hasNeighborSignal(pos));
+        }
     }
 
     /** A neighbouring block entity changed (e.g. a chest's contents): extracting sides should look again soon. */
@@ -177,7 +209,7 @@ public class PipeBlock extends Block implements EntityBlock {
         BlockState updated = withConnections(level, pos, state);
         if (updated != state) {
             level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
-            PipeNetwork.invalidate();
+            PipeNetwork.invalidate(level, pos);
         }
     }
 
@@ -218,6 +250,7 @@ public class PipeBlock extends Block implements EntityBlock {
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext ctx) {
+        if (level.getBlockEntity(pos) instanceof PipeBlockEntity be && be.facade() != null) return Shapes.block();
         VoxelShape shape = CORE;
         for (Direction d : Direction.values()) {
             if (state.getValue(prop(d)) != Conn.NONE) shape = Shapes.or(shape, ARMS[d.ordinal()]);
@@ -234,9 +267,31 @@ public class PipeBlock extends Block implements EntityBlock {
             useTool(tool, stack, state, level, pos, player, hand, hit);
             return ItemInteractionResult.sidedSuccess(level.isClientSide);
         }
+        if (stack.getItem() instanceof DyeItem dye) {
+            if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be) paint(be, dye.getDyeColor(), player, stack);
+            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+        }
         // Any other held item keeps its normal behaviour (e.g. placing a block against the pipe).
         return stack.isEmpty() ? ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
                 : ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+    }
+
+    /**
+     * Dyes the pipe: pipes of two different colours never connect, undyed pipes connect to every colour. Using the
+     * pipe's own colour again washes it off.
+     */
+    private static void paint(PipeBlockEntity be, DyeColor dye, Player player, ItemStack stack) {
+        boolean wash = be.color() == dye.getId();
+        be.setColor(wash ? PipeBlockEntity.NO_COLOR : dye.getId());
+        if (!wash && !player.getAbilities().instabuild) stack.shrink(1);
+        Level level = be.getLevel();
+        BlockPos pos = be.getBlockPos();
+        updateConnections(level, pos);
+        for (Direction dir : Direction.values()) updateConnections(level, pos.relative(dir));
+        PipeNetwork.invalidate(level, pos);
+        player.displayClientMessage(wash ? Component.translatable("message.flowline.color_cleared")
+                : Component.translatable("message.flowline.color_set",
+                Component.translatable("color.minecraft." + dye.getName())), true);
     }
 
     /**
@@ -246,20 +301,31 @@ public class PipeBlock extends Block implements EntityBlock {
     public static void useTool(PipeInteractable tool, ItemStack stack, BlockState state, Level level, BlockPos pos,
                                Player player, InteractionHand hand, BlockHitResult hit) {
         if (level.isClientSide || !(level.getBlockEntity(pos) instanceof PipeBlockEntity be)) return;
-        Direction side = sideFromHit(hit, pos);
+        Direction side = sideFromHit(hit, pos, be.facade() != null);
         tool.useOnPipe(be, side, state.getValue(prop(side)), player, hand, stack);
     }
 
-    /** Empty-handed click on an endpoint side opens that side's configuration screen. */
+    /**
+     * Empty-handed click on an endpoint side opens that side's configuration screen; sneaking with both hands empty
+     * takes a facade off.
+     */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
                                                BlockHitResult hit) {
-        Direction side = sideFromHit(hit, pos);
+        PipeBlockEntity be = level.getBlockEntity(pos) instanceof PipeBlockEntity pipe ? pipe : null;
+        if (be != null && be.facade() != null && player.isShiftKeyDown()) {
+            if (!level.isClientSide) {
+                ItemStack facade = FacadeItem.of(be.facade());
+                be.setFacade(null);
+                if (!player.getAbilities().instabuild) player.getInventory().placeItemBackInInventory(facade);
+                player.displayClientMessage(Component.translatable("message.flowline.facade_removed"), true);
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide);
+        }
+        Direction side = sideFromHit(hit, pos, be != null && be.facade() != null);
         Conn conn = state.getValue(prop(side));
         if (!conn.isEndpoint()) return InteractionResult.PASS;
-        if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
-            openConfig(be, side, conn, player);
-        }
+        if (!level.isClientSide && be != null) openConfig(be, side, conn, player);
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
@@ -267,10 +333,6 @@ public class PipeBlock extends Block implements EntityBlock {
     public static void openConfig(PipeBlockEntity be, Direction side, Conn conn, Player player) {
         if (!conn.isEndpoint()) {
             player.displayClientMessage(Component.translatable("message.flowline.no_endpoint"), true);
-            return;
-        }
-        if (be.side(side).mode != SideMode.EXTRACT) {
-            player.displayClientMessage(Component.translatable("message.flowline.gui_needs_extract"), true);
             return;
         }
         if (!(player instanceof ServerPlayer serverPlayer)) return;
@@ -324,24 +386,32 @@ public class PipeBlock extends Block implements EntityBlock {
      * Sets a side's mode. Upgrades only work on extracting sides, so switching to insert hands the installed
      * upgrades back to the player.
      */
-    public static void setMode(PipeBlockEntity be, Direction side, SideMode mode, Player player) {
+    public static void setMode(PipeBlockEntity be, Direction side, SideMode mode, @Nullable Player player) {
         SideConfig cfg = be.side(side);
         if (cfg.mode == mode) return;
         cfg.mode = mode;
         if (mode == SideMode.INSERT) {
-            be.removeAllUpgrades(side).forEach(player.getInventory()::placeItemBackInInventory);
+            // inserting sides keep Filter upgrades (for their insert rules); the rest goes back to the player
+            for (ItemStack upgrade : be.removeExtractOnlyUpgrades(side)) {
+                if (player != null) {
+                    player.getInventory().placeItemBackInInventory(upgrade);
+                } else if (be.getLevel() != null) {
+                    popResource(be.getLevel(), be.getBlockPos(), upgrade);
+                }
+            }
         }
         be.setChanged();
-        PipeNetwork.invalidate();
+        if (be.getLevel() != null) PipeNetwork.invalidate(be.getLevel(), be.getBlockPos());
         // redraw the side: extracting ends carry a green ring
         if (be.getLevel() != null) updateConnections(be.getLevel(), be.getBlockPos());
     }
 
     /**
      * Resolves which of the six sides was clicked. Hitting an arm selects that arm's side; hitting the central
-     * cube selects the face that was hit.
+     * cube selects the face that was hit. Behind a facade the whole block is one cube, so the hit face counts.
      */
-    static Direction sideFromHit(BlockHitResult hit, BlockPos pos) {
+    public static Direction sideFromHit(BlockHitResult hit, BlockPos pos, boolean facade) {
+        if (facade) return hit.getDirection();
         Vec3 local = hit.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ());
         double eps = 1.0E-4;
         if (local.x < MIN - eps) return Direction.WEST;

@@ -4,24 +4,30 @@ import com.knozyy.flowline.FlowlineConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
-import java.util.Set;
+import java.util.WeakHashMap;
 
 /**
- * Graph search over connected pipes. Extracting sides cache their target lists; any change that can alter a
- * network (connections, modes, pipes added or removed) bumps a global {@link #version()} which invalidates every
- * cache and wakes sleeping sides.
+ * Cached pipe networks. A {@link Graph} is one connected set of pipes of one type, built once by a flood fill and
+ * shared by every extracting side in it. Changes (connections, modes, pipes placed, broken, loaded or unloaded) only
+ * invalidate the graphs at and next to the changed position, so unrelated networks keep their caches. Target lists
+ * are computed per extracting side from the graph's adjacency without touching the world again.
  */
 public final class PipeNetwork {
     private static final Random RANDOM = new Random();
+    /** Graph of every cached pipe position, per level. */
+    private static final Map<Level, Map<BlockPos, Graph>> GRAPHS = new WeakHashMap<>();
+    /** Bumped on every invalidation; only used by tests and debugging. */
     private static long version = 0;
 
     private PipeNetwork() {}
@@ -29,8 +35,12 @@ public final class PipeNetwork {
     /**
      * An INSERT side of some pipe: transfer into the block at {@code pipePos.relative(side)}. Holds a NeoForge
      * capability cache for that block, so transfers do not look the block entity up again on every operation.
+     *
+     * @param pipe the pipe owning the side; its {@link SideConfig} carries the insert filter, priority and limit
+     * @param path pipes from the extracting pipe to {@code pipePos}, both included (for the travel animation)
      */
-    public record Target(BlockPos pipePos, Direction side, int distance, Caps caps) {
+    public record Target(BlockPos pipePos, Direction side, int distance, Caps caps, PipeBlockEntity pipe,
+                         List<BlockPos> path) {
         public BlockPos endpointPos() {
             return pipePos.relative(side);
         }
@@ -39,57 +49,160 @@ public final class PipeNetwork {
         public Direction access() {
             return side.getOpposite();
         }
+
+        /** Configuration of the inserting side. */
+        public SideConfig insert() {
+            return pipe.side(side);
+        }
+    }
+
+    /** One connected pipe network. */
+    public static final class Graph {
+        final PipeType type;
+        /** Pipe position -> bit mask of directions leading to another pipe of the graph. */
+        final Map<BlockPos, Integer> links = new HashMap<>();
+        final Map<BlockPos, PipeBlockEntity> pipes = new HashMap<>();
+        /** Target lists per extracting side, keyed by {@link #key}. */
+        final Map<Long, List<Target>> targets = new HashMap<>();
+        boolean valid = true;
+
+        Graph(PipeType type) {
+            this.type = type;
+        }
+
+        public boolean valid() {
+            return valid;
+        }
+
+        public int size() {
+            return pipes.size();
+        }
+
+        public boolean contains(BlockPos pos) {
+            return pipes.containsKey(pos);
+        }
     }
 
     public static long version() {
         return version;
     }
 
-    /** Call whenever something that affects target lists changes. */
-    public static void invalidate() {
-        version++;
+    private static Map<BlockPos, Graph> graphs(Level level) {
+        return GRAPHS.computeIfAbsent(level, l -> new HashMap<>());
     }
 
-    /** Targets for an extracting side in distribution order; uses the side's cache when still valid. */
+    /** Call whenever something at {@code pos} changes that can affect networks there or next to it. */
+    public static void invalidate(Level level, BlockPos pos) {
+        if (level.isClientSide) return;
+        version++;
+        Map<BlockPos, Graph> map = GRAPHS.get(level);
+        if (map == null || map.isEmpty()) return;
+        drop(map, map.get(pos));
+        for (Direction dir : Direction.values()) drop(map, map.get(pos.relative(dir)));
+    }
+
+    /** Forget every cached network, e.g. when the config changes. */
+    public static void invalidateAll() {
+        version++;
+        for (Map<BlockPos, Graph> map : GRAPHS.values()) {
+            map.values().forEach(g -> g.valid = false);
+            map.clear();
+        }
+    }
+
+    private static void drop(Map<BlockPos, Graph> map, Graph graph) {
+        if (graph == null || !graph.valid) return;
+        graph.valid = false;
+        for (BlockPos p : graph.pipes.keySet()) map.remove(p, graph);
+    }
+
+    /** The cached graph containing the pipe at {@code pos}, building it if needed. */
+    public static Graph graphAt(ServerLevel level, BlockPos pos, PipeType type) {
+        Map<BlockPos, Graph> map = graphs(level);
+        Graph graph = map.get(pos);
+        if (graph != null && graph.valid && graph.type == type) return graph;
+        graph = build(level, pos, type);
+        for (BlockPos p : graph.pipes.keySet()) {
+            Graph old = map.put(p, graph);
+            // a size-capped flood fill can overlap an older graph: that one is out of date now
+            if (old != null && old != graph) drop(map, old);
+        }
+        for (BlockPos p : graph.pipes.keySet()) map.put(p, graph);
+        return graph;
+    }
+
+    private static Graph build(ServerLevel level, BlockPos origin, PipeType type) {
+        Graph graph = new Graph(type);
+        int maxPipes = FlowlineConfig.MAX_NETWORK_SIZE.get();
+        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        queue.add(origin);
+        while (!queue.isEmpty()) {
+            BlockPos pos = queue.poll();
+            if (graph.pipes.containsKey(pos)) continue;
+            BlockState state = level.getBlockState(pos);
+            if (!(state.getBlock() instanceof PipeBlock pipe) || pipe.type() != type) continue;
+            if (!(level.getBlockEntity(pos) instanceof PipeBlockEntity be)) continue;
+            if (graph.pipes.size() >= maxPipes) break;
+            graph.pipes.put(pos.immutable(), be);
+            int mask = 0;
+            for (Direction dir : Direction.values()) {
+                if (state.getValue(PipeBlock.prop(dir)) != Conn.PIPE) continue;
+                BlockPos next = pos.relative(dir);
+                if (!level.isLoaded(next)) continue;
+                mask |= 1 << dir.ordinal();
+                if (!graph.pipes.containsKey(next)) queue.add(next);
+            }
+            graph.links.put(pos.immutable(), mask);
+        }
+        return graph;
+    }
+
+    private static long key(BlockPos origin, Direction side) {
+        return origin.asLong() * 8 + side.ordinal();
+    }
+
+    /** Targets for an extracting side in distribution order; uses the side's graph while it is valid. */
     public static List<Target> targets(ServerLevel level, BlockPos origin, Direction extractSide, PipeType type,
                                        SideConfig cfg) {
-        if (cfg.cachedTargets == null || cfg.cachedVersion != version) {
-            cfg.cachedTargets = List.copyOf(scan(level, origin, extractSide, type));
-            cfg.cachedVersion = version;
+        if (cfg.graph == null || !cfg.graph.valid || cfg.cachedTargets == null) {
+            cfg.graph = graphAt(level, origin, type);
+            cfg.cachedTargets = cfg.graph.targets.computeIfAbsent(key(origin, extractSide),
+                    k -> scan(level, cfg.graph, origin, extractSide, type));
         }
         return order(new ArrayList<>(cfg.cachedTargets), cfg);
     }
 
-    private static List<Target> scan(ServerLevel level, BlockPos origin, Direction extractSide, PipeType type) {
+    /** Breadth-first search over the graph's links: distances, paths and every inserting side. */
+    private static List<Target> scan(ServerLevel level, Graph graph, BlockPos origin, Direction extractSide,
+                                     PipeType type) {
         List<Target> targets = new ArrayList<>();
-        Set<BlockPos> visited = new HashSet<>();
+        Map<BlockPos, BlockPos> parent = new HashMap<>();
+        Map<BlockPos, Integer> depth = new HashMap<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
-        ArrayDeque<Integer> depth = new ArrayDeque<>();
-        int maxPipes = FlowlineConfig.MAX_NETWORK_SIZE.get();
-        queue.add(origin);
-        depth.add(0);
-        visited.add(origin);
+        BlockPos start = origin.immutable();
+        queue.add(start);
+        depth.put(start, 0);
 
-        while (!queue.isEmpty() && visited.size() <= maxPipes) {
+        while (!queue.isEmpty()) {
             BlockPos pos = queue.poll();
-            int dist = depth.poll();
-            BlockState state = level.getBlockState(pos);
-            if (!(state.getBlock() instanceof PipeBlock pipe) || pipe.type() != type) continue;
-            BlockEntity be = level.getBlockEntity(pos);
-            if (!(be instanceof PipeBlockEntity pipeBe)) continue;
-
+            int dist = depth.get(pos);
+            PipeBlockEntity be = graph.pipes.get(pos);
+            if (be == null) continue;
+            int mask = graph.links.getOrDefault(pos, 0);
+            BlockState state = be.getBlockState();
             for (Direction dir : Direction.values()) {
-                Conn conn = state.getValue(PipeBlock.prop(dir));
-                if (conn == Conn.PIPE) {
+                if ((mask & (1 << dir.ordinal())) != 0) {
                     BlockPos next = pos.relative(dir);
-                    if (level.isLoaded(next) && visited.add(next)) {
+                    if (graph.pipes.containsKey(next) && !depth.containsKey(next)) {
+                        depth.put(next, dist + 1);
+                        parent.put(next, pos);
                         queue.add(next);
-                        depth.add(dist + 1);
                     }
-                } else if (conn.isEndpoint()
-                        && pipeBe.side(dir).mode == SideMode.INSERT
-                        && !(pos.equals(origin) && dir == extractSide)) {
-                    targets.add(new Target(pos, dir, dist, Caps.create(type, level, pos.relative(dir), dir.getOpposite())));
+                } else if (state.getValue(PipeBlock.prop(dir)).isEndpoint()
+                        && be.side(dir).mode == SideMode.INSERT
+                        && !(pos.equals(start) && dir == extractSide)) {
+                    targets.add(new Target(pos, dir, dist, Caps.create(type, level, pos.relative(dir), dir.getOpposite()),
+                            be, path(parent, start, pos)));
                 }
             }
         }
@@ -97,20 +210,29 @@ public final class PipeNetwork {
         targets.sort(Comparator.comparingInt(Target::distance)
                 .thenComparingLong(t -> t.pipePos().asLong())
                 .thenComparingInt(t -> t.side().ordinal()));
-        return targets;
+        return List.copyOf(targets);
+    }
+
+    private static List<BlockPos> path(Map<BlockPos, BlockPos> parent, BlockPos start, BlockPos end) {
+        List<BlockPos> path = new ArrayList<>();
+        for (BlockPos p = end; p != null && path.size() < 256; p = p.equals(start) ? null : parent.get(p)) path.add(p);
+        Collections.reverse(path);
+        return List.copyOf(path);
     }
 
     private static List<Target> order(List<Target> targets, SideConfig cfg) {
         switch (cfg.distribution) {
             case NEAREST -> {}
-            case FARTHEST -> java.util.Collections.reverse(targets);
-            case RANDOM -> java.util.Collections.shuffle(targets, RANDOM);
-            case ROUND_ROBIN -> {
+            case FARTHEST -> Collections.reverse(targets);
+            case RANDOM -> Collections.shuffle(targets, RANDOM);
+            case ROUND_ROBIN, BALANCED -> {
                 if (!targets.isEmpty()) {
-                    java.util.Collections.rotate(targets, -Math.floorMod(cfg.roundRobin, targets.size()));
+                    Collections.rotate(targets, -Math.floorMod(cfg.roundRobin, targets.size()));
                     cfg.roundRobin++;
                 }
             }
+            // stable: equal priorities keep the nearest-first base order
+            case PRIORITY -> targets.sort(Comparator.comparingInt((Target t) -> t.insert().priority).reversed());
         }
         return targets;
     }

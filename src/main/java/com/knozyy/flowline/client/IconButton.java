@@ -7,6 +7,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /** Flat square button that shows a 16x16 icon from {@code textures/gui/icon/}. Tooltips are drawn by the screen. */
@@ -18,11 +19,18 @@ public class IconButton extends Button {
 
     private final Supplier<String> icon;
     private final int accent;
+    /** While true the icon is drawn faded (a toggle that is off), but the button stays clickable. */
+    private final BooleanSupplier dim;
 
     public IconButton(int x, int y, int size, Supplier<String> icon, int accent, OnPress onPress) {
+        this(x, y, size, icon, accent, () -> false, onPress);
+    }
+
+    public IconButton(int x, int y, int size, Supplier<String> icon, int accent, BooleanSupplier dim, OnPress onPress) {
         super(x, y, size, size, Component.empty(), onPress, DEFAULT_NARRATION);
         this.icon = icon;
         this.accent = accent;
+        this.dim = dim;
     }
 
     public static ResourceLocation icon(String name) {
@@ -39,7 +47,7 @@ public class IconButton extends Button {
 
         int size = Math.min(16, Math.min(width, height) - 4);
         RenderSystem.enableBlend();
-        if (!active) graphics.setColor(1f, 1f, 1f, 0.3f);
+        if (!active || dim.getAsBoolean()) graphics.setColor(1f, 1f, 1f, 0.3f);
         graphics.blit(icon(icon.get()), x + (width - size) / 2, y + (height - size) / 2, size, size,
                 0, 0, 16, 16, 16, 16);
         graphics.setColor(1f, 1f, 1f, 1f);

@@ -4,6 +4,10 @@
     "flowline:item_pipe",
     "flowline:fluid_pipe",
     "flowline:energy_pipe",
-    "flowline:universal_pipe"
+    "flowline:universal_pipe",
+    {
+      "id": "flowline:chemical_pipe",
+      "required": false
+    }
   ]
 }

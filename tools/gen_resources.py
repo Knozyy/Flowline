@@ -12,7 +12,9 @@ import zlib
 MODID = "flowline"
 ROOT = os.path.join("src", "main", "resources")
 TYPES = {"item": (0xE0, 0x8A, 0x2B), "fluid": (0x2F, 0x7F, 0xE0), "energy": (0xD8, 0x3A, 0x3A),
-         "universal": (0x9C, 0x7B, 0xD8)}
+         "universal": (0x9C, 0x7B, 0xD8), "chemical": (0x7C, 0xD9, 0x57)}
+# pipes that only exist with another mod installed
+OPTIONAL = {"chemical": "mekanism"}
 
 
 def write(path, text):
@@ -53,28 +55,62 @@ def noise(x, y, seed):
     return ((h ^ (h >> 16)) & 0xFF) / 255.0
 
 
+CLEAR = (0, 0, 0, 0)
+
+
+def mix(a, b, t):
+    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def window(x, y):
+    """The glass slit of a pipe wall: arms show it along their axis, the core as a cross."""
+    return (x in (7, 8) and y <= 10) or (y in (7, 8) and x <= 10)
+
+
+def metal(base, x, y, seed):
+    """Brushed metal in the pipe colour: soft vertical gradient, fine noise, bevelled tube edges at 5 and 10."""
+    steel = (0x9A, 0xA1, 0xAC)
+    c = mix(steel, base, 0.72)
+    f = 0.9 + 0.12 * noise(x, y, seed) + 0.06 * (1 - abs(7.5 - y) / 7.5)
+    if x in (5, 10) or y in (5, 10):
+        f *= 0.7                          # tube edges
+    elif x in (6, 11) or y in (6, 11):
+        f *= 1.18                         # highlight next to the edge
+    if x in (0, 15) or y in (0, 15):
+        f *= 0.8
+    return shade(c, f)
+
+
 for idx, (name, base) in enumerate(TYPES.items()):
-    rows = []
+    seed = idx + 1
+    # pipe wall with a window; the window is cut out so travelling items can be seen inside
+    rows = [[CLEAR if window(x, y) else metal(base, x, y, seed) for x in range(16)] for y in range(16)]
+    # glass edge: a light rim around the window
     for y in range(16):
-        row = []
         for x in range(16):
-            f = 0.92 + 0.16 * noise(x, y, idx + 1)
-            if x in (0, 15) or y in (0, 15):
-                f = 0.62
-            elif x in (1, 14) or y in (1, 14):
-                f *= 1.12
-            if (x, y) in ((5, 5), (10, 5), (5, 10), (10, 10)):
-                f = 0.55          # rivets
-                if name == "universal":
-                    rivet = {(5, 5): TYPES["item"], (10, 5): TYPES["fluid"], (5, 10): TYPES["energy"]}.get((x, y))
-                    if rivet:
-                        row.append(shade(rivet, 1.1))
-                        continue
-            elif (x, y) in ((4, 4), (9, 4), (4, 9), (9, 9)):
-                f = 1.3           # rivet highlights
-            row.append(shade(base, f))
-        rows.append(row)
+            if rows[y][x] is not CLEAR and any(0 <= x + dx < 16 and 0 <= y + dy < 16 and window(x + dx, y + dy)
+                                               for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                rows[y][x] = shade(mix(base, (0xFF, 0xFF, 0xFF), 0.35), 1.0)
+    if name == "universal":
+        # three kind markers in the corners of the core faces
+        for (px, py), kind in (((5, 5), "item"), ((10, 5), "fluid"), ((5, 10), "energy")):
+            rows[py][px] = shade(TYPES[kind], 1.15)
     write_png(f"assets/{MODID}/textures/block/{name}_pipe.png", rows)
+
+    # solid collar where the pipe meets a block, and for the item model
+    collar = [[metal(base, x, y, seed + 7) for x in range(16)] for y in range(16)]
+    for y in range(16):
+        for x in range(16):
+            if x in (4, 11) or y in (4, 11):
+                collar[y][x] = shade(mix(base, (0x20, 0x22, 0x28), 0.55), 1.0)
+            elif 7 <= x <= 8 and 7 <= y <= 8:
+                collar[y][x] = shade(base, 0.4)            # port opening
+    write_png(f"assets/{MODID}/textures/block/{name}_pipe_collar.png", collar)
+
+    # inside of the tube, seen through the window
+    inner = [[shade(mix((0x18, 0x1A, 0x20), base, 0.18), 0.85 + 0.2 * noise(x, y, seed + 3)) for x in range(16)]
+             for y in range(16)]
+    write_png(f"assets/{MODID}/textures/block/{name}_pipe_inner.png", inner)
 
     # extract collar: a bright green ring (same "extract" colour on every pipe) around the pipe's own colour
     green = (0x5A, 0xE0, 0x7A)
@@ -87,12 +123,18 @@ for idx, (name, base) in enumerate(TYPES.items()):
             if edge:
                 f = 1.25 if (x == 3 or y == 3) else 0.8 if (x == 12 or y == 12) else 1.0
                 ring_row.append(shade(green, f))
-            elif inside and 7 <= x <= 8 and 7 <= y <= 8:
-                ring_row.append(shade(base, 0.45))          # port opening
             else:
-                ring_row.append(rows[y][x])
+                ring_row.append(collar[y][x])
         ring_rows.append(ring_row)
     write_png(f"assets/{MODID}/textures/block/{name}_pipe_extract.png", ring_rows)
+
+# dye band around the core: a light frame tinted with the pipe's colour (grey when undyed)
+band = [[CLEAR] * 16 for _ in range(16)]
+for y in range(5, 11):
+    for x in range(5, 11):
+        if x in (5, 10) or y in (5, 10):
+            band[y][x] = shade((0xF0, 0xF0, 0xF0), 1.0 if (x == 5 or y == 5) else 0.82)
+write_png(f"assets/{MODID}/textures/block/pipe_band.png", band)
 
 GREY = (0xB4, 0xB4, 0xBC)
 
@@ -200,31 +242,116 @@ for up_name, (symbol, accent) in UPGRADE_ART.items():
     write_png(f"assets/{MODID}/textures/item/{up_name}.png",
               ascii_icon(upgrade_chip(symbol), {"B": (0x3A, 0x4A, 0x5A), "P": (0xB0, 0xB0, 0xB8), "A": accent}))
 
+
+def card(symbol):
+    """A punched memory card: rounded body, contact strip at the bottom, `symbol` pixels in the accent colour."""
+    art = [list("................") for _ in range(16)]
+    for y in range(2, 15):
+        for x in range(2, 14):
+            if (x, y) in ((2, 2), (13, 2), (2, 14), (13, 14)):
+                continue
+            art[y][x] = "B"
+    for x in range(4, 12, 2):
+        art[12][x] = "P"
+        art[13][x] = "P"
+    art[3][11] = "."                         # punched corner hole
+    for x, y in symbol:
+        art[y][x] = "A"
+    return ["".join(r) for r in art]
+
+
+CARD_ART = {
+    # a gear: copies every setting
+    "config_card": ({(7, 4), (8, 4), (5, 5), (10, 5), (6, 5), (9, 5), (5, 6), (6, 6), (9, 6), (10, 6), (4, 7), (5, 7),
+                     (10, 7), (11, 7), (4, 8), (5, 8), (10, 8), (11, 8), (5, 9), (6, 9), (9, 9), (10, 9), (6, 10),
+                     (9, 10), (7, 10), (8, 10), (7, 6), (8, 6), (6, 7), (9, 7), (6, 8), (9, 8), (7, 9), (8, 9)},
+                    (0x4A, 0xC8, 0xF0)),
+    # a funnel: copies only the filter
+    "filter_card": (bars([(4, (4, 11)), (5, (5, 10)), (6, (6, 9)), (7, (7, 8)), (8, (7, 8)), (9, (7, 8))]),
+                    (0x5A, 0xE0, 0x7A)),
+}
+for card_name, (symbol, accent) in CARD_ART.items():
+    write_png(f"assets/{MODID}/textures/item/{card_name}.png",
+              ascii_icon(card(symbol), {"B": (0x2E, 0x36, 0x44), "P": (0xE0, 0xC0, 0x50), "A": accent}))
+
+
+def facade_texture():
+    """A thin panel in a frame, seen at an angle: what a facade looks like before it has a block."""
+    c = [[CLEAR] * 16 for _ in range(16)]
+    stone = (0x8C, 0x8C, 0x90)
+    for y in range(2, 14):
+        for x in range(2, 14):
+            f = 0.85 + 0.25 * noise(x, y, 99)
+            if x in (2, 13) or y in (2, 13):
+                c[y][x] = shade((0x5A, 0x60, 0x6A), 1.0)
+            elif x in (3, 12) or y in (3, 12):
+                c[y][x] = shade((0xC8, 0xCC, 0xD4), 1.0)
+            else:
+                c[y][x] = shade(stone, f)
+    for y in range(4, 12):                 # pipe peeking through the middle
+        for x in range(6, 10):
+            if y in (7, 8) or x in (7, 8):
+                c[y][x] = shade(TYPES["item"], 1.0 if x in (7, 8) and y in (7, 8) else 0.8)
+    return c
+
+
+write_png(f"assets/{MODID}/textures/item/facade.png", facade_texture())
+
 # ---------------------------------------------------------------- models
+ALL_FACES = ("down", "up", "north", "south", "west", "east")
+CUTOUT = "minecraft:cutout"   # the windows in the walls are transparent
+
+
+def inner_walls(z0, z1):
+    """Zero-thickness planes facing inwards just inside the four walls of a tube along z, so the window shows the
+    inside of the pipe (and travelling items) instead of the world behind it."""
+    uv = [5, 5, 11, 11]
+    e = 0.02
+    return [
+        {"from": [5 + e, 5, z0], "to": [5 + e, 11, z1], "shade": False, "faces": {"east": {"uv": uv, "texture": "#inner"}}},
+        {"from": [11 - e, 5, z0], "to": [11 - e, 11, z1], "shade": False, "faces": {"west": {"uv": uv, "texture": "#inner"}}},
+        {"from": [5, 5 + e, z0], "to": [11, 5 + e, z1], "shade": False, "faces": {"up": {"uv": uv, "texture": "#inner"}}},
+        {"from": [5, 11 - e, z0], "to": [11, 11 - e, z1], "shade": False, "faces": {"down": {"uv": uv, "texture": "#inner"}}},
+    ]
+
+
 for name in TYPES:
     tex = f"{MODID}:block/{name}_pipe"
+    textures = {"pipe": tex, "inner": f"{tex}_inner", "collar": f"{tex}_collar", "particle": f"{tex}_collar"}
+    core_inner = inner_walls(5, 11) + [
+        {"from": [5, 5, 5.02], "to": [11, 11, 5.02], "shade": False,
+         "faces": {"south": {"uv": [5, 5, 11, 11], "texture": "#inner"}}},
+        {"from": [5, 5, 10.98], "to": [11, 11, 10.98], "shade": False,
+         "faces": {"north": {"uv": [5, 5, 11, 11], "texture": "#inner"}}},
+    ]
     write_json(f"assets/{MODID}/models/block/{name}_pipe_core.json", {
-        "textures": {"pipe": tex, "particle": tex},
-        "elements": [{
-            "from": [5, 5, 5], "to": [11, 11, 11],
-            "faces": {d: {"uv": [5, 5, 11, 11], "texture": "#pipe"} for d in ("down", "up", "north", "south", "west", "east")},
-        }],
+        "render_type": CUTOUT,
+        "textures": {**textures, "band": f"{MODID}:block/pipe_band"},
+        "elements": [
+            {"from": [5, 5, 5], "to": [11, 11, 11],
+             "faces": {d: {"uv": [5, 5, 11, 11], "texture": "#pipe"} for d in ALL_FACES}},
+            *core_inner,
+            # dye band: a frame just outside the core, tinted with the pipe's colour
+            {"from": [4.9, 4.9, 4.9], "to": [11.1, 11.1, 11.1],
+             "faces": {d: {"uv": [5, 5, 11, 11], "texture": "#band", "tintindex": 0} for d in ALL_FACES}},
+        ],
     })
     write_json(f"assets/{MODID}/models/block/{name}_pipe_arm.json", {
-        "textures": {"pipe": tex, "particle": tex},
+        "render_type": CUTOUT,
+        "textures": textures,
         "elements": [{
             "from": [5, 5, 0], "to": [11, 11, 5],
             "faces": {
                 "down": {"uv": [5, 0, 11, 5], "texture": "#pipe"},
                 "up": {"uv": [5, 0, 11, 5], "texture": "#pipe"},
-                "north": {"uv": [5, 5, 11, 11], "texture": "#pipe"},
                 "west": {"uv": [0, 5, 5, 11], "texture": "#pipe"},
                 "east": {"uv": [0, 5, 5, 11], "texture": "#pipe"},
             },
-        }],
+        }, *inner_walls(0, 5)],
     })
     write_json(f"assets/{MODID}/models/block/{name}_pipe_endpoint.json", {
-        "textures": {"pipe": tex, "particle": tex},
+        "render_type": CUTOUT,
+        "textures": textures,
         "elements": [
             {
                 "from": [5, 5, 2], "to": [11, 11, 5],
@@ -235,16 +362,17 @@ for name in TYPES:
                     "east": {"uv": [0, 5, 3, 11], "texture": "#pipe"},
                 },
             },
+            *inner_walls(2, 5),
             {
                 "from": [4, 4, 0], "to": [12, 12, 2],
-                "faces": {d: {"uv": [4, 4, 12, 12], "texture": "#pipe"} for d in ("down", "up", "north", "south", "west", "east")},
+                "faces": {d: {"uv": [4, 4, 12, 12], "texture": "#collar"} for d in ALL_FACES},
             },
         ],
     })
     # extracting end: a larger, thicker collar with a green ring so it stands out from inserting ends
-    ring = f"{MODID}:block/{name}_pipe_extract"
     write_json(f"assets/{MODID}/models/block/{name}_pipe_extract.json", {
-        "textures": {"pipe": tex, "ring": ring, "particle": tex},
+        "render_type": CUTOUT,
+        "textures": {**textures, "ring": f"{tex}_extract"},
         "elements": [
             {
                 "from": [5, 5, 2.5], "to": [11, 11, 5],
@@ -255,6 +383,7 @@ for name in TYPES:
                     "east": {"uv": [0, 5, 2.5, 11], "texture": "#pipe"},
                 },
             },
+            *inner_walls(2.5, 5),
             {
                 "from": [3, 3, 0], "to": [13, 13, 2.5],
                 "faces": {
@@ -268,12 +397,17 @@ for name in TYPES:
             },
         ],
     })
+    # inventory icon: a solid straight tube with collars at both ends
     write_json(f"assets/{MODID}/models/item/{name}_pipe.json", {
         "parent": "minecraft:block/block",
-        "textures": {"pipe": tex, "particle": tex},
+        "textures": {"collar": f"{tex}_collar", "particle": f"{tex}_collar"},
         "elements": [
-            {"from": [5, 5, 0], "to": [11, 11, 16],
-             "faces": {d: {"uv": [5, 5, 11, 11], "texture": "#pipe"} for d in ("down", "up", "north", "south", "west", "east")}},
+            {"from": [5, 5, 2], "to": [11, 11, 14],
+             "faces": {d: {"uv": [5, 5, 11, 11], "texture": "#collar"} for d in ALL_FACES}},
+            {"from": [4, 4, 0], "to": [12, 12, 2],
+             "faces": {d: {"uv": [4, 4, 12, 12], "texture": "#collar"} for d in ALL_FACES}},
+            {"from": [4, 4, 14], "to": [12, 12, 16],
+             "faces": {d: {"uv": [4, 4, 12, 12], "texture": "#collar"} for d in ALL_FACES}},
         ],
     })
 
@@ -300,7 +434,8 @@ for name in TYPES:
         }],
     })
 
-for name in ("wrench", "speed_upgrade", "stack_upgrade", "filter_upgrade", "knozy_upgrade"):
+for name in ("wrench", "speed_upgrade", "stack_upgrade", "filter_upgrade", "knozy_upgrade", "config_card",
+             "filter_card", "facade"):
     write_json(f"assets/{MODID}/models/item/{name}.json", {
         "parent": "minecraft:item/generated",
         "textures": {"layer0": f"{MODID}:item/{name}"},
@@ -308,7 +443,9 @@ for name in ("wrench", "speed_upgrade", "stack_upgrade", "filter_upgrade", "knoz
 
 write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
-    "values": [f"{MODID}:{n}_pipe" for n in TYPES],
+    # optional pipes are only registered with their mod, so they must not be required here
+    "values": [f"{MODID}:{n}_pipe" if n not in OPTIONAL else {"id": f"{MODID}:{n}_pipe", "required": False}
+               for n in TYPES],
 })
 
 # ---------------------------------------------------------------- recipes
@@ -316,13 +453,16 @@ def ing(item):
     return {"item": item}
 
 
-def shapeless(name, ingredients, result, count=1):
-    write_json(f"data/{MODID}/recipe/{name}.json", {
+def shapeless(name, ingredients, result, count=1, needs=None):
+    recipe = {
         "type": "minecraft:crafting_shapeless",
         "category": "redstone",
         "ingredients": [ing(i) for i in ingredients],
         "result": {"id": result, "count": count},
-    })
+    }
+    if needs:
+        recipe["neoforge:conditions"] = [{"type": "neoforge:mod_loaded", "modid": needs}]
+    write_json(f"data/{MODID}/recipe/{name}.json", recipe)
 
 
 def shaped(name, pattern, key, result, count=1):
@@ -349,6 +489,16 @@ shaped("filter_upgrade", ["IPI", "PHP", "IPI"],
        {"I": "minecraft:iron_ingot", "P": "minecraft:paper", "H": "minecraft:hopper"}, f"{MODID}:filter_upgrade")
 shapeless("knozy_upgrade", [f"{MODID}:speed_upgrade", f"{MODID}:stack_upgrade", f"{MODID}:filter_upgrade",
                             "minecraft:netherite_ingot"], f"{MODID}:knozy_upgrade")
+shapeless("chemical_pipe", ["minecraft:iron_ingot"] * 3 + ["mekanism:basic_pressurized_tube"],
+          f"{MODID}:chemical_pipe", 4, needs="mekanism")
+shaped("config_card", ["PRP", "PGP", "PPP"],
+       {"P": "minecraft:paper", "R": "minecraft:redstone", "G": "minecraft:gold_nugget"}, f"{MODID}:config_card")
+shaped("filter_card", ["PRP", "PHP", "PPP"],
+       {"P": "minecraft:paper", "R": "minecraft:redstone", "H": "minecraft:hopper"}, f"{MODID}:filter_card")
+shaped("facade_blank", ["N N", " P ", "N N"], {"N": "minecraft:iron_nugget", "P": "minecraft:paper"},
+       f"{MODID}:facade", 8)
+# a blank facade and a full block in the crafting grid: a facade of that block (see FacadeRecipe)
+write_json(f"data/{MODID}/recipe/facade.json", {"type": f"{MODID}:facade", "category": "misc"})
 
 # ---------------------------------------------------------------- lang
 def lang(code, tr):
@@ -474,6 +624,90 @@ en = {
     "mode.flowline.insert": "Insert", "mode.flowline.extract": "Extract",
     "distribution.flowline.nearest": "Nearest first", "distribution.flowline.farthest": "Farthest first",
     "distribution.flowline.round_robin": "Round robin", "distribution.flowline.random": "Random",
+    # new blocks and items
+    "block.flowline.chemical_pipe": "Chemical Pipe",
+    "item.flowline.config_card": "Configuration Card",
+    "item.flowline.filter_card": "Filter Card",
+    "item.flowline.facade": "Facade",
+    "item.flowline.facade.blank": "Blank Facade",
+    "item.flowline.facade.named": "Facade (%s)",
+    "item.flowline.facade.blank.desc": "Craft with a full block to make a facade of it.",
+    "item.flowline.facade.desc": "Right-click a pipe to hide it. Sneak + right-click with empty hands to take it off.",
+    "item.flowline.card.empty": "Empty",
+    "item.flowline.card.from": "Copied from: %s",
+    "item.flowline.card.rules": "Rules: %s",
+    "item.flowline.config_card.desc": "Copies mode, settings and filter of a side.",
+    "item.flowline.filter_card.desc": "Copies only the filter rules of a side.",
+    "item.flowline.card.usage": "Sneak + right-click a side: copy · Right-click: paste · Sneak + use in the air: clear",
+    # messages
+    "message.flowline.color_set": "Pipe dyed %s: it only connects to the same colour or undyed pipes",
+    "message.flowline.color_cleared": "Dye washed off",
+    "message.flowline.facade_blank": "Craft the facade with a block first",
+    "message.flowline.facade_present": "This pipe already has a facade",
+    "message.flowline.facade_applied": "Facade: %s",
+    "message.flowline.facade_removed": "Facade removed",
+    "message.flowline.card_copied": "%s: copied to the card",
+    "message.flowline.card_pasted": "%s: pasted from the card",
+    "message.flowline.card_pasted_skipped": "%s: pasted, %s rules did not fit this pipe",
+    "message.flowline.card_empty": "The card is empty. Sneak + right-click a side to copy it.",
+    "message.flowline.card_cleared": "Card cleared",
+    "message.flowline.scroll_distribution": "%s: distribution %s",
+    "message.flowline.scroll_redstone": "%s: redstone %s",
+    "message.flowline.scroll_priority": "%s: priority %s",
+    # modes
+    "redstone.flowline.pulse": "Pulse",
+    "redstone.flowline.pulse.desc": "One operation each time the signal turns on.",
+    "distribution.flowline.balanced": "Balanced",
+    "distribution.flowline.balanced.desc": "Splits every operation evenly between the targets.",
+    "distribution.flowline.priority": "Priority",
+    "distribution.flowline.priority.desc": "Fills higher insert priorities first; ties go to the nearest.",
+    "gui.flowline.cycle_hint": "Click: next · Right-click: previous",
+    "gui.flowline.mode": "Mode: %s",
+    "gui.flowline.priority": "Priority: %s",
+    "gui.flowline.limit.value": "Regulator: %s",
+    # values row
+    "gui.flowline.value.priority": "Priority",
+    "gui.flowline.value.priority.desc": "Extract sides set to Priority distribution fill higher priorities first.",
+    "gui.flowline.value.keep": "Keep >=",
+    "gui.flowline.value.keep.desc": "Leave at least this much of each kind in the source (items, mB or FE). 0 = off.",
+    "gui.flowline.value.max": "Max <=",
+    "gui.flowline.value.max.desc": "Keep at most this much of each kind in the target (items, mB or FE). 0 = off.",
+    "gui.flowline.value.rate": "FE/t max",
+    "gui.flowline.value.rate.desc": "Energy limit of this side in FE per tick. 0 = no limit.",
+    "gui.flowline.value.hint": "Type a number, or scroll (Shift x10, Ctrl x100)",
+    "gui.flowline.value.channels": "Channels",
+    "gui.flowline.channel.0": "Items", "gui.flowline.channel.1": "Fluids", "gui.flowline.channel.2": "Energy",
+    "gui.flowline.channel.on": "Moved by this side (click to turn off)",
+    "gui.flowline.channel.off": "Not moved by this side (click to turn on)",
+    "gui.flowline.upgrades.insert": "Insert sides take Filter Upgrades only (more insert rules).",
+    # rules
+    "gui.flowline.rule.kind_item": "Item rule",
+    "gui.flowline.rule.kind_fluid": "Fluid rule",
+    "gui.flowline.rule.mod": "Mod: %s",
+    "gui.flowline.rule.name": "Name matches: %s",
+    "gui.flowline.rule.durability": "Durability %s%% - %s%%",
+    "gui.flowline.editor.kind.desc": "Universal pipes: click to switch between an item rule and a fluid rule.",
+    "gui.flowline.editor.error.unknown_mod": "Unknown mod",
+    "gui.flowline.editor.error.regex": "Invalid name pattern",
+    "gui.flowline.editor.error.durability": "Durability: min is above max",
+    "gui.flowline.library.mod": "Mod (@)",
+    "gui.flowline.library.mod.desc": "Only stacks from this mod, e.g. minecraft or create.",
+    "gui.flowline.library.name": "Name (regex)",
+    "gui.flowline.library.name.desc": "Searched in the display name, ignoring case. Example: ingot|gem",
+    "gui.flowline.library.durability": "Durability",
+    "gui.flowline.library.durability.desc": "Remaining durability in percent. 0-100 = any; e.g. 0-10 for worn tools.",
+    # jade
+    "jade.flowline.side": "%s: %s",
+    "jade.flowline.side_none": "%s: not connected",
+    "jade.flowline.side_pipe": "%s: pipe",
+    "jade.flowline.pacing": "x%s per operation · every %s ticks · %s upgrades",
+    "jade.flowline.sleeping": "x%s per operation · asleep (no target) · %s ticks · %s upgrades",
+    "jade.flowline.rate": "At most %s FE/t",
+    "jade.flowline.keep": "Keeps %s in the source",
+    "jade.flowline.max": "Fills up to %s",
+    "jade.flowline.filtered": "Filtered",
+    "jade.flowline.color": "Colour: %s",
+    "config.jade.plugin_flowline.pipe_side": "Flowline pipe sides",
 }
 tr = {
     "itemGroup.flowline": "Flowline",
@@ -594,6 +828,90 @@ tr = {
     "mode.flowline.insert": "Ekle", "mode.flowline.extract": "Çek",
     "distribution.flowline.nearest": "En yakın önce", "distribution.flowline.farthest": "En uzak önce",
     "distribution.flowline.round_robin": "Sırayla", "distribution.flowline.random": "Rastgele",
+    # yeni bloklar ve eşyalar
+    "block.flowline.chemical_pipe": "Kimyasal Boru",
+    "item.flowline.config_card": "Konfigürasyon Kartı",
+    "item.flowline.filter_card": "Filtre Kartı",
+    "item.flowline.facade": "Kaplama",
+    "item.flowline.facade.blank": "Boş Kaplama",
+    "item.flowline.facade.named": "Kaplama (%s)",
+    "item.flowline.facade.blank.desc": "Bir tam blokla birlikte üretince o bloğun kaplaması olur.",
+    "item.flowline.facade.desc": "Boruyu gizlemek için boruya sağ tıkla. Çıkarmak için elin boşken Shift + sağ tık.",
+    "item.flowline.card.empty": "Boş",
+    "item.flowline.card.from": "Kopyalanan: %s",
+    "item.flowline.card.rules": "Kurallar: %s",
+    "item.flowline.config_card.desc": "Bir tarafın modunu, ayarlarını ve filtresini kopyalar.",
+    "item.flowline.filter_card.desc": "Bir tarafın yalnızca filtre kurallarını kopyalar.",
+    "item.flowline.card.usage": "Tarafa Shift + sağ tık: kopyala · Sağ tık: yapıştır · Havada Shift + kullan: temizle",
+    # mesajlar
+    "message.flowline.color_set": "Boru %s boyandı: sadece aynı renk ya da boyasız borulara bağlanır",
+    "message.flowline.color_cleared": "Boya temizlendi",
+    "message.flowline.facade_blank": "Önce kaplamayı bir blokla üret",
+    "message.flowline.facade_present": "Bu boruda zaten kaplama var",
+    "message.flowline.facade_applied": "Kaplama: %s",
+    "message.flowline.facade_removed": "Kaplama çıkarıldı",
+    "message.flowline.card_copied": "%s: karta kopyalandı",
+    "message.flowline.card_pasted": "%s: karttan yapıştırıldı",
+    "message.flowline.card_pasted_skipped": "%s: yapıştırıldı, %s kural bu boruya uymadı",
+    "message.flowline.card_empty": "Kart boş. Kopyalamak için bir tarafa Shift + sağ tıkla.",
+    "message.flowline.card_cleared": "Kart temizlendi",
+    "message.flowline.scroll_distribution": "%s: dağıtım %s",
+    "message.flowline.scroll_redstone": "%s: redstone %s",
+    "message.flowline.scroll_priority": "%s: öncelik %s",
+    # modlar
+    "redstone.flowline.pulse": "Darbe",
+    "redstone.flowline.pulse.desc": "Sinyal her açıldığında tek bir işlem yapar.",
+    "distribution.flowline.balanced": "Dengeli",
+    "distribution.flowline.balanced.desc": "Her işlemi hedefler arasında eşit böler.",
+    "distribution.flowline.priority": "Öncelik",
+    "distribution.flowline.priority.desc": "Önce yüksek öncelikli hedefleri doldurur; eşitlikte en yakın.",
+    "gui.flowline.cycle_hint": "Tık: sonraki · Sağ tık: önceki",
+    "gui.flowline.mode": "Mod: %s",
+    "gui.flowline.priority": "Öncelik: %s",
+    "gui.flowline.limit.value": "Regülatör: %s",
+    # değer satırı
+    "gui.flowline.value.priority": "Öncelik",
+    "gui.flowline.value.priority.desc": "Öncelik dağıtımındaki çekme tarafları önce yüksek önceliği doldurur.",
+    "gui.flowline.value.keep": "En az",
+    "gui.flowline.value.keep.desc": "Kaynakta her türden en az bu kadar bırakır (eşya, mB ya da FE). 0 = kapalı.",
+    "gui.flowline.value.max": "En çok",
+    "gui.flowline.value.max.desc": "Hedefte her türden en fazla bu kadar tutar (eşya, mB ya da FE). 0 = kapalı.",
+    "gui.flowline.value.rate": "FE/t sınır",
+    "gui.flowline.value.rate.desc": "Bu tarafın tick başına FE sınırı. 0 = sınırsız.",
+    "gui.flowline.value.hint": "Sayı yaz ya da tekerlekle değiştir (Shift x10, Ctrl x100)",
+    "gui.flowline.value.channels": "Kanallar",
+    "gui.flowline.channel.0": "Eşya", "gui.flowline.channel.1": "Sıvı", "gui.flowline.channel.2": "Enerji",
+    "gui.flowline.channel.on": "Bu taraf taşır (kapatmak için tıkla)",
+    "gui.flowline.channel.off": "Bu taraf taşımaz (açmak için tıkla)",
+    "gui.flowline.upgrades.insert": "Ekle tarafları sadece Filter Upgrade alır (daha fazla ekleme kuralı).",
+    # kurallar
+    "gui.flowline.rule.kind_item": "Eşya kuralı",
+    "gui.flowline.rule.kind_fluid": "Sıvı kuralı",
+    "gui.flowline.rule.mod": "Mod: %s",
+    "gui.flowline.rule.name": "İsim eşleşir: %s",
+    "gui.flowline.rule.durability": "Dayanıklılık %%%s - %%%s",
+    "gui.flowline.editor.kind.desc": "Evrensel borular: eşya kuralı ile sıvı kuralı arasında geçmek için tıkla.",
+    "gui.flowline.editor.error.unknown_mod": "Bilinmeyen mod",
+    "gui.flowline.editor.error.regex": "Geçersiz isim kalıbı",
+    "gui.flowline.editor.error.durability": "Dayanıklılık: en az, en çoktan büyük",
+    "gui.flowline.library.mod": "Mod (@)",
+    "gui.flowline.library.mod.desc": "Sadece bu moddan gelenler, ör. minecraft ya da create.",
+    "gui.flowline.library.name": "İsim (regex)",
+    "gui.flowline.library.name.desc": "Görünen isimde aranır, büyük/küçük harf fark etmez. Örnek: ingot|gem",
+    "gui.flowline.library.durability": "Dayanıklılık",
+    "gui.flowline.library.durability.desc": "Kalan dayanıklılık yüzdesi. 0-100 = hepsi; ör. aşınmış aletler için 0-10.",
+    # jade
+    "jade.flowline.side": "%s: %s",
+    "jade.flowline.side_none": "%s: bağlı değil",
+    "jade.flowline.side_pipe": "%s: boru",
+    "jade.flowline.pacing": "İşlem başına x%s · her %s tick · %s yükseltme",
+    "jade.flowline.sleeping": "İşlem başına x%s · uyuyor (hedef yok) · %s tick · %s yükseltme",
+    "jade.flowline.rate": "En fazla %s FE/t",
+    "jade.flowline.keep": "Kaynakta %s bırakır",
+    "jade.flowline.max": "En fazla %s doldurur",
+    "jade.flowline.filtered": "Filtreli",
+    "jade.flowline.color": "Renk: %s",
+    "config.jade.plugin_flowline.pipe_side": "Flowline boru tarafları",
 }
 lang("en_us", en)
 lang("tr_tr", tr)
@@ -757,7 +1075,73 @@ def help_icon():
     return c
 
 
+ORANGE, BLUE = (0xE0, 0x8A, 0x2B), (0x3A, 0x8C, 0xF0)
+
+
+def pulse():
+    """A torch next to a square wave: one operation per rising edge."""
+    c = torch(True)
+    wave = [(0, 13), (1, 13), (2, 13), (2, 12), (2, 11), (2, 10), (3, 10), (4, 10), (4, 11), (4, 12), (4, 13), (5, 13)]
+    for x, y in wave:
+        c.dot(x + 9, y, GOLD)
+    return c
+
+
+def balanced():
+    c = Canvas()
+    c.rect(1, 6, 3, 9, GREY)                               # source
+    for y in (2, 7, 12):                                   # three equal targets
+        c.rect(12, y, 14, y + 1, CYAN)
+        c.line(4, 7, 11, y, WHITE)
+    return c
+
+
+def priority_icon():
+    c = Canvas()
+    for x, h, col in ((2, 4, GREY_DK), (7, 10, GOLD), (12, 7, GREY_DK)):   # podium: the highest wins
+        c.rect(x, 14 - h, x + 2, 14, col)
+    c.dot(8, 1, WHITE)
+    c.rect(7, 2, 9, 2, WHITE)
+    return c
+
+
+def box_icon(col):
+    c = Canvas()
+    c.rect(3, 5, 12, 13, col)
+    c.rect(3, 3, 12, 4, tuple(min(255, int(v * 1.25)) for v in col))
+    c.line(7, 3, 7, 13, tuple(int(v * 0.7) for v in col))
+    c.line(8, 3, 8, 13, tuple(int(v * 0.7) for v in col))
+    return c
+
+
+def drop_icon(col):
+    c = Canvas()
+    for y in range(2, 14):
+        half = 0 if y < 5 else min(4, (y - 3) // 2) if y < 11 else 4 - (y - 10)
+        c.rect(7 - half, y, 8 + half, y, col)
+    c.dot(6, 9, WHITE)
+    c.dot(6, 10, WHITE)
+    return c
+
+
+def bolt_icon(col):
+    c = Canvas()
+    for x, y in ((9, 1), (8, 2), (9, 2), (7, 3), (8, 3), (6, 4), (7, 4), (5, 5), (6, 5), (5, 6), (6, 6), (7, 6), (8, 6),
+                 (9, 6), (10, 6), (9, 7), (10, 7), (8, 8), (9, 8), (7, 9), (8, 9), (6, 10), (7, 10), (6, 11), (5, 12),
+                 (6, 12), (5, 13)):
+        c.dot(x, y, col)
+    return c
+
+
 GUI_ICONS = {
+    "redstone_pulse": pulse(),
+    "distribution_balanced": balanced(),
+    "distribution_priority": priority_icon(),
+    "channel_items": box_icon(ORANGE),
+    "channel_fluids": drop_icon(BLUE),
+    "channel_energy": bolt_icon(RED),
+    "rule_item": box_icon(ORANGE),
+    "rule_fluid": drop_icon(BLUE),
     "help": help_icon(),
     "page_prev": page_arrow(False),
     "page_next": page_arrow(True),

@@ -1,61 +1,112 @@
 package com.knozyy.flowline.pipe.transfer;
 
+import com.knozyy.flowline.pipe.Caps;
 import com.knozyy.flowline.pipe.PipeNetwork.Target;
+import com.knozyy.flowline.pipe.PipeType;
 import com.knozyy.flowline.pipe.SideConfig;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import com.knozyy.flowline.pipe.Caps;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 public final class ItemTransfer {
     private ItemTransfer() {}
 
-    /** @return number of items moved. */
+    private record Dest(Target target, IItemHandler handler, SideConfig cfg) {}
+
+    /**
+     * Moves up to {@code budget} items. Balanced: first every target gets at most an equal share, then a second pass
+     * hands out what is left to whoever still accepts.
+     *
+     * @return number of items moved
+     */
     public static int run(Level level, BlockPos sourcePos, Caps sourceCaps, SideConfig cfg, List<Target> targets,
-                          int budget) {
+                          int budget, boolean balanced, PipeType pipe,
+                          @Nullable BiConsumer<Target, ItemStack> onMove) {
         IItemHandler source = sourceCaps.itemHandler();
         if (source == null) return 0;
-        int total = 0;
 
-        List<IItemHandler> destinations = new ArrayList<>();
+        List<Dest> destinations = new ArrayList<>();
         for (Target t : targets) {
             IItemHandler h = t.caps().itemHandler();
-            if (h != null && h != source) destinations.add(h);
+            SideConfig insert = t.insert();
+            if (h != null && h != source && insert.channel(PipeType.CH_ITEMS, pipe)) {
+                destinations.add(new Dest(t, h, insert));
+            }
         }
         if (destinations.isEmpty()) return 0;
 
-        for (int slot = 0; slot < source.getSlots() && budget > 0; slot++) {
-            ItemStack offered = source.extractItem(slot, budget, true);
-            if (offered.isEmpty()) continue;
-            if (!cfg.allowsItem(offered, level.registryAccess())) continue;
+        int[] given = new int[destinations.size()];
+        boolean[] announced = new boolean[destinations.size()];
+        int cap = balanced ? Math.max(1, (budget + destinations.size() - 1) / destinations.size()) : Integer.MAX_VALUE;
+        int total = 0;
 
-            for (IItemHandler dest : destinations) {
-                ItemStack leftover = ItemHandlerHelper.insertItemStacked(dest, offered, true);
-                int accepted = offered.getCount() - leftover.getCount();
-                if (accepted <= 0) continue;
-
-                ItemStack extracted = source.extractItem(slot, accepted, false);
-                if (extracted.isEmpty()) continue;
-                ItemStack rest = ItemHandlerHelper.insertItemStacked(dest, extracted, false);
-                if (!rest.isEmpty()) {
-                    // Destination changed between simulate and execute: return what did not fit.
-                    rest = ItemHandlerHelper.insertItemStacked(source, rest, false);
-                    if (!rest.isEmpty()) Block.popResource(level, sourcePos, rest);
+        for (int pass = 0; pass < (balanced ? 2 : 1) && budget > 0; pass++) {
+            for (int slot = 0; slot < source.getSlots() && budget > 0; slot++) {
+                ItemStack offered = source.extractItem(slot, budget, true);
+                if (offered.isEmpty()) continue;
+                if (!cfg.allowsItem(offered, level.registryAccess())) continue;
+                if (cfg.limit > 0) {
+                    // regulator: leave at least `limit` of this item in the source
+                    int spare = count(source, offered) - cfg.limit;
+                    if (spare <= 0) continue;
+                    if (spare < offered.getCount()) offered = offered.copyWithCount(spare);
                 }
-                int moved = extracted.getCount() - rest.getCount();
-                total += moved;
-                budget -= moved;
-                offered.shrink(moved);
-                if (offered.isEmpty() || budget <= 0) break;
+
+                for (int i = 0; i < destinations.size() && !offered.isEmpty() && budget > 0; i++) {
+                    Dest dest = destinations.get(i);
+                    int want = Math.min(offered.getCount(), cap - given[i]);
+                    if (want <= 0) continue;
+                    if (!dest.cfg().allowsItem(offered, level.registryAccess())) continue;
+                    if (dest.cfg().limit > 0) {
+                        // regulator: keep at most `limit` of this item in the target
+                        want = Math.min(want, dest.cfg().limit - count(dest.handler(), offered));
+                        if (want <= 0) continue;
+                    }
+
+                    ItemStack leftover = ItemHandlerHelper.insertItemStacked(dest.handler(), offered.copyWithCount(want),
+                            true);
+                    int accepted = want - leftover.getCount();
+                    if (accepted <= 0) continue;
+
+                    ItemStack extracted = source.extractItem(slot, accepted, false);
+                    if (extracted.isEmpty()) continue;
+                    ItemStack rest = ItemHandlerHelper.insertItemStacked(dest.handler(), extracted, false);
+                    if (!rest.isEmpty()) {
+                        // Destination changed between simulate and execute: return what did not fit.
+                        rest = ItemHandlerHelper.insertItemStacked(source, rest, false);
+                        if (!rest.isEmpty()) Block.popResource(level, sourcePos, rest);
+                    }
+                    int moved = extracted.getCount() - rest.getCount();
+                    if (moved > 0 && onMove != null && !announced[i]) {
+                        announced[i] = true;
+                        onMove.accept(dest.target(), extracted.copyWithCount(moved));
+                    }
+                    given[i] += moved;
+                    total += moved;
+                    budget -= moved;
+                    offered = offered.copyWithCount(offered.getCount() - moved);
+                }
             }
+            cap = Integer.MAX_VALUE;
         }
         return total;
+    }
+
+    /** How many items like {@code like} (same item and components) the handler holds. */
+    static int count(IItemHandler handler, ItemStack like) {
+        int count = 0;
+        for (int slot = 0; slot < handler.getSlots(); slot++) {
+            ItemStack stack = handler.getStackInSlot(slot);
+            if (ItemStack.isSameItemSameComponents(stack, like)) count += stack.getCount();
+        }
+        return count;
     }
 }

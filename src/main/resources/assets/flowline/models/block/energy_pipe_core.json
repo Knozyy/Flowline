@@ -1,7 +1,11 @@
 {
+  "render_type": "minecraft:cutout",
   "textures": {
     "pipe": "flowline:block/energy_pipe",
-    "particle": "flowline:block/energy_pipe"
+    "inner": "flowline:block/energy_pipe_inner",
+    "collar": "flowline:block/energy_pipe_collar",
+    "particle": "flowline:block/energy_pipe_collar",
+    "band": "flowline:block/pipe_band"
   },
   "elements": [
     {
@@ -69,6 +73,224 @@
             11
           ],
           "texture": "#pipe"
+        }
+      }
+    },
+    {
+      "from": [
+        5.02,
+        5,
+        5
+      ],
+      "to": [
+        5.02,
+        11,
+        11
+      ],
+      "shade": false,
+      "faces": {
+        "east": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
+        10.98,
+        5,
+        5
+      ],
+      "to": [
+        10.98,
+        11,
+        11
+      ],
+      "shade": false,
+      "faces": {
+        "west": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        5.02,
+        5
+      ],
+      "to": [
+        11,
+        5.02,
+        11
+      ],
+      "shade": false,
+      "faces": {
+        "up": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        10.98,
+        5
+      ],
+      "to": [
+        11,
+        10.98,
+        11
+      ],
+      "shade": false,
+      "faces": {
+        "down": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        5,
+        5.02
+      ],
+      "to": [
+        11,
+        11,
+        5.02
+      ],
+      "shade": false,
+      "faces": {
+        "south": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        5,
+        10.98
+      ],
+      "to": [
+        11,
+        11,
+        10.98
+      ],
+      "shade": false,
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#inner"
+        }
+      }
+    },
+    {
+      "from": [
+        4.9,
+        4.9,
+        4.9
+      ],
+      "to": [
+        11.1,
+        11.1,
+        11.1
+      ],
+      "faces": {
+        "down": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#band",
+          "tintindex": 0
+        },
+        "up": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#band",
+          "tintindex": 0
+        },
+        "north": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#band",
+          "tintindex": 0
+        },
+        "south": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#band",
+          "tintindex": 0
+        },
+        "west": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#band",
+          "tintindex": 0
+        },
+        "east": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#band",
+          "tintindex": 0
         }
       }
     }
