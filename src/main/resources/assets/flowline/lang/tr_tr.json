@@ -210,7 +210,7 @@
   "jade.flowline.color": "Renk: %s",
   "config.jade.plugin_flowline.pipe_side": "Flowline boru tarafları",
   "flowline.configuration.title": "Flowline Ayarları",
-  "flowline.configuration.world_only": "Flowline ayarları her dünya için ayrı tutulur. Burada düzenlemek için tek oyunculu bir dünya aç. Sunucuda dünya klasöründeki serverconfig/flowline-server.toml dosyasını düzenle.",
+  "flowline.configuration.world_only": "Oynanış ayarları her dünya için ayrı tutulur. Burada düzenlemek için tek oyunculu bir dünya aç. Sunucuda dünya klasöründeki serverconfig/flowline-server.toml dosyasını düzenle.",
   "flowline.configuration.reset": "Varsayılanlara dön",
   "flowline.configuration.default": "Varsayılan: %s",
   "flowline.configuration.invalid": "Geçersiz değer: düzeltilene kadar Bitti kapalı.",
@@ -251,5 +251,17 @@
   "flowline.configuration.filterSlotsPerUpgrade.tooltip": "Her Filter upgrade'in (Knozy bir sayılır) eklediği kayıt sayısı.",
   "flowline.configuration.network": "Ağ",
   "flowline.configuration.maxNetworkSize": "En büyük ağ boyutu",
-  "flowline.configuration.maxNetworkSize.tooltip": "Önbelleğe alınan bir boru ağındaki en fazla boru sayısı."
+  "flowline.configuration.maxNetworkSize.tooltip": "Önbelleğe alınan bir boru ağındaki en fazla boru sayısı.",
+  "flowline.configuration.animations": "Animasyonlar",
+  "flowline.configuration.sendItemAnimations": "Eşya animasyonlarını gönder",
+  "flowline.configuration.sendItemAnimations.tooltip": "Taşınan eşyaları yakındaki oyunculara bildirir, böylece eşyaların borularda ilerlediğini görebilirler. Her oyuncu kendi tarafında yine de kapatabilir.",
+  "flowline.configuration.client": "Görünüm (bu oyuncu)",
+  "flowline.configuration.renderTravellingItems": "İlerleyen eşyaları göster",
+  "flowline.configuration.renderTravellingItems.tooltip": "Borularda ilerleyen eşyaları çizer (sunucuda eşya animasyonlarının açık olması gerekir). Opak borular paketi açıkken görünmezler, kapatmak performansa iyi gelir.",
+  "flowline.configuration.maxTravellingItems": "En fazla ilerleyen eşya",
+  "flowline.configuration.maxTravellingItems.tooltip": "Aynı anda çizilen en fazla eşya; önce eskiler silinir.",
+  "flowline.configuration.ticksPerPipe": "Boru başına tick",
+  "flowline.configuration.ticksPerPipe.tooltip": "İlerleyen bir eşyanın bir boruyu geçmesi için gereken tick.",
+  "pack.flowline.solid_pipes": "Flowline: Opak Borular",
+  "pack.flowline.solid_pipes.description": "Şeffaf yerine opak boru duvarları"
 }

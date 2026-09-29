@@ -110,6 +110,16 @@ public final class FlowlineConfig {
 
     static {
         BUILDER.pop();
+        BUILDER.comment("Items drawn travelling through see-through pipes.").push("animations");
+    }
+
+    public static final ForgeConfigSpec.BooleanValue SEND_ANIMATIONS = BUILDER
+            .comment("Tell nearby players about moved items so they can draw them travelling through the pipes.",
+                    "Each player can still turn the drawing off in the client config.")
+            .define("sendItemAnimations", true);
+
+    static {
+        BUILDER.pop();
     }
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
@@ -117,6 +127,27 @@ public final class FlowlineConfig {
     /** False outside a world (main menu, before the server's values arrive), where values cannot be read. */
     public static boolean isLoaded() {
         return SPEC.isLoaded();
+    }
+
+    /** Per-player settings (config/flowline-client.toml), editable at any time from the config screen. */
+    public static final class Client {
+        private static final ForgeConfigSpec.Builder CLIENT = new ForgeConfigSpec.Builder();
+
+        public static final ForgeConfigSpec.BooleanValue RENDER_ITEMS = CLIENT
+                .comment("Draw items travelling through pipes (needs sendItemAnimations on the server).")
+                .define("renderTravellingItems", true);
+
+        public static final ForgeConfigSpec.IntValue MAX_TRAVELLING = CLIENT
+                .comment("Most travelling items drawn at once; older ones are dropped first.")
+                .defineInRange("maxTravellingItems", 256, 0, 4096);
+
+        public static final ForgeConfigSpec.IntValue TICKS_PER_PIPE = CLIENT
+                .comment("Ticks a travelling item needs to pass one pipe.")
+                .defineInRange("ticksPerPipe", 4, 1, 40);
+
+        public static final ForgeConfigSpec SPEC = CLIENT.build();
+
+        private Client() {}
     }
 
     private FlowlineConfig() {}

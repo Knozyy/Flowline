@@ -36,6 +36,9 @@ public final class ModNetwork {
         CHANNEL.messageBuilder(FilterPagePayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(FilterPagePayload::encode).decoder(FilterPagePayload::decode)
                 .consumerMainThread(ModNetwork::onFilterPage).add();
+        CHANNEL.messageBuilder(TravelPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(TravelPayload::encode).decoder(TravelPayload::decode)
+                .consumerMainThread(ModNetwork::onTravel).add();
     }
 
     public static void sendToServer(Object message) {
@@ -72,6 +75,11 @@ public final class ModNetwork {
         context.get().setPacketHandled(true);
     }
 
+    private static void onTravel(TravelPayload payload, Supplier<NetworkEvent.Context> context) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandlers.travel(payload));
+        context.get().setPacketHandled(true);
+    }
+
     /** Only loaded on the client. */
     private static final class ClientHandlers {
         static void filterPage(FilterPagePayload payload) {
@@ -81,5 +89,8 @@ public final class ModNetwork {
             }
         }
 
+        static void travel(TravelPayload payload) {
+            com.knozyy.flowline.client.TravellingItems.add(payload);
+        }
     }
 }

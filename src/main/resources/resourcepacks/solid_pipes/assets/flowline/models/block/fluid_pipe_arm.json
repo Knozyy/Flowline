@@ -1,0 +1,59 @@
+{
+  "textures": {
+    "pipe": "flowline:block/fluid_pipe",
+    "collar": "flowline:block/fluid_pipe_collar",
+    "particle": "flowline:block/fluid_pipe_collar"
+  },
+  "elements": [
+    {
+      "from": [
+        5,
+        5,
+        0
+      ],
+      "to": [
+        11,
+        11,
+        5
+      ],
+      "faces": {
+        "down": {
+          "uv": [
+            5,
+            0,
+            11,
+            5
+          ],
+          "texture": "#pipe"
+        },
+        "up": {
+          "uv": [
+            5,
+            0,
+            11,
+            5
+          ],
+          "texture": "#pipe"
+        },
+        "west": {
+          "uv": [
+            0,
+            5,
+            5,
+            11
+          ],
+          "texture": "#pipe"
+        },
+        "east": {
+          "uv": [
+            0,
+            5,
+            5,
+            11
+          ],
+          "texture": "#pipe"
+        }
+      }
+    }
+  ]
+}

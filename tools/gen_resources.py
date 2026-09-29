@@ -12,6 +12,8 @@ import zlib
 
 MODID = "flowline"
 ROOT = os.path.join("src", "main", "resources")
+# Built-in resource pack (Options > Resource Packs) that swaps the see-through pipe walls for solid ones.
+SOLID_PACK = "resourcepacks/solid_pipes"
 TYPES = {"item": (0xE0, 0x8A, 0x2B), "fluid": (0x2F, 0x7F, 0xE0), "energy": (0xD8, 0x3A, 0x3A),
          "universal": (0x9C, 0x7B, 0xD8), "chemical": (0x7C, 0xD9, 0x57)}
 # pipes that only exist with another mod installed
@@ -63,6 +65,11 @@ def mix(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
+def window(x, y):
+    """The glass slit of a pipe wall: arms show it along their axis, the core as a cross."""
+    return (x in (7, 8) and y <= 10) or (y in (7, 8) and x <= 10)
+
+
 def metal(base, x, y, seed):
     """Brushed metal in the pipe colour: soft vertical gradient, fine noise, bevelled tube edges at 5 and 10."""
     steel = (0x9A, 0xA1, 0xAC)
@@ -77,19 +84,34 @@ def metal(base, x, y, seed):
     return shade(c, f)
 
 
-for idx, (name, base) in enumerate(TYPES.items()):
-    seed = idx + 1
-    # solid pipe wall: brushed metal with a light seam along the middle
-    rows = [[metal(base, x, y, seed) for x in range(16)] for y in range(16)]
-    for y in range(16):
-        for x in range(16):
-            if (x in (7, 8) and y <= 10) or (y in (7, 8) and x <= 10):
-                rows[y][x] = shade(mix(base, (0xFF, 0xFF, 0xFF), 0.18), 0.95 + 0.1 * noise(x, y, seed + 5))
+def pipe_wall(name, base, seed, solid):
+    if solid:
+        # solid pipe wall: brushed metal with a light seam where the window would be
+        rows = [[metal(base, x, y, seed) for x in range(16)] for y in range(16)]
+        for y in range(16):
+            for x in range(16):
+                if window(x, y):
+                    rows[y][x] = shade(mix(base, (0xFF, 0xFF, 0xFF), 0.18), 0.95 + 0.1 * noise(x, y, seed + 5))
+    else:
+        # pipe wall with a window; the window is cut out so travelling items can be seen inside
+        rows = [[CLEAR if window(x, y) else metal(base, x, y, seed) for x in range(16)] for y in range(16)]
+        # glass edge: a light rim around the window
+        for y in range(16):
+            for x in range(16):
+                if rows[y][x] is not CLEAR and any(0 <= x + dx < 16 and 0 <= y + dy < 16 and window(x + dx, y + dy)
+                                                   for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                    rows[y][x] = shade(mix(base, (0xFF, 0xFF, 0xFF), 0.35), 1.0)
     if name == "universal":
         # three kind markers in the corners of the core faces
         for (px, py), kind in (((5, 5), "item"), ((10, 5), "fluid"), ((5, 10), "energy")):
             rows[py][px] = shade(TYPES[kind], 1.15)
-    write_png(f"assets/{MODID}/textures/block/{name}_pipe.png", rows)
+    return rows
+
+
+for idx, (name, base) in enumerate(TYPES.items()):
+    seed = idx + 1
+    write_png(f"assets/{MODID}/textures/block/{name}_pipe.png", pipe_wall(name, base, seed, False))
+    write_png(f"{SOLID_PACK}/assets/{MODID}/textures/block/{name}_pipe.png", pipe_wall(name, base, seed, True))
 
     # solid collar where the pipe meets a block, and for the item model
     collar = [[metal(base, x, y, seed + 7) for x in range(16)] for y in range(16)]
@@ -100,6 +122,11 @@ for idx, (name, base) in enumerate(TYPES.items()):
             elif 7 <= x <= 8 and 7 <= y <= 8:
                 collar[y][x] = shade(base, 0.4)            # port opening
     write_png(f"assets/{MODID}/textures/block/{name}_pipe_collar.png", collar)
+
+    # inside of the tube, seen through the window
+    inner = [[shade(mix((0x18, 0x1A, 0x20), base, 0.18), 0.85 + 0.2 * noise(x, y, seed + 3)) for x in range(16)]
+             for y in range(16)]
+    write_png(f"assets/{MODID}/textures/block/{name}_pipe_inner.png", inner)
 
     # extract collar: a bright green ring (same "extract" colour on every pipe) around the pipe's own colour
     green = (0x5A, 0xE0, 0x7A)
@@ -288,25 +315,51 @@ write_png(f"assets/{MODID}/textures/item/facade.png", facade_texture())
 
 # ---------------------------------------------------------------- models
 ALL_FACES = ("down", "up", "north", "south", "west", "east")
-CUTOUT = "minecraft:cutout"   # only the dye band around the core has transparent pixels
+CUTOUT = "minecraft:cutout"   # the windows in the walls are transparent
 
 
+def inner_walls(z0, z1):
+    """Zero-thickness planes facing inwards just inside the four walls of a tube along z, so the window shows the
+    inside of the pipe (and travelling items) instead of the world behind it."""
+    uv = [5, 5, 11, 11]
+    e = 0.02
+    return [
+        {"from": [5 + e, 5, z0], "to": [5 + e, 11, z1], "shade": False, "faces": {"east": {"uv": uv, "texture": "#inner"}}},
+        {"from": [11 - e, 5, z0], "to": [11 - e, 11, z1], "shade": False, "faces": {"west": {"uv": uv, "texture": "#inner"}}},
+        {"from": [5, 5 + e, z0], "to": [11, 5 + e, z1], "shade": False, "faces": {"up": {"uv": uv, "texture": "#inner"}}},
+        {"from": [5, 11 - e, z0], "to": [11, 11 - e, z1], "shade": False, "faces": {"down": {"uv": uv, "texture": "#inner"}}},
+    ]
 
-for name in TYPES:
+
+def wall_models(name, root, solid):
+    """Core, arm and end models of a pipe. See-through walls show the inside through their windows and need cutout;
+    solid walls (the Solid Pipes pack) only keep cutout on the core for the dye band."""
     tex = f"{MODID}:block/{name}_pipe"
     textures = {"pipe": tex, "collar": f"{tex}_collar", "particle": f"{tex}_collar"}
-    write_json(f"assets/{MODID}/models/block/{name}_pipe_core.json", {
+    if not solid:
+        textures = {"pipe": tex, "inner": f"{tex}_inner", "collar": f"{tex}_collar", "particle": f"{tex}_collar"}
+    walls = (lambda z0, z1: []) if solid else inner_walls
+    cutout = {} if solid else {"render_type": CUTOUT}
+    core_inner = [] if solid else inner_walls(5, 11) + [
+        {"from": [5, 5, 5.02], "to": [11, 11, 5.02], "shade": False,
+         "faces": {"south": {"uv": [5, 5, 11, 11], "texture": "#inner"}}},
+        {"from": [5, 5, 10.98], "to": [11, 11, 10.98], "shade": False,
+         "faces": {"north": {"uv": [5, 5, 11, 11], "texture": "#inner"}}},
+    ]
+    write_json(f"{root}assets/{MODID}/models/block/{name}_pipe_core.json", {
         "render_type": CUTOUT,
         "textures": {**textures, "band": f"{MODID}:block/pipe_band"},
         "elements": [
             {"from": [5, 5, 5], "to": [11, 11, 11],
              "faces": {d: {"uv": [5, 5, 11, 11], "texture": "#pipe"} for d in ALL_FACES}},
+            *core_inner,
             # dye band: a frame just outside the core, tinted with the pipe's colour
             {"from": [4.9, 4.9, 4.9], "to": [11.1, 11.1, 11.1],
              "faces": {d: {"uv": [5, 5, 11, 11], "texture": "#band", "tintindex": 0} for d in ALL_FACES}},
         ],
     })
-    write_json(f"assets/{MODID}/models/block/{name}_pipe_arm.json", {
+    write_json(f"{root}assets/{MODID}/models/block/{name}_pipe_arm.json", {
+        **cutout,
         "textures": textures,
         "elements": [{
             "from": [5, 5, 0], "to": [11, 11, 5],
@@ -316,9 +369,10 @@ for name in TYPES:
                 "west": {"uv": [0, 5, 5, 11], "texture": "#pipe"},
                 "east": {"uv": [0, 5, 5, 11], "texture": "#pipe"},
             },
-        }],
+        }, *walls(0, 5)],
     })
-    write_json(f"assets/{MODID}/models/block/{name}_pipe_endpoint.json", {
+    write_json(f"{root}assets/{MODID}/models/block/{name}_pipe_endpoint.json", {
+        **cutout,
         "textures": textures,
         "elements": [
             {
@@ -330,6 +384,7 @@ for name in TYPES:
                     "east": {"uv": [0, 5, 3, 11], "texture": "#pipe"},
                 },
             },
+            *walls(2, 5),
             {
                 "from": [4, 4, 0], "to": [12, 12, 2],
                 "faces": {d: {"uv": [4, 4, 12, 12], "texture": "#collar"} for d in ALL_FACES},
@@ -337,7 +392,8 @@ for name in TYPES:
         ],
     })
     # extracting end: a larger, thicker collar with a green ring so it stands out from inserting ends
-    write_json(f"assets/{MODID}/models/block/{name}_pipe_extract.json", {
+    write_json(f"{root}assets/{MODID}/models/block/{name}_pipe_extract.json", {
+        **cutout,
         "textures": {**textures, "ring": f"{tex}_extract"},
         "elements": [
             {
@@ -349,6 +405,7 @@ for name in TYPES:
                     "east": {"uv": [0, 5, 2.5, 11], "texture": "#pipe"},
                 },
             },
+            *walls(2.5, 5),
             {
                 "from": [3, 3, 0], "to": [13, 13, 2.5],
                 "faces": {
@@ -362,6 +419,16 @@ for name in TYPES:
             },
         ],
     })
+
+
+write_json(f"{SOLID_PACK}/pack.mcmeta", {
+    "pack": {"pack_format": 15, "description": {"translate": "pack.flowline.solid_pipes.description"}},
+})
+
+for name in TYPES:
+    tex = f"{MODID}:block/{name}_pipe"
+    wall_models(name, "", False)
+    wall_models(name, f"{SOLID_PACK}/", True)
     # inventory icon: a solid straight tube with collars at both ends
     write_json(f"assets/{MODID}/models/item/{name}_pipe.json", {
         "parent": "minecraft:block/block",
@@ -894,9 +961,9 @@ tr = {
 # in-game config screen (client/FlowlineConfigScreen): labels, and Turkish descriptions (English uses the comments)
 en.update({
     "flowline.configuration.title": "Flowline Settings",
-    "flowline.configuration.world_only": "Flowline settings are stored per world. Open a single player world to edit "
-                                         "them here. On a dedicated server, edit serverconfig/flowline-server.toml "
-                                         "in the world folder.",
+    "flowline.configuration.world_only": "Gameplay settings are stored per world. Open a single player world to "
+                                         "edit them here. On a dedicated server, edit "
+                                         "serverconfig/flowline-server.toml in the world folder.",
     "flowline.configuration.reset": "Reset to defaults",
     "flowline.configuration.default": "Default: %s",
     "flowline.configuration.invalid": "Invalid value: Done is disabled until it is fixed.",
@@ -921,10 +988,18 @@ en.update({
     "flowline.configuration.filterSlotsPerUpgrade": "Entries per Filter upgrade",
     "flowline.configuration.network": "Network",
     "flowline.configuration.maxNetworkSize": "Max network size",
+    "flowline.configuration.animations": "Animations",
+    "flowline.configuration.sendItemAnimations": "Send item animations",
+    "flowline.configuration.client": "Display (this player)",
+    "flowline.configuration.renderTravellingItems": "Show travelling items",
+    "flowline.configuration.maxTravellingItems": "Max travelling items",
+    "flowline.configuration.ticksPerPipe": "Ticks per pipe",
+    "pack.flowline.solid_pipes": "Flowline: Solid Pipes",
+    "pack.flowline.solid_pipes.description": "Opaque pipe walls instead of see-through ones",
 })
 tr.update({
     "flowline.configuration.title": "Flowline Ayarları",
-    "flowline.configuration.world_only": "Flowline ayarları her dünya için ayrı tutulur. Burada düzenlemek için tek "
+    "flowline.configuration.world_only": "Oynanış ayarları her dünya için ayrı tutulur. Burada düzenlemek için tek "
                                          "oyunculu bir dünya aç. Sunucuda dünya klasöründeki "
                                          "serverconfig/flowline-server.toml dosyasını düzenle.",
     "flowline.configuration.reset": "Varsayılanlara dön",
@@ -968,6 +1043,18 @@ tr.update({
     "flowline.configuration.network": "Ağ",
     "flowline.configuration.maxNetworkSize": "En büyük ağ boyutu",
     "flowline.configuration.maxNetworkSize.tooltip": "Önbelleğe alınan bir boru ağındaki en fazla boru sayısı.",
+    "flowline.configuration.animations": "Animasyonlar",
+    "flowline.configuration.sendItemAnimations": "Eşya animasyonlarını gönder",
+    "flowline.configuration.sendItemAnimations.tooltip": "Taşınan eşyaları yakındaki oyunculara bildirir, böylece eşyaların borularda ilerlediğini görebilirler. Her oyuncu kendi tarafında yine de kapatabilir.",
+    "flowline.configuration.client": "Görünüm (bu oyuncu)",
+    "flowline.configuration.renderTravellingItems": "İlerleyen eşyaları göster",
+    "flowline.configuration.renderTravellingItems.tooltip": "Borularda ilerleyen eşyaları çizer (sunucuda eşya animasyonlarının açık olması gerekir). Opak borular paketi açıkken görünmezler, kapatmak performansa iyi gelir.",
+    "flowline.configuration.maxTravellingItems": "En fazla ilerleyen eşya",
+    "flowline.configuration.maxTravellingItems.tooltip": "Aynı anda çizilen en fazla eşya; önce eskiler silinir.",
+    "flowline.configuration.ticksPerPipe": "Boru başına tick",
+    "flowline.configuration.ticksPerPipe.tooltip": "İlerleyen bir eşyanın bir boruyu geçmesi için gereken tick.",
+    "pack.flowline.solid_pipes": "Flowline: Opak Borular",
+    "pack.flowline.solid_pipes.description": "Şeffaf yerine opak boru duvarları",
 })
 lang("en_us", en)
 lang("tr_tr", tr)

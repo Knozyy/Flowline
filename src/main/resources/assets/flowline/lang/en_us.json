@@ -210,7 +210,7 @@
   "jade.flowline.color": "Colour: %s",
   "config.jade.plugin_flowline.pipe_side": "Flowline pipe sides",
   "flowline.configuration.title": "Flowline Settings",
-  "flowline.configuration.world_only": "Flowline settings are stored per world. Open a single player world to edit them here. On a dedicated server, edit serverconfig/flowline-server.toml in the world folder.",
+  "flowline.configuration.world_only": "Gameplay settings are stored per world. Open a single player world to edit them here. On a dedicated server, edit serverconfig/flowline-server.toml in the world folder.",
   "flowline.configuration.reset": "Reset to defaults",
   "flowline.configuration.default": "Default: %s",
   "flowline.configuration.invalid": "Invalid value: Done is disabled until it is fixed.",
@@ -234,5 +234,13 @@
   "flowline.configuration.baseFilterSlots": "Base filter entries",
   "flowline.configuration.filterSlotsPerUpgrade": "Entries per Filter upgrade",
   "flowline.configuration.network": "Network",
-  "flowline.configuration.maxNetworkSize": "Max network size"
+  "flowline.configuration.maxNetworkSize": "Max network size",
+  "flowline.configuration.animations": "Animations",
+  "flowline.configuration.sendItemAnimations": "Send item animations",
+  "flowline.configuration.client": "Display (this player)",
+  "flowline.configuration.renderTravellingItems": "Show travelling items",
+  "flowline.configuration.maxTravellingItems": "Max travelling items",
+  "flowline.configuration.ticksPerPipe": "Ticks per pipe",
+  "pack.flowline.solid_pipes": "Flowline: Solid Pipes",
+  "pack.flowline.solid_pipes.description": "Opaque pipe walls instead of see-through ones"
 }

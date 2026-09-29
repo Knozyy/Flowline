@@ -12,15 +12,23 @@ import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.PathPackResources;
+import net.minecraft.server.packs.repository.Pack;
+import net.minecraft.server.packs.repository.PackSource;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.event.RegisterColorHandlersEvent;
+import net.minecraftforge.event.AddPackFindersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.registries.RegistryObject;
 
+import java.nio.file.Path;
 import java.util.Map;
 
 @Mod.EventBusSubscriber(modid = Flowline.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
@@ -53,6 +61,20 @@ public final class ClientSetup {
             float[] rgb = DyeColor.byId(be.color()).getTextureDiffuseColors();
             return (int) (rgb[0] * 255) << 16 | (int) (rgb[1] * 255) << 8 | (int) (rgb[2] * 255);
         }, pipes);
+    }
+
+    /**
+     * Offers the built-in "Solid Pipes" resource pack (resourcepacks/solid_pipes in the jar, made by
+     * tools/gen_resources.py). It is off by default, so pipes are see-through unless a player turns it on.
+     */
+    @SubscribeEvent
+    public static void addPacks(AddPackFindersEvent event) {
+        if (event.getPackType() != PackType.CLIENT_RESOURCES) return;
+        Path path = ModList.get().getModFileById(Flowline.MODID).getFile().findResource("resourcepacks/solid_pipes");
+        Pack pack = Pack.readMetaAndCreate(Flowline.MODID + ":solid_pipes", Component.translatable("pack.flowline.solid_pipes"),
+                false, id -> new PathPackResources(id, path, true), PackType.CLIENT_RESOURCES, Pack.Position.TOP,
+                PackSource.BUILT_IN);
+        if (pack != null) event.addRepositorySource(consumer -> consumer.accept(pack));
     }
 
     /** Wraps every pipe model so a facade can replace it. */
