@@ -574,7 +574,6 @@ public class PipeGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 300)
     public static void differentColorsDoNotConnect(GameTestHelper helper) {
         install(line(helper, 2), UpgradeType.STACK);
-        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 4));
         BlockPos second = new BlockPos(2, 1, 1);
 
         helper.startSequence()
@@ -584,6 +583,8 @@ public class PipeGameTests {
                     paint(helper, second, net.minecraft.world.item.DyeColor.BLUE.getId());
                     helper.assertTrue(helper.getBlockState(FIRST_PIPE).getValue(PipeBlock.prop(Direction.EAST)) == Conn.NONE,
                             "red and blue pipes must not connect");
+                    // only now: the side may already run in the first ticks, before the pipes are painted
+                    chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 4));
                 })
                 .thenIdle(60)
                 .thenExecute(() -> {
