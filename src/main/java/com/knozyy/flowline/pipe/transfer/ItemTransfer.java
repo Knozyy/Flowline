@@ -41,7 +41,16 @@ public final class ItemTransfer {
         if (destinations.isEmpty()) return 0;
 
         int[] given = new int[destinations.size()];
-        int cap = balanced ? Math.max(1, (budget + destinations.size() - 1) / destinations.size()) : Integer.MAX_VALUE;
+        int cap = Integer.MAX_VALUE;
+        if (balanced) {
+            // split what the source can really give this operation, not the whole budget
+            int available = 0;
+            for (int slot = 0; slot < source.getSlots() && available < budget; slot++) {
+                ItemStack offered = source.extractItem(slot, budget - available, true);
+                if (!offered.isEmpty() && cfg.allowsItem(offered, level.registryAccess())) available += offered.getCount();
+            }
+            cap = Math.max(1, (Math.min(budget, available) + destinations.size() - 1) / destinations.size());
+        }
         int total = 0;
 
         for (int pass = 0; pass < (balanced ? 2 : 1) && budget > 0; pass++) {

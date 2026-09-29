@@ -13,7 +13,8 @@ public final class FlowlineConfig {
     }
 
     public static final ModConfigSpec.IntValue ITEMS_PER_OPERATION = BUILDER
-            .defineInRange("itemsPerOperation", 1, 1, 4096);
+            .comment("Items per operation without Stack upgrades.")
+            .defineInRange("itemsPerOperation", 16, 1, 4096);
 
     public static final ModConfigSpec.IntValue FLUID_PER_OPERATION = BUILDER
             .comment("Millibuckets.")
@@ -28,9 +29,16 @@ public final class FlowlineConfig {
             .defineInRange("chemicalPerOperation", 100, 1, 1_000_000);
 
     public static final ModConfigSpec.ConfigValue<List<? extends Integer>> STACK_MULTIPLIERS = BUILDER
-            .comment("Multiplier on the amounts above, indexed by the number of Stack upgrades (Knozy counts as one).",
+            .comment("Multiplier on the fluid, energy and chemical amounts above, indexed by the number of Stack",
+                    "upgrades (Knozy counts as one).",
                     "Entry 0 is used without upgrades; the last entry is used for any higher count.")
             .defineList("stackMultipliers", List.of(1, 8, 16, 32, 64, 96, 128),
+                    o -> o instanceof Integer i && i >= 1);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends Integer>> ITEM_STACK_MULTIPLIERS = BUILDER
+            .comment("Multiplier on itemsPerOperation, indexed by the number of Stack upgrades (Knozy counts as one).",
+                    "The default doubles per upgrade: 16, 32, 64, 128, 256, 512, 1024 items per operation.")
+            .defineList("itemStackMultipliers", List.of(1, 2, 4, 8, 16, 32, 64),
                     o -> o instanceof Integer i && i >= 1);
 
     static {

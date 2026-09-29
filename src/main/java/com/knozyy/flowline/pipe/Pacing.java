@@ -40,9 +40,19 @@ public final class Pacing {
         return Math.min(maxIdle(speedCount), Math.max(interval + 1, next));
     }
 
-    /** Multiplier on the per-operation amount for {@code stackCount} Stack upgrades. */
+    /** Multiplier on the fluid, energy and chemical amounts for {@code stackCount} Stack upgrades. */
     public static int stackMultiplier(int stackCount) {
-        List<? extends Integer> multipliers = FlowlineConfig.STACK_MULTIPLIERS.get();
+        return pick(FlowlineConfig.STACK_MULTIPLIERS.get(), stackCount);
+    }
+
+    /** Items one operation may move with {@code stackCount} Stack upgrades (16, 32, 64... by default). */
+    public static int itemsPerOperation(int stackCount) {
+        long items = (long) FlowlineConfig.ITEMS_PER_OPERATION.get()
+                * pick(FlowlineConfig.ITEM_STACK_MULTIPLIERS.get(), stackCount);
+        return (int) Math.min(Integer.MAX_VALUE, items);
+    }
+
+    private static int pick(List<? extends Integer> multipliers, int stackCount) {
         if (multipliers.isEmpty()) return 1;
         return Math.max(1, multipliers.get(Math.min(stackCount, multipliers.size() - 1)));
     }

@@ -404,6 +404,17 @@ public class PipeGameTests {
     // ---- pacing -------------------------------------------------------------------------------------------
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void itemsStartAt16AndDouble(GameTestHelper helper) {
+        int[] expected = {16, 32, 64, 128, 256, 512, 1024};
+        for (int stacks = 0; stacks < expected.length; stacks++) {
+            helper.assertTrue(Pacing.itemsPerOperation(stacks) == expected[stacks],
+                    stacks + " Stack upgrades: " + expected[stacks] + " items, got " + Pacing.itemsPerOperation(stacks));
+        }
+        helper.assertTrue(Pacing.itemsPerOperation(20) == 1024, "more upgrades stay at the last step");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void speedLowersStart(GameTestHelper helper) {
         helper.assertTrue(Pacing.start(0) == 30, "default start is 30 ticks, got " + Pacing.start(0));
         helper.assertTrue(Pacing.start(2) == 22, "two Speed upgrades start at 22 ticks, got " + Pacing.start(2));
@@ -415,7 +426,8 @@ public class PipeGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 500)
     public static void intervalAccelerates(GameTestHelper helper) {
         SideConfig cfg = line(helper, 1).side(Direction.WEST);
-        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 64));
+        // enough for the dozen or so busy operations it takes to reach the minimum interval
+        for (int slot = 0; slot < 8; slot++) chest(helper, SOURCE).setItem(slot, new ItemStack(Items.COBBLESTONE, 64));
         helper.succeedWhen(() -> helper.assertTrue(cfg.interval == Pacing.min(),
                 "steady work should bring the interval down to the minimum, now " + cfg.interval));
     }
@@ -538,7 +550,8 @@ public class PipeGameTests {
     public static void pulseMovesOncePerRisingEdge(GameTestHelper helper) {
         PipeBlockEntity pipe = line(helper, 1);
         pipe.side(Direction.WEST).redstone = RedstoneMode.PULSE;
-        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 16));
+        chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIAMOND, 64));
+        int perPulse = Pacing.itemsPerOperation(0);
         BlockPos lever = FIRST_PIPE.above();
 
         helper.startSequence()
@@ -549,14 +562,14 @@ public class PipeGameTests {
                 })
                 .thenIdle(40)
                 .thenExecute(() -> {
-                    helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 1,
+                    helper.assertTrue(count(helper, target(1), Items.DIAMOND) == perPulse,
                             "one pulse moves one operation, got " + count(helper, target(1), Items.DIAMOND));
                     helper.setBlock(lever, Blocks.AIR);
                 })
                 .thenIdle(5)
                 .thenExecute(() -> helper.setBlock(lever, Blocks.REDSTONE_BLOCK))
                 .thenIdle(20)
-                .thenExecute(() -> helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 2,
+                .thenExecute(() -> helper.assertTrue(count(helper, target(1), Items.DIAMOND) == 2 * perPulse,
                         "a second pulse moves a second one"))
                 .thenSucceed();
     }

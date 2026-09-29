@@ -111,6 +111,7 @@ public class PipeMenu extends AbstractContainerMenu {
     private final DataSlot channelsData;
     private final IntSupplier limitData;
     private final IntSupplier rateData;
+    private final IntSupplier itemsData;
 
     /** Client constructor, fed by the extra data written in {@code PipeBlock}. */
     public PipeMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
@@ -172,6 +173,7 @@ public class PipeMenu extends AbstractContainerMenu {
         channelsData = track(() -> cfg.channels);
         limitData = trackInt(() -> cfg.limit);
         rateData = trackInt(() -> cfg.rate);
+        itemsData = trackInt(() -> Pacing.itemsPerOperation(cfg.stackCount));
 
         if (cfg != null) loadPage();
     }
@@ -276,6 +278,11 @@ public class PipeMenu extends AbstractContainerMenu {
 
     public int rate() {
         return rateData.getAsInt();
+    }
+
+    /** Items one operation of this side may move. */
+    public int itemsPerOperation() {
+        return itemsData.getAsInt();
     }
 
     public int channels() {
