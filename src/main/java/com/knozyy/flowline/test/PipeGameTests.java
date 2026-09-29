@@ -1,6 +1,7 @@
 package com.knozyy.flowline.test;
 
 import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.FlowlineConfig;
 import com.knozyy.flowline.filter.FilterEntry;
 import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.pipe.Conn;
@@ -30,9 +31,11 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.IntUnaryOperator;
 
 /**
- * In-world tests, run headless by {@code ./gradlew runGameTestServer} (and in CI). They assume the default config.
+ * In-world tests, run headless by {@code ./gradlew runGameTestServer} (and in CI). Expected numbers come from the
+ * config; timeouts assume values near the defaults.
  * Layout: source chest at x=0, item pipes at x=1..n, target chest at x=n+1, all on y=1, z=1.
  */
 @GameTestHolder(Flowline.MODID)
@@ -373,11 +376,13 @@ public class PipeGameTests {
     public static void filterUpgradesAddCapacity(GameTestHelper helper) {
         PipeBlockEntity pipe = line(helper, 1);
         SideConfig cfg = pipe.side(Direction.WEST);
-        helper.assertTrue(cfg.filterCapacity() == 9, "9 entries by default, got " + cfg.filterCapacity());
+        int base = FlowlineConfig.BASE_FILTER_SLOTS.get(), per = FlowlineConfig.FILTER_SLOTS_PER_UPGRADE.get();
+        helper.assertTrue(cfg.filterCapacity() == base, "base entries without upgrades, got " + cfg.filterCapacity());
         install(pipe, UpgradeType.FILTER);
-        helper.assertTrue(cfg.filterCapacity() == 18, "one Filter upgrade adds 9, got " + cfg.filterCapacity());
+        helper.assertTrue(cfg.filterCapacity() == base + per, "a Filter upgrade adds entries, got "
+                + cfg.filterCapacity());
         install(pipe, UpgradeType.KNOZY);
-        helper.assertTrue(cfg.filterCapacity() == 27, "Knozy adds 9 more, got " + cfg.filterCapacity());
+        helper.assertTrue(cfg.filterCapacity() == base + 2 * per, "Knozy adds as many, got " + cfg.filterCapacity());
         helper.succeed();
     }
 
@@ -386,13 +391,13 @@ public class PipeGameTests {
         PipeBlockEntity pipe = line(helper, 1);
         install(pipe, UpgradeType.STACK);
         SideConfig cfg = pipe.side(Direction.WEST);
-        cfg.setEntry(9, allow("minecraft:diamond"));   // the 10th entry: only usable with a Filter upgrade
+        cfg.setEntry(cfg.filterCapacity(), allow("minecraft:diamond"));   // first entry past capacity: needs a Filter
         chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 4));
         chest(helper, SOURCE).setItem(1, new ItemStack(Items.DIAMOND, 4));
 
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(count(helper, target(1), Items.DIRT) == 4,
-                        "without a Filter upgrade the 10th entry is inactive, so everything moves"))
+                        "without a Filter upgrade the entry past capacity is inactive, so everything moves"))
                 .thenExecute(() -> {
                     install(pipe, UpgradeType.FILTER);
                     chest(helper, SOURCE).setItem(0, new ItemStack(Items.DIRT, 4));
@@ -409,26 +414,37 @@ public class PipeGameTests {
     // ---- pacing -------------------------------------------------------------------------------------------
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
-    public static void itemsStartAt16AndDouble(GameTestHelper helper) {
-        int[] expected = {16, 32, 64, 128, 256, 512, 1024};
-        for (int stacks = 0; stacks < expected.length; stacks++) {
-            helper.assertTrue(Pacing.itemsPerOperation(stacks) == expected[stacks],
-                    stacks + " Stack upgrades: " + expected[stacks] + " items, got " + Pacing.itemsPerOperation(stacks));
-        }
-        helper.assertTrue(Pacing.itemsPerOperation(20) == 1024, "more upgrades stay at the last step");
-        helper.assertTrue(Pacing.fluidPerOperation(0) == 1000 && Pacing.fluidPerOperation(6) == 64000,
-                "fluids have their own curve: 1 to 64 buckets");
-        helper.assertTrue(Pacing.chemicalPerOperation(0) == 1000 && Pacing.chemicalPerOperation(6) == 64000,
-                "chemicals have their own curve: 1 to 64 buckets");
-        helper.assertTrue(Pacing.stackMultiplier(6) == 128, "energy keeps its multipliers");
+    public static void stackUpgradesFollowTheirCurves(GameTestHelper helper) {
+        checkCurve(helper, "items", Pacing::itemsPerOperation, FlowlineConfig.ITEMS_PER_OPERATION.get(),
+                FlowlineConfig.ITEM_STACK_MULTIPLIERS.get());
+        checkCurve(helper, "fluid", Pacing::fluidPerOperation, FlowlineConfig.FLUID_PER_OPERATION.get(),
+                FlowlineConfig.FLUID_STACK_MULTIPLIERS.get());
+        checkCurve(helper, "chemicals", Pacing::chemicalPerOperation, FlowlineConfig.CHEMICAL_PER_OPERATION.get(),
+                FlowlineConfig.CHEMICAL_STACK_MULTIPLIERS.get());
+        checkCurve(helper, "energy multiplier", Pacing::stackMultiplier, 1, FlowlineConfig.STACK_MULTIPLIERS.get());
         helper.succeed();
+    }
+
+    /** Entry i of the curve is base x multipliers[i] (capped), and more upgrades stay at the last step. */
+    private static void checkCurve(GameTestHelper helper, String kind, IntUnaryOperator perOperation,
+                                   int base, List<? extends Integer> multipliers) {
+        int steps = Math.max(1, multipliers.size());
+        for (int stacks = 0; stacks < steps + 2; stacks++) {
+            int multiplier = multipliers.isEmpty() ? 1 : multipliers.get(Math.min(stacks, steps - 1));
+            long expected = Math.min(Integer.MAX_VALUE, (long) base * Math.max(1, multiplier));
+            helper.assertTrue(perOperation.applyAsInt(stacks) == expected, kind + " with " + stacks
+                    + " Stack upgrades should be " + expected + ", got " + perOperation.applyAsInt(stacks));
+        }
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void speedLowersStart(GameTestHelper helper) {
-        helper.assertTrue(Pacing.start(0) == 30, "default start is 30 ticks, got " + Pacing.start(0));
-        helper.assertTrue(Pacing.start(2) == 22, "two Speed upgrades start at 22 ticks, got " + Pacing.start(2));
-        helper.assertTrue(Pacing.start(6) == 6, "six Speed upgrades start at 6 ticks, got " + Pacing.start(6));
+        int start = FlowlineConfig.START_INTERVAL.get(), reduction = FlowlineConfig.SPEED_REDUCTION.get();
+        for (int speed : new int[] {0, 2, 6}) {
+            int expected = Math.max(Pacing.min(), start - speed * reduction);
+            helper.assertTrue(Pacing.start(speed) == expected,
+                    speed + " Speed upgrades should start at " + expected + " ticks, got " + Pacing.start(speed));
+        }
         helper.assertTrue(Pacing.start(100) == Pacing.min(), "never below the minimum interval");
         helper.succeed();
     }

@@ -51,9 +51,10 @@ public class UpgradeItem extends Item implements PipeInteractable {
                 .withStyle(ChatFormatting.DARK_GRAY));
     }
 
-    /** What one upgrade of {@code type} does, with the numbers from the config. */
+    /** What one upgrade of {@code type} does, with the numbers from the config; empty outside a world. */
     public static List<Component> effectLines(UpgradeType type) {
         List<Component> lines = new ArrayList<>();
+        if (!FlowlineConfig.isLoaded()) return lines;
         if (type.speed > 0) {
             lines.add(Component.translatable("item.flowline.upgrade.effect.speed",
                     FlowlineConfig.SPEED_REDUCTION.get(), Pacing.min()).withStyle(s -> s.withColor(SPEED_COLOR)));
@@ -61,9 +62,7 @@ public class UpgradeItem extends Item implements PipeInteractable {
         if (type.stack > 0) {
             String curve = FlowlineConfig.STACK_MULTIPLIERS.get().stream().map(m -> "x" + m)
                     .reduce((a, b) -> a + " > " + b).orElse("x1");
-            String items = FlowlineConfig.ITEM_STACK_MULTIPLIERS.get().stream()
-                    .map(m -> Integer.toString(FlowlineConfig.ITEMS_PER_OPERATION.get() * m))
-                    .reduce((a, b) -> a + " > " + b).orElse("16");
+            String items = curve(FlowlineConfig.ITEMS_PER_OPERATION.get(), FlowlineConfig.ITEM_STACK_MULTIPLIERS.get());
             lines.add(Component.translatable("item.flowline.upgrade.effect.stack_items", items)
                     .withStyle(ChatFormatting.GOLD));
             lines.add(Component.translatable("item.flowline.upgrade.effect.stack_fluid",

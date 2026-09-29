@@ -4,7 +4,12 @@ import net.minecraftforge.common.ForgeConfigSpec;
 
 import java.util.List;
 
-/** Common config. Values are read at runtime, never cached, so edits apply without a restart. */
+/**
+ * Server config ({@code serverconfig/flowline-server.toml} in each world), synced to clients so tooltips show the
+ * server's numbers. Values are read at runtime, never cached, so edits apply without a restart. Server configs are
+ * only loaded while a world is open: code that can run outside one (tooltips) must check {@link #isLoaded()} first.
+ * The in-game editor is {@code client.FlowlineConfigScreen}; labels are {@code flowline.configuration.<key>}.
+ */
 public final class FlowlineConfig {
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
@@ -96,15 +101,23 @@ public final class FlowlineConfig {
 
     static {
         BUILDER.pop();
+        BUILDER.comment("Pipe network scanning.").push("network");
     }
 
     public static final ForgeConfigSpec.IntValue MAX_NETWORK_SIZE = BUILDER
             .comment("Maximum number of pipes in one cached network graph.")
             .defineInRange("maxNetworkSize", 512, 16, 8192);
 
+    static {
+        BUILDER.pop();
+    }
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
+    /** False outside a world (main menu, before the server's values arrive), where values cannot be read. */
+    public static boolean isLoaded() {
+        return SPEC.isLoaded();
+    }
 
     private FlowlineConfig() {}
 }

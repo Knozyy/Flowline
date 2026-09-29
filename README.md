@@ -88,10 +88,16 @@ Older rules load automatically.
 
 ## Config
 
-`config/flowline-common.toml`: per-operation amounts and a Stack multiplier list for each kind, indexed by
+Config is per world (`<world>/serverconfig/flowline-server.toml`; put a copy in `defaultconfigs/` to seed new
+worlds) and is synced to clients, so tooltips show the server's numbers. While a single player world is open it can
+also be edited in game from **Mods > Flowline > Config**; changes apply without a restart. The old
+`config/flowline-common.toml` is no longer read.
+
+It holds per-operation amounts and a Stack multiplier list for each kind, indexed by
 the number of Stack upgrades: items 16 × `[1, 2, 4 ... 64]` (16 to 1024 items), fluids and chemicals 1000 mB ×
-`[1, 2, 4 ... 64]` (1 to 64 buckets), energy 1000 FE × `[1, 8, 16, 32, 64, 96, 128]`, filter entries (`baseFilterSlots` = 9,
-`filterSlotsPerUpgrade` = 9), every pacing value above (`idleBackoffFactor` = 2) and the max network size.
+`[1, 2, 4 ... 64]` (1 to 64 buckets), energy 1000 FE × `[1, 8, 16, 32, 64, 96, 128]` (amounts are capped at
+2147483647 per operation), filter entries (`baseFilterSlots` = 9, `filterSlotsPerUpgrade` = 9), every pacing value
+above (`idleBackoffFactor` = 2) and the max network size (`[network]`).
 
 ## Building
 
