@@ -423,16 +423,16 @@ for name in TYPES:
         multipart.append({"when": {side: "extract"}, "apply": {"model": f"{MODID}:block/{name}_pipe_extract", **r}})
     write_json(f"assets/{MODID}/blockstates/{name}_pipe.json", {"multipart": multipart})
 
-    # loot table + recipes
-    write_json(f"data/{MODID}/loot_table/blocks/{name}_pipe.json", {
-        "type": "minecraft:block",
-        "pools": [{
-            "rolls": 1.0,
-            "bonus_rolls": 0.0,
-            "conditions": [{"condition": "minecraft:survives_explosion"}],
-            "entries": [{"type": "minecraft:item", "name": f"{MODID}:{name}_pipe"}],
-        }],
-    })
+    # loot table (optional pipes only load with their mod, or the unknown item is logged as an error)
+    loot = {"type": "minecraft:block"} if name not in OPTIONAL else {
+        "neoforge:conditions": [{"type": "neoforge:mod_loaded", "modid": OPTIONAL[name]}], "type": "minecraft:block"}
+    loot["pools"] = [{
+        "rolls": 1.0,
+        "bonus_rolls": 0.0,
+        "conditions": [{"condition": "minecraft:survives_explosion"}],
+        "entries": [{"type": "minecraft:item", "name": f"{MODID}:{name}_pipe"}],
+    }]
+    write_json(f"data/{MODID}/loot_table/blocks/{name}_pipe.json", loot)
 
 for name in ("wrench", "speed_upgrade", "stack_upgrade", "filter_upgrade", "knozy_upgrade", "config_card",
              "filter_card", "facade"):
