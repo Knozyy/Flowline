@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
@@ -19,6 +20,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import com.knozyy.flowline.network.ModNetwork;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -33,7 +36,7 @@ import java.util.Set;
  * match. Opened from {@link PipeScreen} while the pipe menu stays open; closing it returns there.
  */
 public class RuleEditorScreen extends Screen {
-    private static final int W = 300, H = 270;
+    public static final int W = 300, H = 270;
     private static final int BG = 0xFF1E2229, BG_EDGE = 0xFF0E1014, PANEL = 0xFF262B33, PANEL_EDGE = 0xFF343A45;
     private static final int SLOT = 0xFF14171C, SLOT_EDGE = 0xFF3A404C, TEXT = 0xFFE6E9EF, MUTED = 0xFF8A93A3;
     private static final int ERROR = 0xFFFF6B6B, ROW_HOVER = 0xFF30363F;
@@ -297,6 +300,45 @@ public class RuleEditorScreen extends Screen {
         rebuildTagRows();
         rebuildNbtRows();
         validate();
+    }
+
+    // ---- recipe viewer drag and drop -----------------------------------------------------------------------
+
+    public int guiLeft() {
+        return left;
+    }
+
+    public int guiTop() {
+        return top;
+    }
+
+    /**
+     * Where an item or fluid dragged from JEI or EMI can be dropped: the sample column (becomes the sample and the
+     * rule's item), the tag list (becomes the sample so its tags are listed to tick) and the mod box (its mod).
+     */
+    public List<GhostTargets.Slot> dropTargets(ItemStack item, FluidStack fluid) {
+        List<GhostTargets.Slot> targets = new ArrayList<>();
+        if (modBox == null) return targets;
+        FluidStack dragged = fluid.isEmpty() ? FluidUtil.getFluidContained(item).orElse(FluidStack.EMPTY) : fluid;
+        // fluid rules take their sample as a filled container
+        ItemStack stack = !fluidRule ? item
+                : !fluid.isEmpty() ? FluidUtil.getFilledBucket(fluid)
+                : dragged.isEmpty() ? ItemStack.EMPTY : item;
+        if (!stack.isEmpty()) {
+            targets.add(new GhostTargets.Slot(left + LEFT_L, top + BODY_T, LEFT_R - LEFT_L, BODY_B - BODY_T,
+                    () -> setSample(stack, true)));
+            targets.add(new GhostTargets.Slot(left + MID_L, top + BODY_T, MID_R - MID_L, BODY_B - BODY_T, () -> {
+                searchBox.setValue("");
+                setSample(stack, false);
+            }));
+        }
+        ResourceLocation id = fluidRule ? (dragged.isEmpty() ? null : BuiltInRegistries.FLUID.getKey(dragged.getFluid()))
+                : item.isEmpty() ? null : BuiltInRegistries.ITEM.getKey(item.getItem());
+        if (id != null) {
+            targets.add(new GhostTargets.Slot(left + MOD_L, top + EXTRA_T, MOD_R - MOD_L, EXTRA_B - EXTRA_T,
+                    () -> modBox.setValue(id.getNamespace())));
+        }
+        return targets;
     }
 
     // ---- rows ---------------------------------------------------------------------------------------------

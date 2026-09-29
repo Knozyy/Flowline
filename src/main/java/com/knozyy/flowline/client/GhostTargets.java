@@ -13,10 +13,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Filter slots of an open pipe screen that accept an item or fluid dragged from a recipe viewer (JEI, EMI). */
+/**
+ * Places that accept an item or fluid dragged from a recipe viewer (JEI, EMI): the filter slots of an open pipe
+ * screen here, and the sample, tag list and mod box of the rule editor ({@link RuleEditorScreen#dropTargets}).
+ */
 public final class GhostTargets {
-    /** Screen area of one slot and what dropping there does. */
-    public record Slot(int x, int y, Runnable drop) {}
+    /** Screen area of one drop target and what dropping there does. */
+    public record Slot(int x, int y, int width, int height, Runnable drop) {}
 
     private GhostTargets() {}
 
@@ -39,7 +42,7 @@ public final class GhostTargets {
         for (net.minecraft.world.inventory.Slot slot : menu.slots) {
             if (!(slot instanceof PipeMenu.GhostSlot ghost) || !ghost.isActive()) continue;
             int index = ghost.filterIndex();
-            slots.add(new Slot(screen.getGuiLeft() + slot.x, screen.getGuiTop() + slot.y, () ->
+            slots.add(new Slot(screen.getGuiLeft() + slot.x, screen.getGuiTop() + slot.y, 16, 16, () ->
                     ModNetwork.sendToServer(new SetFilterEntryPayload(menu.containerId, index, Optional.of(rule)))));
         }
         return slots;

@@ -83,7 +83,8 @@ Older rules load automatically.
 
 ### Integrations (all optional)
 
-- **JEI / EMI**: drag an item or fluid from the list onto a filter slot.
+- **JEI / EMI**: drag an item or fluid from the list onto a filter slot. In the rule editor, drop it on the sample
+  (use it as the rule's item), on the tag list (list its tags to tick) or on the mod box (fill in its mod).
 - **Jade**: looking at a pipe shows the side's mode, distribution, pacing, priority and regulator.
 - **Mekanism** (10.4): the Chemical Pipe (gases, infuse types, pigments, slurries).
 
