@@ -61,6 +61,11 @@ public class UpgradeItem extends Item implements PipeInteractable {
         if (type.stack > 0) {
             String curve = FlowlineConfig.STACK_MULTIPLIERS.get().stream().map(m -> "x" + m)
                     .reduce((a, b) -> a + " > " + b).orElse("x1");
+            String items = FlowlineConfig.ITEM_STACK_MULTIPLIERS.get().stream()
+                    .map(m -> Integer.toString(FlowlineConfig.ITEMS_PER_OPERATION.get() * m))
+                    .reduce((a, b) -> a + " > " + b).orElse("16");
+            lines.add(Component.translatable("item.flowline.upgrade.effect.stack_items", items)
+                    .withStyle(ChatFormatting.GOLD));
             lines.add(Component.translatable("item.flowline.upgrade.effect.stack", curve).withStyle(s -> s.withColor(STACK_COLOR)));
         }
         if (type.filter > 0) {

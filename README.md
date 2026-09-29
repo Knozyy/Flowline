@@ -88,8 +88,9 @@ Older rules load automatically.
 
 ## Config
 
-`config/flowline-common.toml`: per-operation amounts (items, fluid, energy, chemicals), Stack multipliers
-(`[1, 8, 16, 32, 64, 96, 128]` by number of Stack upgrades), filter entries (`baseFilterSlots` = 9,
+`config/flowline-common.toml`: per-operation amounts (items: 16, fluid, energy, chemicals), Stack multipliers for
+items (`[1, 2, 4, 8, 16, 32, 64]`: 16, 32, 64 ... 1024 items per operation) and for fluids/energy/chemicals
+(`[1, 8, 16, 32, 64, 96, 128]`) by number of Stack upgrades, filter entries (`baseFilterSlots` = 9,
 `filterSlotsPerUpgrade` = 9), every pacing value above (`idleBackoffFactor` = 2) and the max network size.
 
 ## Building

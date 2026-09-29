@@ -300,9 +300,10 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         small(graphics, sub, 26, 18, MUTED);
 
         // badge: stack multiplier and current interval (extract), priority (insert)
+        String amount = menu.type.movesItems() ? Integer.toString(menu.itemsPerOperation()) : "x" + menu.multiplier();
         String badge = !menu.extracting() ? "P " + menu.priority()
-                : menu.redstone() == com.knozyy.flowline.pipe.RedstoneMode.PULSE ? "x" + menu.multiplier() + " · ⚡"
-                : "x" + menu.multiplier() + " · " + (menu.sleeping() ? "zZ" : menu.interval() + "t");
+                : menu.redstone() == com.knozyy.flowline.pipe.RedstoneMode.PULSE ? amount + " · ⚡"
+                : amount + " · " + (menu.sleeping() ? "zZ" : menu.interval() + "t");
         badgeW = font.width(badge) + 8;
         badgeX = imageWidth - 7 - badgeW;
         boolean boosted = menu.extracting() ? menu.speedCount() > 0 || menu.stackCount() > 0 : menu.priority() != 0;
@@ -502,8 +503,14 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         lines.add(Component.translatable("gui.flowline.pacing.counts", menu.speedCount(), menu.stackCount(),
                 menu.filterCount())
                 .withStyle(ChatFormatting.GRAY));
-        lines.add(Component.translatable("gui.flowline.pacing.amount", menu.multiplier())
-                .withStyle(ChatFormatting.GRAY));
+        if (menu.type.movesItems()) {
+            lines.add(Component.translatable("gui.flowline.pacing.items", menu.itemsPerOperation())
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        if (!menu.type.movesItems() || menu.type.movesFluids()) {
+            lines.add(Component.translatable("gui.flowline.pacing.amount", menu.multiplier())
+                    .withStyle(ChatFormatting.GRAY));
+        }
         lines.add(Component.translatable("gui.flowline.pacing.interval", menu.interval(), menu.startInterval(),
                 menu.minInterval()).withStyle(ChatFormatting.GRAY));
         lines.add(menu.sleeping()

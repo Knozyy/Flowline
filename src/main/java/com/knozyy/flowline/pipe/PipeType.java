@@ -97,7 +97,7 @@ public enum PipeType implements StringRepresentable {
         long moved = 0;
         if (items && cfg.channel(CH_ITEMS, this)) {
             moved += ItemTransfer.run(level, sourcePos, source, cfg, targets,
-                    FlowlineConfig.ITEMS_PER_OPERATION.get() * multiplier, balanced, this);
+                    Pacing.itemsPerOperation(cfg.stackCount), balanced, this);
         }
         if (fluids && cfg.channel(CH_FLUIDS, this)) {
             moved += FluidTransfer.run(level, source, cfg, targets,

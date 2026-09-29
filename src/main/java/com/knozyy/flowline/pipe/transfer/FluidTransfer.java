@@ -32,7 +32,12 @@ public final class FluidTransfer {
         if (destinations.isEmpty()) return 0;
 
         int[] given = new int[destinations.size()];
-        int cap = balanced ? Math.max(1, (budget + destinations.size() - 1) / destinations.size()) : Integer.MAX_VALUE;
+        int cap = Integer.MAX_VALUE;
+        if (balanced) {
+            // split what the source can really give this operation, not the whole budget
+            int available = Math.min(budget, source.drain(budget, IFluidHandler.FluidAction.SIMULATE).getAmount());
+            cap = Math.max(1, (available + destinations.size() - 1) / destinations.size());
+        }
         int remaining = budget;
 
         for (int pass = 0; pass < (balanced ? 2 : 1) && remaining > 0; pass++) {
