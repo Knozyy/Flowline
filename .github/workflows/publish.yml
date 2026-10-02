@@ -1,0 +1,62 @@
+name: Publish to CurseForge
+
+# Runs when a GitHub release is published (a pre-release goes up as beta), or by hand from the Actions tab.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version-type:
+        description: CurseForge release type
+        type: choice
+        options: [release, beta, alpha]
+        default: release
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew build --stacktrace
+
+      # Version from gradle.properties, changelog from the newest section of CHANGELOG.md
+      - name: Read version and changelog
+        id: meta
+        run: |
+          echo "version=$(grep '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            awk '/^## /{n++; next} n==1' CHANGELOG.md
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # The distribution jar only: the -slim jar lacks the embedded YAML library
+      - uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          curseforge-id: 1718165
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: build/libs/flowline-${{ steps.meta.outputs.version }}.jar
+          name: Flowline ${{ steps.meta.outputs.version }} (Forge)
+          version: ${{ steps.meta.outputs.version }}
+          version-type: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'beta' || 'release') || inputs.version-type }}
+          changelog: ${{ steps.meta.outputs.changelog }}
+          loaders: forge
+          game-versions: 1.20.1
+          java: 17
+          dependencies: |
+            curvy-pipes(optional)
+            jei(optional)
+            emi(optional)
+            jade(optional)
+            mekanism(optional)
