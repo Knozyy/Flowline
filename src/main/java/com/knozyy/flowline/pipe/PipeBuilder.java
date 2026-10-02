@@ -43,6 +43,7 @@ public final class PipeBuilder {
     private PipeBuilder() {}
 
     public static void build(ServerPlayer player) {
+        if (!player.isAlive() || player.isSpectator() || !player.mayBuild()) return;
         ItemStack stack = player.getOffhandItem();
         if (!(stack.getItem() instanceof BlockItem item) || !(item.getBlock() instanceof PipeBlock)) {
             player.displayClientMessage(Component.translatable("message.flowline.build.no_pipe"), true);

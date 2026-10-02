@@ -22,6 +22,7 @@ import java.util.function.Supplier;
 public final class ModNetwork {
     private static final String PROTOCOL = "5";
     private static final Map<ServerPlayer, Integer> NETWORK_QUERIES = new WeakHashMap<>();
+    private static final Map<ServerPlayer, Integer> BUILD_REQUESTS = new WeakHashMap<>();
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Flowline.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
 
@@ -83,7 +84,8 @@ public final class ModNetwork {
 
     private static void onSetEntry(SetFilterEntryPayload payload, Supplier<NetworkEvent.Context> context) {
         ServerPlayer player = context.get().getSender();
-        if (player != null && player.containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()) {
+        if (player != null && player.containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()
+                && menu.stillValid(player)) {
             menu.setEntry(payload.index(), payload.entry().orElse(null));
         }
         context.get().setPacketHandled(true);
@@ -91,7 +93,8 @@ public final class ModNetwork {
 
     private static void onSetValue(SetSideValuePayload payload, Supplier<NetworkEvent.Context> context) {
         ServerPlayer player = context.get().getSender();
-        if (player != null && player.containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()) {
+        if (player != null && player.containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()
+                && menu.stillValid(player)) {
             menu.setValue(payload.field(), payload.value());
         }
         context.get().setPacketHandled(true);
@@ -108,8 +111,12 @@ public final class ModNetwork {
 
     private static void onBuild(BuildPayload payload, Supplier<NetworkEvent.Context> context) {
         ServerPlayer player = context.get().getSender();
-        if (player != null) com.knozyy.flowline.pipe.PipeBuilder.build(player);
         context.get().setPacketHandled(true);
+        if (player == null) return;
+        Integer last = BUILD_REQUESTS.get(player);
+        if (last != null && player.tickCount - last < 20) return;
+        BUILD_REQUESTS.put(player, player.tickCount);
+        com.knozyy.flowline.pipe.PipeBuilder.build(player);
     }
 
     private static void onNetworkQuery(NetworkQueryPayload payload, Supplier<NetworkEvent.Context> context) {

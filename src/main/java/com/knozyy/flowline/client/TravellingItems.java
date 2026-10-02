@@ -25,6 +25,7 @@ import java.util.List;
  */
 public final class TravellingItems {
     private static final ArrayDeque<Entry> ENTRIES = new ArrayDeque<>();
+    private static ClientLevel currentLevel;
 
     private record Entry(ItemStack stack, List<Vec3> points, long start, int duration, float scale) {}
 
@@ -33,6 +34,7 @@ public final class TravellingItems {
     public static void add(TravelPayload payload) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || !FlowlineConfig.Client.RENDER_ITEMS.get() || payload.path().size() < 2) return;
+        tick(mc.level);
         int max = FlowlineConfig.Client.MAX_TRAVELLING.get();
         if (max <= 0) return;
         List<Vec3> points = new ArrayList<>(payload.path().size());
@@ -52,6 +54,7 @@ public final class TravellingItems {
     public static void addCurve(ItemStack stack, List<Vec3> points) {
         Minecraft mc=Minecraft.getInstance();
         if(mc.level==null||points.size()<2||!FlowlineConfig.Client.RENDER_ITEMS.get())return;
+        tick(mc.level);
         int max=FlowlineConfig.Client.MAX_TRAVELLING.get();if(max<=0)return;
         double length=0;for(int i=1;i<points.size();i++)length+=points.get(i-1).distanceTo(points.get(i));
         while(ENTRIES.size()>=max)ENTRIES.pollFirst();
@@ -59,18 +62,23 @@ public final class TravellingItems {
     }
 
     public static void tick(ClientLevel level) {
+        if (currentLevel != level) { clear(); currentLevel = level; }
+        if (!FlowlineConfig.Client.RENDER_ITEMS.get()) { ENTRIES.clear(); return; }
         long now = level.getGameTime();
         ENTRIES.removeIf(e -> now - e.start() > e.duration() || now < e.start());
     }
 
     public static void clear() {
         ENTRIES.clear();
+        currentLevel = null;
     }
 
     public static void render(PoseStack pose, Vec3 camera, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         ClientLevel level = mc.level;
-        if (level == null || ENTRIES.isEmpty()) return;
+        if (level == null) { clear(); return; }
+        tick(level);
+        if (ENTRIES.isEmpty()) return;
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         double now = level.getGameTime() + partialTick;
         Iterator<Entry> it = ENTRIES.iterator();

@@ -387,6 +387,8 @@ public class PipeBlockEntity extends BlockEntity {
         double x = worldPosition.getX() + 0.5, y = worldPosition.getY() + 0.5, z = worldPosition.getZ() + 0.5;
         if (level.getNearestPlayer(x, y, z, TravelPayload.RANGE, false) == null) return null;
         return (target, stack) -> {
+            if (target.path().isEmpty() || !target.path().get(0).equals(worldPosition)
+                    || target.path().size() + 2 > TravelPayload.MAX_PATH) return;
             List<BlockPos> path = new ArrayList<>(target.path().size() + 2);
             path.add(source);
             path.addAll(target.path());

@@ -29,8 +29,11 @@ public final class CapCache<T> {
 
     @Nullable
     public T get() {
+        if (!level.isLoaded(pos)) {
+            cached = null;
+            return null;
+        }
         if (cached == null || !cached.isPresent()) {
-            if (!level.isLoaded(pos)) return null;
             BlockEntity be = level.getBlockEntity(pos);
             if (be == null) {
                 cached = null;

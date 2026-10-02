@@ -17,6 +17,9 @@ public final class CurveEditScreen extends Screen {
     private record Choice(String label,Runnable action){}
     @Override protected void init(){
         List<Choice> choices=new ArrayList<>();boolean node=hit.node()!=0;
+        if(node&&!CurveClient.NODES.containsKey(hit.node())||!node&&!CurveClient.EDGES.containsKey(hit.edge())){
+            onClose();return;
+        }
         if(node){
             if(CurveClient.type()!=null){
                 choices.add(new Choice("branch",()->CurveClient.send(CurveActionPayload.simple(Action.SELECT,hit.node()))));

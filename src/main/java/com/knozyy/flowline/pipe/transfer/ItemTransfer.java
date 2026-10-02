@@ -50,11 +50,26 @@ public final class ItemTransfer {
         if (balanced) {
             // split what the source can really give this operation, not the whole budget
             int available = 0;
+            List<ItemStack> counted = new ArrayList<>();
             for (int slot = 0; slot < source.getSlots() && available < budget; slot++) {
                 ItemStack offered = source.extractItem(slot, budget - available, true);
-                if (!offered.isEmpty() && cfg.allowsItem(offered)) available += offered.getCount();
+                if (offered.isEmpty() || !cfg.allowsItem(offered)) continue;
+                int amount = offered.getCount();
+                int keep = cfg.limitFor(offered);
+                if (keep > 0) {
+                    ItemStack previous = null;
+                    for (ItemStack stack : counted) {
+                        if (ItemStack.isSameItemSameTags(stack, offered)) { previous = stack; break; }
+                    }
+                    long spare = count(source, offered) - keep - (previous == null ? 0 : previous.getCount());
+                    amount = (int) Math.max(0, Math.min(amount, spare));
+                    if (amount == 0) continue;
+                    if (previous == null) counted.add(Stacks.withCount(offered, amount));
+                    else previous.grow(amount);
+                }
+                available += amount;
             }
-            cap = Math.max(1, (Math.min(budget, available) + destinations.size() - 1) / destinations.size());
+            cap = Math.max(1, 1 + (Math.min(budget, available) - 1) / destinations.size());
         }
         int total = 0;
 
@@ -66,9 +81,9 @@ public final class ItemTransfer {
                 int keep = cfg.limitFor(offered);
                 if (keep > 0) {
                     // regulator (the side's, or a matching rule's amount): leave at least this much in the source
-                    int spare = count(source, offered) - keep;
+                    long spare = count(source, offered) - keep;
                     if (spare <= 0) continue;
-                    if (spare < offered.getCount()) offered = Stacks.withCount(offered, spare);
+                    if (spare < offered.getCount()) offered = Stacks.withCount(offered, (int) spare);
                 }
 
                 for (int i = 0; i < destinations.size() && !offered.isEmpty() && budget > 0; i++) {
@@ -79,7 +94,7 @@ public final class ItemTransfer {
                     int max = dest.cfg().limitFor(offered);
                     if (max > 0) {
                         // regulator (the side's, or a matching rule's amount): keep at most this much in the target
-                        want = Math.min(want, max - count(dest.handler(), offered));
+                        want = (int) Math.max(0, Math.min(want, max - count(dest.handler(), offered)));
                         if (want <= 0) continue;
                     }
 
@@ -91,12 +106,12 @@ public final class ItemTransfer {
                     ItemStack extracted = source.extractItem(slot, accepted, false);
                     if (extracted.isEmpty()) continue;
                     ItemStack rest = ItemHandlerHelper.insertItemStacked(dest.handler(), extracted, false);
+                    int moved = extracted.getCount() - rest.getCount();
                     if (!rest.isEmpty()) {
                         // Destination changed between simulate and execute: return what did not fit.
                         rest = ItemHandlerHelper.insertItemStacked(source, rest, false);
                         if (!rest.isEmpty()) Block.popResource(level, sourcePos, rest);
                     }
-                    int moved = extracted.getCount() - rest.getCount();
                     if (moved > 0 && onMove != null && !announced[i]) {
                         announced[i] = true;
                         onMove.accept(dest.target(), Stacks.withCount(extracted, moved));
@@ -112,9 +127,19 @@ public final class ItemTransfer {
         return total;
     }
 
+    /** Whether at least one allowed item can be extracted without crossing its reserve. */
+    public static boolean hasWork(IItemHandler handler, SideConfig cfg) {
+        for (int slot = 0; slot < handler.getSlots(); slot++) {
+            ItemStack stack = handler.extractItem(slot, 1, true);
+            if (!stack.isEmpty() && cfg.allowsItem(stack)
+                    && (cfg.limitFor(stack) <= 0 || count(handler, stack) > cfg.limitFor(stack))) return true;
+        }
+        return false;
+    }
+
     /** How many items like {@code like} (same item and components) the handler holds. */
-    static int count(IItemHandler handler, ItemStack like) {
-        int count = 0;
+    static long count(IItemHandler handler, ItemStack like) {
+        long count = 0;
         for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack stack = handler.getStackInSlot(slot);
             if (ItemStack.isSameItemSameTags(stack, like)) count += stack.getCount();

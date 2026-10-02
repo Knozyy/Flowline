@@ -127,7 +127,9 @@ public enum PipeType implements StringRepresentable {
         }
         if (energy && cfg.channel(CH_ENERGY, this)) {
             long ticks = Math.max(1, elapsed);
-            long budget = (long) FlowlineConfig.ENERGY_PER_TICK.get() * multiplier * ticks;
+            // Clamp before multiplying by elapsed ticks: legal config multipliers can overflow a long otherwise.
+            long budget = Math.min(Integer.MAX_VALUE, (long) FlowlineConfig.ENERGY_PER_TICK.get() * multiplier);
+            budget = Math.min(Integer.MAX_VALUE, budget * ticks);
             if (cfg.rate > 0) budget = Math.min(budget, (long) cfg.rate * ticks);
             moved += inTwoPasses(main, overflow, (int) Math.min(Integer.MAX_VALUE, budget), (list, b, first) ->
                     EnergyTransfer.run(source, cfg, list, b, first && balanced, this));
@@ -142,19 +144,11 @@ public enum PipeType implements StringRepresentable {
     /** Whether the source holds something this side may take (for the "stuck" redstone output). */
     public boolean hasWork(Caps source, SideConfig cfg) {
         IItemHandler items = this.items && cfg.channel(CH_ITEMS, this) ? source.itemHandler() : null;
-        if (items != null) {
-            for (int slot = 0; slot < items.getSlots(); slot++) {
-                ItemStack stack = items.extractItem(slot, 1, true);
-                if (!stack.isEmpty() && cfg.allowsItem(stack)) return true;
-            }
-        }
+        if (items != null && ItemTransfer.hasWork(items, cfg)) return true;
         IFluidHandler fluids = this.fluids && cfg.channel(CH_FLUIDS, this) ? source.fluidHandler() : null;
-        if (fluids != null) {
-            FluidStack fluid = fluids.drain(Integer.MAX_VALUE, IFluidHandler.FluidAction.SIMULATE);
-            if (!fluid.isEmpty() && cfg.allowsFluid(fluid)) return true;
-        }
+        if (fluids != null && FluidTransfer.hasWork(fluids, cfg)) return true;
         IEnergyStorage energy = this.energy && cfg.channel(CH_ENERGY, this) ? source.energyStorage() : null;
-        return energy != null && energy.extractEnergy(1, true) > 0;
+        return energy != null && energy.getEnergyStored() > cfg.limit && energy.extractEnergy(1, true) > 0;
     }
 
     @FunctionalInterface

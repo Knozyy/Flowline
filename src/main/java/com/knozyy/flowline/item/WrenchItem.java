@@ -59,6 +59,10 @@ public class WrenchItem extends Item implements PipeInteractable {
 
     /** Server side of the sneak + scroll shortcut. */
     public static void scroll(Player player, BlockPos pos, Direction side, boolean forward, boolean redstone) {
+        if (!player.isAlive() || player.isSpectator() || !player.mayBuild() || !player.isShiftKeyDown()
+                || !isWrench(player.getMainHandItem()) || !player.level().isLoaded(pos)
+                || player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(pos)) > 64
+                || !player.level().mayInteract(player, pos)) return;
         if (!(player.level().getBlockEntity(pos) instanceof PipeBlockEntity pipe)) return;
         if (!pipe.getBlockState().getValue(PipeBlock.prop(side)).isEndpoint()) return;
         SideConfig cfg = pipe.side(side);

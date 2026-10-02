@@ -124,12 +124,17 @@ public class ConfigCardItem extends Item implements PipeInteractable {
             cfg.clearFilter();
             for (Tag t : data.getList("filter", Tag.TAG_COMPOUND)) {
                 CompoundTag entry = (CompoundTag) t;
+                int slot = entry.getInt("slot");
+                if (slot < 0 || slot > 1024) {
+                    skipped++;
+                    continue;
+                }
                 FilterEntry rule = FilterEntry.CODEC.parse(NbtOps.INSTANCE, entry.get("rule")).result().orElse(null);
                 if (rule == null || rule.problem(pipe.type()) != null) {
                     skipped++;
                     continue;
                 }
-                cfg.setEntry(entry.getInt("slot"), rule);
+                cfg.setEntry(slot, rule);
             }
         }
         cfg.wake();

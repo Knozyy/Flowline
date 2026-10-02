@@ -30,7 +30,8 @@ public abstract class BlockCollisionsMixin<T> {
     private void flowline$next(CallbackInfoReturnable<T> cir){
         if(flowline$curves!=null&&flowline$curves.hasNext()){
             VoxelShape shape=flowline$curves.next();var box=shape.bounds();BlockPos pos=BlockPos.containing(box.getCenter());
-            cir.setReturnValue(flowline$provider.apply(pos.mutable(),shape.move(-pos.getX(),-pos.getY(),-pos.getZ())));
+            // Vanilla passes world-space shapes to the provider, including for entity movement.
+            cir.setReturnValue(flowline$provider.apply(pos.mutable(),shape));
         }
     }
 }

@@ -42,42 +42,55 @@ public final class FluidTransfer {
         int cap = Integer.MAX_VALUE;
         if (balanced) {
             // split what the source can really give this operation, not the whole budget
-            int available = Math.min(budget, source.drain(budget, IFluidHandler.FluidAction.SIMULATE).getAmount());
-            cap = Math.max(1, (available + destinations.size() - 1) / destinations.size());
+            int available = 0;
+            List<FluidStack> seen = new ArrayList<>();
+            for (int tank = 0; tank < source.getTanks() && available < budget; tank++) {
+                FluidStack fluid = source.getFluidInTank(tank);
+                if (fluid.isEmpty() || seen.stream().anyMatch(fluid::isFluidEqual)) continue;
+                seen.add(fluid);
+                available += offer(source, cfg, fluid, budget - available).getAmount();
+            }
+            cap = Math.max(1, 1 + (available - 1) / destinations.size());
         }
         int remaining = budget;
 
         for (int pass = 0; pass < (balanced ? 2 : 1) && remaining > 0; pass++) {
             for (int i = 0; i < destinations.size() && remaining > 0; i++) {
-                FluidStack offered = source.drain(remaining, IFluidHandler.FluidAction.SIMULATE);
-                if (offered.isEmpty()) return budget - remaining;
-                if (!cfg.allowsFluid(offered)) return budget - remaining;
-                int want = Math.min(offered.getAmount(), cap - given[i]);
-                int keep = cfg.limitFor(offered);
-                if (keep > 0) {
-                    // regulator (the side's, or a matching rule's amount): leave at least this much in the source
-                    int spare = amount(source, offered) - keep;
-                    if (spare <= 0) return budget - remaining;
-                    want = Math.min(want, spare);
-                }
-                if (want <= 0) continue;
-
                 Dest dest = destinations.get(i);
-                if (!dest.cfg().allowsFluid(offered)) continue;
-                int max = dest.cfg().limitFor(offered);
-                if (max > 0) {
-                    want = Math.min(want, max - amount(dest.handler(), offered));
-                    if (want <= 0) continue;
+                while (remaining > 0 && given[i] < cap) {
+                    FluidStack offered = offerTo(source, cfg, dest, Math.min(remaining, cap - given[i]));
+                    if (offered.isEmpty()) break;
+                    FluidStack moved = FluidUtil.tryFluidTransfer(dest.handler(), source, offered, true);
+                    if (moved.isEmpty()) break;
+                    given[i] += moved.getAmount();
+                    remaining -= moved.getAmount();
+                    if (onMove != null) onMove.accept(dest.target(), moved);
                 }
-                FluidStack moved = FluidUtil.tryFluidTransfer(dest.handler(), source, copy(offered, want), true);
-                if (moved.isEmpty()) continue;
-                given[i] += moved.getAmount();
-                remaining -= moved.getAmount();
-                if (onMove != null) onMove.accept(dest.target(), moved);
             }
             cap = Integer.MAX_VALUE;
         }
         return budget - remaining;
+    }
+
+    /** Search every tank: a blocked or reserved first fluid must not hide later eligible fluids. */
+    private static FluidStack offerTo(IFluidHandler source, SideConfig cfg, Dest dest, int budget) {
+        for (int tank = 0; tank < source.getTanks(); tank++) {
+            FluidStack fluid = source.getFluidInTank(tank);
+            if (fluid.isEmpty() || !dest.cfg().allowsFluid(fluid)) continue;
+            int want = budget;
+            int max = dest.cfg().limitFor(fluid);
+            if (max > 0) want = (int) Math.max(0, Math.min(want, max - amount(dest.handler(), fluid)));
+            FluidStack offered = offer(source, cfg, fluid, want);
+            if (!offered.isEmpty() && dest.handler().fill(offered, IFluidHandler.FluidAction.SIMULATE) > 0) return offered;
+        }
+        return FluidStack.EMPTY;
+    }
+
+    private static FluidStack offer(IFluidHandler source, SideConfig cfg, FluidStack fluid, int budget) {
+        if (budget <= 0 || !cfg.allowsFluid(fluid)) return FluidStack.EMPTY;
+        int keep = cfg.limitFor(fluid);
+        if (keep > 0) budget = (int) Math.max(0, Math.min(budget, amount(source, fluid) - keep));
+        return budget <= 0 ? FluidStack.EMPTY : source.drain(copy(fluid, budget), IFluidHandler.FluidAction.SIMULATE);
     }
 
     private static FluidStack copy(FluidStack stack, int amount) {
@@ -86,13 +99,21 @@ public final class FluidTransfer {
         return copy;
     }
 
+    public static boolean hasWork(IFluidHandler handler, SideConfig cfg) {
+        for (int tank = 0; tank < handler.getTanks(); tank++) {
+            FluidStack fluid = handler.getFluidInTank(tank);
+            if (!fluid.isEmpty() && !offer(handler, cfg, fluid, 1).isEmpty()) return true;
+        }
+        return false;
+    }
+
     /** Millibuckets of {@code like} (same fluid and components) in all tanks of the handler. */
-    static int amount(IFluidHandler handler, FluidStack like) {
+    static long amount(IFluidHandler handler, FluidStack like) {
         long amount = 0;
         for (int tank = 0; tank < handler.getTanks(); tank++) {
             FluidStack stack = handler.getFluidInTank(tank);
             if (stack.isFluidEqual(like)) amount += stack.getAmount();
         }
-        return (int) Math.min(Integer.MAX_VALUE, amount);
+        return amount;
     }
 }

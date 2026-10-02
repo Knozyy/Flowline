@@ -93,6 +93,10 @@ public class CurveGameTests {
             var a=free(d,owner,point(h,1.2,1.5,1.5));var b=free(d,owner,point(h,4.8,1.5,1.5));d.connect(a.id,b.id,4);
             Vec3 p=point(h,3,1.5,1.5);
             h.assertTrue(!h.getLevel().noCollision(new AABB(p,p).inflate(0.06)),"real vanilla collision queries must include curves; checks mixin activation");
+            AABB body=new AABB(p.add(0,0.5,0),p.add(0,0.5,0)).inflate(0.05);
+            var collisions=h.getLevel().getBlockCollisions(null,body.expandTowards(0,-1,0));
+            double movement=net.minecraft.world.phys.shapes.Shapes.collide(Direction.Axis.Y,body,collisions,-1);
+            h.assertTrue(movement>-0.5&&movement<0,"world-space curve collision must stop actual downward movement");
             h.assertTrue(h.getLevel().noCollision(new AABB(p.add(0,0.5,0),p.add(0,0.5,0)).inflate(0.06)),"nearby empty volume remains free");
         }finally{cleanup(d,owner);}h.succeed();
     }
@@ -184,6 +188,40 @@ public class CurveGameTests {
         ResourcesChest(BlockPos pos){super(pos,Blocks.CHEST.defaultBlockState());}
         @Override public <T>LazyOptional<T> getCapability(Capability<T> cap,Direction side){return cap==ForgeCapabilities.FLUID_HANDLER?fluids.cast():cap==ForgeCapabilities.ENERGY?fe.cast():super.getCapability(cap,side);}
         @Override public void invalidateCaps(){super.invalidateCaps();fluids.invalidate();fe.invalidate();}
+    }
+    @GameTest(template="empty",timeoutTicks=20)
+    public static void curvedPulseRunsOncePerRisingEdgeEvenDuringCooldown(GameTestHelper h){
+        BlockPos left=new BlockPos(0,1,1),right=new BlockPos(5,1,1),power=new BlockPos(0,2,1);
+        h.setBlock(left,Blocks.CHEST);h.setBlock(right,Blocks.CHEST);
+        ChestBlockEntity source=(ChestBlockEntity)h.getLevel().getBlockEntity(h.absolutePos(left));
+        ChestBlockEntity target=(ChestBlockEntity)h.getLevel().getBlockEntity(h.absolutePos(right));
+        CurveData d=new CurveData(h.getLevel());UUID owner=UUID.randomUUID();
+        var a=d.addNode(PipeType.ITEM,owner,point(h,1.1,1.5,1.5),source.getBlockPos(),Direction.EAST);
+        var b=d.addNode(PipeType.ITEM,owner,point(h,4.9,1.5,1.5),target.getBlockPos(),Direction.WEST);
+        d.connect(a.id,b.id,4);SideConfig cfg=a.config.side(a.side());
+        cfg.mode=SideMode.EXTRACT;cfg.redstone=RedstoneMode.PULSE;cfg.interval=50;cfg.cooldown=50;
+        source.setItem(0,new ItemStack(Items.DIAMOND,1));d.tick();
+        h.assertTrue(target.countItem(Items.DIAMOND)==0,"low signal must not transfer");
+        h.setBlock(power,Blocks.REDSTONE_BLOCK);d.tick();
+        h.assertTrue(target.countItem(Items.DIAMOND)==1,"rising edge must run despite a pending adaptive cooldown");
+        source.setItem(0,new ItemStack(Items.DIAMOND,1));d.tick();
+        h.assertTrue(target.countItem(Items.DIAMOND)==1,"held signal must not repeat the pulse");
+        h.setBlock(power,Blocks.AIR);d.tick();h.setBlock(power,Blocks.REDSTONE_BLOCK);d.tick();
+        h.assertTrue(target.countItem(Items.DIAMOND)==2,"the next rising edge must transfer exactly once");h.succeed();
+    }
+    @GameTest(template="empty",timeoutTicks=20)
+    public static void curvedEnergyRunsEveryTickWhileWorking(GameTestHelper h){
+        BlockPos left=new BlockPos(0,1,1),right=new BlockPos(5,1,1);h.setBlock(left,Blocks.CHEST);h.setBlock(right,Blocks.CHEST);
+        ResourcesChest source=new ResourcesChest(h.absolutePos(left)),target=new ResourcesChest(h.absolutePos(right));
+        h.getLevel().removeBlockEntity(source.getBlockPos());h.getLevel().removeBlockEntity(target.getBlockPos());
+        h.getLevel().setBlockEntity(source);h.getLevel().setBlockEntity(target);
+        CurveData d=new CurveData(h.getLevel());UUID owner=UUID.randomUUID();
+        var a=d.addNode(PipeType.ENERGY,owner,point(h,1.1,1.5,1.5),source.getBlockPos(),Direction.EAST);
+        var b=d.addNode(PipeType.ENERGY,owner,point(h,4.9,1.5,1.5),target.getBlockPos(),Direction.WEST);
+        d.connect(a.id,b.id,4);a.config.side(a.side()).mode=SideMode.EXTRACT;
+        source.energy.receiveEnergy(1000,false);d.tick();
+        source.energy.receiveEnergy(1000,false);d.tick();
+        h.assertTrue(target.energy.getEnergyStored()==2000,"a working curved energy pipe must not skip ticks");h.succeed();
     }
     @GameTest(template="empty",timeoutTicks=20)
     public static void curvedUniversalTransfersRealResourcesAndStopsWhenCut(GameTestHelper h){

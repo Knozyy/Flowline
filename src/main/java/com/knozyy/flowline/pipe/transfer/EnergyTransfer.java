@@ -36,7 +36,7 @@ public final class EnergyTransfer {
         if (destinations.isEmpty()) return 0;
 
         int[] given = new int[destinations.size()];
-        int cap = balanced ? Math.max(1, (available + destinations.size() - 1) / destinations.size()) : Integer.MAX_VALUE;
+        int cap = balanced ? 1 + (available - 1) / destinations.size() : Integer.MAX_VALUE;
         int remaining = available;
         for (int pass = 0; pass < (balanced ? 2 : 1) && remaining > 0; pass++) {
             for (int i = 0; i < destinations.size() && remaining > 0; i++) {

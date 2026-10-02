@@ -216,6 +216,7 @@ public final class PipeNetwork {
     private static List<BlockPos> path(Map<BlockPos, BlockPos> parent, BlockPos start, BlockPos end) {
         List<BlockPos> path = new ArrayList<>();
         for (BlockPos p = end; p != null && path.size() < 256; p = p.equals(start) ? null : parent.get(p)) path.add(p);
+        if (path.isEmpty() || !path.get(path.size() - 1).equals(start)) return List.of();
         Collections.reverse(path);
         return List.copyOf(path);
     }

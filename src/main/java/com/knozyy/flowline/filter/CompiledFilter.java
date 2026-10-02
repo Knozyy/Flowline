@@ -200,7 +200,7 @@ public final class CompiledFilter {
             }
             if (durability) {
                 if (!stack.isDamageableItem() || stack.getMaxDamage() <= 0) return false;
-                int percent = (stack.getMaxDamage() - stack.getDamageValue()) * 100 / stack.getMaxDamage();
+                long percent = ((long) stack.getMaxDamage() - stack.getDamageValue()) * 100 / stack.getMaxDamage();
                 if (percent < minDurability || percent > maxDurability) return false;
             }
             if (name != null && !name.matcher(stack.getHoverName().getString()).find()) return false;

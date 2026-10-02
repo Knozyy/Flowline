@@ -162,21 +162,27 @@ public final class CurveData extends SavedData {
         for (CurveNode n : nodes.values()) {
             if (!n.active || n.config == null || !level.isLoaded(n.block)) continue;
             SideConfig cfg = n.config.side(n.side());
-            if (cfg.mode != SideMode.EXTRACT) continue;
             boolean signal = level.hasNeighborSignal(n.block);
+            n.config.onSignal(signal);
+            if (cfg.mode != SideMode.EXTRACT) continue;
+            int elapsed;
             if (cfg.redstone == RedstoneMode.PULSE) {
-                if (!signal) { cfg.pulsePending = true; continue; }
                 if (!cfg.pulsePending) continue;
                 cfg.pulsePending = false;
-            } else if (!cfg.redstone.allows(signal)) continue;
-            if (cfg.interval < 0) cfg.interval = Pacing.start(cfg.speedCount);
-            if (--cfg.cooldown > 0) continue;
-            int elapsed = cfg.interval;
+                elapsed = 1;
+            } else {
+                if (!cfg.redstone.allows(signal)) continue;
+                if (cfg.interval < 0) cfg.interval = Pacing.start(cfg.speedCount);
+                if (--cfg.cooldown > 0) continue;
+                elapsed = cfg.interval;
+            }
             List<PipeNetwork.Target> targets = targets(n);
             long moved = n.type.transfer(level, n.block, Caps.create(n.type, level, n.block, n.face), cfg, targets, elapsed,
                     (t, item) -> CurveServer.animate(this, n, t, item, null),
                     (t, fluid) -> CurveServer.animate(this, n, t, net.minecraft.world.item.ItemStack.EMPTY, fluid));
-            cfg.interval = moved > 0 ? Pacing.afterWork(cfg.interval, cfg.speedCount) : Pacing.afterIdle(cfg.interval, cfg.speedCount);
+            if (cfg.redstone == RedstoneMode.PULSE) continue;
+            cfg.interval = moved > 0 ? n.type == PipeType.ENERGY ? 1 : Pacing.afterWork(cfg.interval, cfg.speedCount)
+                    : Pacing.afterIdle(cfg.interval, cfg.speedCount);
             cfg.cooldown = cfg.interval;
         }
     }
