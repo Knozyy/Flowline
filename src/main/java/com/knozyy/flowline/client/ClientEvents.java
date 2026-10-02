@@ -60,12 +60,35 @@ public final class ClientEvents {
         TravellingItems.render(event.getPoseStack(), event.getCamera().getPosition(),
                 event.getPartialTick());
         NetworkOverlay.render(event.getPoseStack(), event.getCamera().getPosition());
+        OffhandPipe.render(event.getPoseStack(), event.getCamera().getPosition());
     }
 
     @SubscribeEvent
     public static void onHud(RenderGuiEvent.Post event) {
         NetworkOverlay.legend(event.getGuiGraphics());
         BuildHint.render(event.getGuiGraphics());
+        OffhandPipe.hud(event.getGuiGraphics());
+    }
+
+    /**
+     * Right-click with a pipe in the off hand in Build for me mode lays the previewed route; it never places a single
+     * block from the off hand. Reached only when the main hand did not use the click (a pipe there places normally).
+     */
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.HIGH)
+    public static void onUse(InputEvent.InteractionKeyMappingTriggered event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (!event.isUseItem() || event.getHand() != net.minecraft.world.InteractionHand.OFF_HAND
+                || !OffhandPipe.holding(mc.player) || OffhandPipe.mode() != com.knozyy.flowline.pipe.OffhandMode.BUILD) {
+            return;
+        }
+        event.setCanceled(true);
+        event.setSwingHand(true);
+        ModNetwork.sendToServer(new BuildPayload());
+    }
+
+    @SubscribeEvent
+    public static void onLogin(ClientPlayerNetworkEvent.LoggingIn event) {
+        OffhandPipe.sync();
     }
 
     @SubscribeEvent
@@ -76,9 +99,9 @@ public final class ClientEvents {
         NetworkOverlay.tick();
         FlowingFluids.tick();
         while (Keys.BUILD.consumeClick()) {
-            // the server checks the off hand and looks where the player looks itself
-            if (mc.player != null && mc.screen == null) ModNetwork.sendToServer(new BuildPayload());
+            if (mc.player != null && mc.screen == null) OffhandPipe.toggle(mc);
         }
+        OffhandPipe.tick(mc);
     }
 
     @SubscribeEvent

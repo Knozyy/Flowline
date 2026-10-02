@@ -12,10 +12,10 @@ import java.util.function.Supplier;
 
 /** Flat square button that shows a 16x16 icon from {@code textures/gui/icon/}. Tooltips are drawn by the screen. */
 public class IconButton extends Button {
-    private static final int BORDER = 0xFF454C59;
-    private static final int FILL = 0xFF2A2F38;
-    private static final int FILL_HOVER = 0xFF3A414D;
-    private static final int FILL_DISABLED = 0xFF1B1E24;
+    private static final int BORDER = com.knozyy.flowline.client.ui.Theme.EDGE;
+    private static final int FILL = com.knozyy.flowline.client.ui.Theme.SLOT;
+    private static final int FILL_HOVER = com.knozyy.flowline.client.ui.Theme.HOVER;
+    private static final int FILL_DISABLED = com.knozyy.flowline.client.ui.Theme.BG;
     private static final int WARNING = 0xFFFF5555;
 
     private final Supplier<String> icon;

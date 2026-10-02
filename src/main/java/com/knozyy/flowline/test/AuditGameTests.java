@@ -5,7 +5,7 @@ import com.knozyy.flowline.FlowlineConfig;
 import com.knozyy.flowline.filter.FilterEntry;
 import com.knozyy.flowline.item.ConfigCardItem;
 import com.knozyy.flowline.item.WrenchItem;
-import com.knozyy.flowline.network.FilterPagePayload;
+import com.knozyy.flowline.network.FilterSyncPayload;
 import com.knozyy.flowline.network.TravelPayload;
 import com.knozyy.flowline.pipe.*;
 import com.knozyy.flowline.pipe.transfer.*;
@@ -302,14 +302,22 @@ public class AuditGameTests {
                 try { TravelPayload.decode(buf); } catch (DecoderException expected) { rejected = true; }
                 h.assertTrue(rejected, "invalid item animation list length must be rejected before allocation");
             }
-            for (int size : new int[]{-1, FilterPagePayload.MAX_ENTRIES + 1}) {
-                buf.clear();buf.writeVarInt(1);buf.writeVarInt(0);buf.writeVarInt(size);
+            for (int size : new int[]{-1, FilterSyncPayload.MAX_CHANGES + 1}) {
+                buf.clear();buf.writeVarInt(1);buf.writeBoolean(false);buf.writeVarInt(size);
                 boolean rejected = false;
-                try { FilterPagePayload.decode(buf); } catch (DecoderException expected) { rejected = true; }
-                h.assertTrue(rejected, "invalid filter page length must be rejected before allocation");
+                try { FilterSyncPayload.decode(buf); } catch (DecoderException expected) { rejected = true; }
+                h.assertTrue(rejected, "invalid filter sync length must be rejected before allocation");
             }
-            buf.clear();FilterPagePayload valid = new FilterPagePayload(1, 0, List.of(Optional.of(FilterEntry.ofName("diamond"))));
-            valid.encode(buf);h.assertTrue(FilterPagePayload.decode(buf).equals(valid), "valid filter pages must still round-trip");
+            for (int index : new int[]{-1, FilterSyncPayload.MAX_INDEX + 1}) {
+                buf.clear();buf.writeVarInt(1);buf.writeBoolean(false);buf.writeVarInt(1);buf.writeVarInt(index);
+                boolean rejected = false;
+                try { FilterSyncPayload.decode(buf); } catch (DecoderException expected) { rejected = true; }
+                h.assertTrue(rejected, "filter sync positions out of bounds must be rejected");
+            }
+            buf.clear();FilterSyncPayload valid = new FilterSyncPayload(1, true,
+                    List.of(new FilterSyncPayload.Change(3, Optional.of(FilterEntry.ofName("diamond"))),
+                            new FilterSyncPayload.Change(5, Optional.empty())));
+            valid.encode(buf);h.assertTrue(FilterSyncPayload.decode(buf).equals(valid), "valid filter syncs must still round-trip");
         } finally { buf.release(); }
         h.succeed();
     }

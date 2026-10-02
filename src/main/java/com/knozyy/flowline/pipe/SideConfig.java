@@ -54,6 +54,8 @@ public class SideConfig {
     private int compiledCapacity = -1;
     /** Rotating cursor for {@link Distribution#ROUND_ROBIN} and {@link Distribution#BALANCED}. Not persisted. */
     public int roundRobin = 0;
+    /** Bumped on every filter change, so open menus know when to resend rules. Not persisted. */
+    private int filterVersion = 0;
 
     // ---- runtime state, derived or reset on load, never saved ---------------------------------------------
 
@@ -78,6 +80,12 @@ public class SideConfig {
     public List<PipeNetwork.Target> cachedTargets = null;
     /** Capability cache of the block this side extracts from; NeoForge invalidates it when that block changes. */
     public Caps sourceCaps = null;
+    /** What the last operation moved: -1 asleep, {@link #NOT_RUN} before the first one. Shown as {@link SideStatus}. */
+    public long lastMoved = NOT_RUN;
+    /** The redstone mode held the last operation back. */
+    public boolean lastBlocked = false;
+
+    public static final long NOT_RUN = -2;
 
     public SideConfig(PipeType type) {
         this.type = type;
@@ -93,6 +101,8 @@ public class SideConfig {
         graph = null;
         cachedTargets = null;
         sourceCaps = null;
+        lastMoved = NOT_RUN;
+        lastBlocked = false;
     }
 
     /** Leave sleep and run again soon, at the starting interval at the latest. */
@@ -129,11 +139,17 @@ public class SideConfig {
         while (filter.size() <= index) filter.add(null);
         filter.set(index, entry);
         compiled = null;
+        filterVersion++;
     }
 
     public void clearFilter() {
         filter.clear();
         compiled = null;
+        filterVersion++;
+    }
+
+    public int filterVersion() {
+        return filterVersion;
     }
 
     /** Positions of the stored rules, including those past the capacity. */

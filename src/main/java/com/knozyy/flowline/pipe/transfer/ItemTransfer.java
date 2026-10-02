@@ -138,7 +138,7 @@ public final class ItemTransfer {
     }
 
     /** How many items like {@code like} (same item and components) the handler holds. */
-    static long count(IItemHandler handler, ItemStack like) {
+    public static long count(IItemHandler handler, ItemStack like) {
         long count = 0;
         for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack stack = handler.getStackInSlot(slot);

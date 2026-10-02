@@ -1,155 +1,244 @@
 package com.knozyy.flowline.client;
 
+import com.knozyy.flowline.client.ui.FlatButton;
+import com.knozyy.flowline.client.ui.RuleText;
+import com.knozyy.flowline.client.ui.Theme;
+import com.knozyy.flowline.client.ui.Ui;
 import com.knozyy.flowline.filter.FilterEntry;
 import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.menu.PipeMenu;
-import com.knozyy.flowline.pipe.SideConfig;
+import com.knozyy.flowline.network.ModNetwork;
+import com.knozyy.flowline.network.RuleFromCarriedPayload;
 import com.knozyy.flowline.network.SetFilterEntryPayload;
 import com.knozyy.flowline.network.SetSideValuePayload;
+import com.knozyy.flowline.pipe.Conn;
+import com.knozyy.flowline.pipe.PipeBlock;
 import com.knozyy.flowline.pipe.PipeType;
+import com.knozyy.flowline.pipe.RedstoneMode;
+import com.knozyy.flowline.pipe.SideConfig;
+import com.knozyy.flowline.pipe.SideStatus;
 import com.knozyy.flowline.registry.ModItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import com.knozyy.flowline.network.ModNetwork;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 /**
- * Dark, panel-based configuration screen drawn without a background texture: a header with the pipe and side,
- * three panels (settings icons, 3x3 filter, upgrade), a row of numbers (priority, regulator, rate) and channel
- * toggles, then the player inventory. Extracting and inserting sides show different settings.
+ * Configuration screen of one pipe side: a header with the side's status and tabs for the pipe's other sides, a
+ * list of settings on the left, the filter's rules on the right (pipes without a filter use the whole width), then
+ * the player inventory with the upgrade slots beside it. Drawn without textures, in {@link Theme}'s colours.
  */
 public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
-    private static final int BG = 0xFF1E2229;
-    private static final int BG_EDGE = 0xFF0E1014;
-    private static final int PANEL = 0xFF262B33;
-    private static final int PANEL_EDGE = 0xFF343A45;
-    private static final int SLOT = 0xFF14171C;
-    private static final int SLOT_EDGE = 0xFF3A404C;
-    private static final int TEXT = 0xFFE6E9EF;
-    private static final int MUTED = 0xFF8A93A3;
-
-    // Panel bounds, relative to the screen origin.
-    private static final int PANEL_TOP = 30;
-    private static final int PANEL_BOTTOM = 98;
-    private static final int SETTINGS_L = 6, SETTINGS_R = 52;
-    private static final int FILTER_L = 56, FILTER_R = 118;
-    private static final int UPGRADE_L = 122, UPGRADE_R = 170;
-    private static final int VALUES_TOP = 100, VALUES_BOTTOM = 124;
-    private static final int FIELD_W = 44;
+    private static final int W = PipeMenu.WIDTH, H = PipeMenu.HEIGHT;
+    private static final int TABS_Y = 28, BODY_T = 46, BODY_B = 146;
+    private static final int LEFT_L = 6, LEFT_R = 138, RIGHT_L = 142, RIGHT_R = W - 6;
+    private static final int GROUP_H = 10, ROW_H = 11, VALUE_W = 70;
+    private static final int LIST_T = BODY_T + 24, RULE_H = 21;
+    private static final int UPGRADE_TEXT_Y = PipeMenu.UPGRADE_Y + 40;
+    private static final Direction[] TAB_ORDER = {Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST,
+            Direction.UP, Direction.DOWN};
 
     private final int accent;
-    /** Pacing badge in the header, relative to the screen origin; recomputed every frame. */
-    private int badgeX, badgeW;
-    private static final int BADGE_Y = 8, BADGE_H = 12;
-
-    private IconButton redstoneButton;
-    private IconButton distributionButton;
-    private IconButton clearButton;
-    private IconButton overflowButton;
-    private IconButton signalButton;
+    /** Widgets with an explanation shown while hovered. */
+    private final List<Tip> tips = new ArrayList<>();
+    private final List<NumberBox> boxes = new ArrayList<>();
+    private final List<Line> lines = new ArrayList<>();
+    /** First rule row shown; kept while the rule editor is open. */
+    private int ruleScroll = 0;
     /** Until when (ms) the clear button is armed: the first click only arms it, so rules are not lost to a misclick. */
     private long clearArmedUntil = 0;
-    private IconButton prevPageButton;
-    private IconButton nextPageButton;
-    private IconButton upgradeHelp;
-    private final List<IconButton> channelButtons = new ArrayList<>();
-    /** Number fields with their label key and help key. */
-    private final List<Field> fields = new ArrayList<>();
+    /** The current mouse press started on the rule list, so its release and drags belong to the list too. */
+    private boolean listPress = false;
+    private IconButton clearButton;
 
-    private record Field(NumberBox box, String label, String help, int x) {}
+    private record Tip(AbstractWidget widget, Supplier<List<Component>> lines) {}
+
+    /** A group caption ({@code row} false) or a row label, with the tooltip of the row. */
+    private record Line(Component text, int y, boolean row, @Nullable Supplier<List<Component>> tip) {}
+
+    /** One entry of the rule list: a rule position, or {@code -1} for the "add rule" row. */
+    private record Item(int index, @Nullable FilterEntry rule) {}
 
     public PipeScreen(PipeMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        this.imageWidth = 176;
-        this.imageHeight = 216;
-        this.inventoryLabelY = PipeMenu.INVENTORY_Y - 10;
-        this.accent = switch (menu.type) {
-            case ITEM -> 0xFFE08A2B;
-            case FLUID -> 0xFF2F7FE0;
-            case ENERGY -> 0xFFD83A3A;
-            case UNIVERSAL -> 0xFFA77BE8;
-            case CHEMICAL -> 0xFF7CD957;
-        };
+        this.imageWidth = W;
+        this.imageHeight = H;
+        this.inventoryLabelY = -1000;
+        this.accent = Theme.accent(menu.type);
+    }
+
+    // ---- layout -------------------------------------------------------------------------------------------
+
+    private int settingsRight() {
+        return menu.hasFilter() ? LEFT_R : RIGHT_R;
     }
 
     @Override
     protected void init() {
         super.init();
-        channelButtons.clear();
-        fields.clear();
-        int x = leftPos + SETTINGS_L + 2;
-        int y = topPos + PANEL_TOP + 12;
-        boolean extract = menu.extracting();
-        redstoneButton = addRenderableWidget(new IconButton(x, y, 20,
-                () -> "redstone_" + key(menu.redstone()), accent, b -> press(PipeMenu.BTN_REDSTONE)));
-        distributionButton = addRenderableWidget(new IconButton(x + 22, y, 20,
-                () -> "distribution_" + key(menu.distribution()), accent, b -> press(PipeMenu.BTN_DISTRIBUTION)));
-        redstoneButton.visible = extract;
-        distributionButton.visible = extract;
-        clearButton = addRenderableWidget(new IconButton(x, extract ? y + 22 : y, 20,
-                () -> "clear", accent, b -> clickClear())).warnWhen(this::clearArmed);
-        overflowButton = addRenderableWidget(new IconButton(x + 22, y, 20, () -> "overflow", accent,
-                () -> !menu.overflow(), b -> press(PipeMenu.BTN_OVERFLOW)));
-        overflowButton.visible = !extract;
-        signalButton = addRenderableWidget(new IconButton(x + 22, y + 22, 20,
-                () -> "signal_" + key(menu.signal()), accent, b -> press(PipeMenu.BTN_SIGNAL)));
-        signalButton.visible = extract;
-        prevPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 24, topPos + PANEL_TOP + 2, 10,
-                () -> "page_prev", accent, b -> press(PipeMenu.BTN_PREV_PAGE)));
-        nextPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 13, topPos + PANEL_TOP + 2, 10,
-                () -> "page_next", accent, b -> press(PipeMenu.BTN_NEXT_PAGE)));
-        upgradeHelp = addRenderableWidget(new IconButton(leftPos + UPGRADE_R - 11, topPos + PANEL_TOP + 2, 9,
-                () -> "help", accent, b -> {}));
-
-        // values row
-        int fx = SETTINGS_L + 3;
-        int fy = topPos + VALUES_TOP + 10;
-        if (!extract) {
-            addField(fx, fy, -SideConfig.MAX_PRIORITY, SideConfig.MAX_PRIORITY, menu::priority, PipeMenu.FIELD_PRIORITY,
-                    "gui.flowline.value.priority", "gui.flowline.value.priority.desc");
-            fx += FIELD_W + 4;
-        }
-        if (menu.type != PipeType.CHEMICAL) {
-            addField(fx, fy, 0, SideConfig.MAX_AMOUNT, menu::limit, PipeMenu.FIELD_LIMIT,
-                    extract ? "gui.flowline.value.keep" : "gui.flowline.value.max",
-                    extract ? "gui.flowline.value.keep.desc" : "gui.flowline.value.max.desc");
-            fx += FIELD_W + 4;
-        }
-        if (extract && menu.type.movesEnergy()) {
-            addField(fx, fy, 0, SideConfig.MAX_AMOUNT, menu::rate, PipeMenu.FIELD_RATE,
-                    "gui.flowline.value.rate", "gui.flowline.value.rate.desc");
-        }
-        if (menu.type.hasChannels()) {
-            String[] names = {"channel_items", "channel_fluids", "channel_energy"};
-            for (int i = 0; i < 3; i++) {
-                int bit = 1 << i;
-                String icon = names[i];
-                int id = PipeMenu.BTN_CHANNEL + i;
-                channelButtons.add(addRenderableWidget(new IconButton(leftPos + UPGRADE_R - 44 + i * 15, fy - 1, 13,
-                        () -> icon, accent, () -> (menu.channels() & bit) == 0, b -> press(id))));
+        tips.clear();
+        boxes.clear();
+        lines.clear();
+        int y = BODY_T + 2;
+        if (menu.extracting()) {
+            y = group(y, "gui.flowline.group.flow");
+            y = cycleRow(y, "gui.flowline.row.distribution",
+                    () -> Component.translatable("distribution.flowline." + key(menu.distribution()) + ".short"),
+                    PipeMenu.BTN_DISTRIBUTION, PipeMenu.BTN_DISTRIBUTION_BACK,
+                    () -> describe("gui.flowline.distribution", "distribution.flowline." + key(menu.distribution())));
+            if (menu.type.hasChannels()) y = channelRow(y);
+            y = group(y, "gui.flowline.group.redstone");
+            y = cycleRow(y, "gui.flowline.row.redstone",
+                    () -> Component.translatable("redstone.flowline." + key(menu.redstone()) + ".short"),
+                    PipeMenu.BTN_REDSTONE, PipeMenu.BTN_REDSTONE_BACK,
+                    () -> describe("gui.flowline.redstone", "redstone.flowline." + key(menu.redstone())));
+            y = cycleRow(y, "gui.flowline.row.signal",
+                    () -> Component.translatable("signal.flowline." + key(menu.signal()) + ".short"),
+                    PipeMenu.BTN_SIGNAL, PipeMenu.BTN_SIGNAL_BACK,
+                    () -> describe("gui.flowline.signal", "signal.flowline." + key(menu.signal())));
+            boolean keep = menu.type != PipeType.CHEMICAL, rate = menu.type.movesEnergy();
+            if (keep || rate) y = group(y, "gui.flowline.group.limits");
+            if (keep) {
+                y = numberRow(y, "gui.flowline.row.keep", 0, SideConfig.MAX_AMOUNT, menu::limit, PipeMenu.FIELD_LIMIT,
+                        "gui.flowline.value.keep.desc");
             }
+            if (rate) {
+                numberRow(y, "gui.flowline.row.rate", 0, SideConfig.MAX_AMOUNT, menu::rate, PipeMenu.FIELD_RATE,
+                        "gui.flowline.value.rate.desc");
+            }
+        } else {
+            y = group(y, "gui.flowline.group.target");
+            y = priorityRow(y);
+            if (menu.type != PipeType.CHEMICAL) {
+                y = numberRow(y, "gui.flowline.row.max", 0, SideConfig.MAX_AMOUNT, menu::limit, PipeMenu.FIELD_LIMIT,
+                        "gui.flowline.value.max.desc");
+            }
+            y = cycleRow(y, "gui.flowline.row.overflow",
+                    () -> Component.translatable(menu.overflow() ? "gui.flowline.overflow.short_on"
+                            : "gui.flowline.overflow.short_off"),
+                    PipeMenu.BTN_OVERFLOW, PipeMenu.BTN_OVERFLOW,
+                    () -> List.of(Component.translatable(menu.overflow() ? "gui.flowline.overflow.on"
+                                    : "gui.flowline.overflow.off"),
+                            Component.translatable("gui.flowline.overflow.desc").withStyle(ChatFormatting.GRAY)));
+            if (menu.type.hasChannels()) {
+                y = group(y, "gui.flowline.group.flow");
+                channelRow(y);
+            }
+        }
+        if (menu.hasFilter()) {
+            clearButton = addRenderableWidget(new IconButton(leftPos + RIGHT_R - 14, topPos + BODY_T + 3, 10,
+                    () -> "clear", accent, b -> clickClear())).warnWhen(this::clearArmed);
+            tips.add(new Tip(clearButton, () -> clearArmed()
+                    ? List.of(Component.translatable("gui.flowline.clear.confirm").withStyle(ChatFormatting.RED))
+                    : List.of(Component.translatable("gui.flowline.clear"),
+                            Component.translatable("gui.flowline.clear.desc").withStyle(ChatFormatting.GRAY),
+                            Component.translatable("gui.flowline.clear.how").withStyle(ChatFormatting.DARK_GRAY))));
         }
     }
 
-    private void addField(int x, int y, int min, int max, java.util.function.IntSupplier value, int field, String label,
-                          String help) {
-        NumberBox box = new NumberBox(font, leftPos + x, y, FIELD_W, min, max, value,
+    private int group(int y, String key) {
+        lines.add(new Line(Component.translatable(key), y, false, null));
+        return y + GROUP_H;
+    }
+
+    private int valueX() {
+        return leftPos + settingsRight() - 4 - VALUE_W;
+    }
+
+    private int cycleRow(int y, String label, Supplier<Component> value, int next, int back,
+                         Supplier<List<Component>> tip) {
+        lines.add(new Line(Component.translatable(label), y, true, tip));
+        FlatButton button = addRenderableWidget(new FlatButton(valueX(), topPos + y, VALUE_W, ROW_H,
+                () -> Component.literal("‹ ").append(value.get()).append(" ›"), accent, b -> press(next))
+                .onBack(() -> press(back)));
+        tips.add(new Tip(button, tip));
+        return y + ROW_H;
+    }
+
+    private int numberRow(int y, String label, int min, int max, IntSupplier value, int field, String help) {
+        Supplier<List<Component>> tip = () -> List.of(Component.translatable(label),
+                Component.translatable(help).withStyle(ChatFormatting.GRAY),
+                Component.translatable("gui.flowline.value.hint").withStyle(ChatFormatting.DARK_GRAY));
+        lines.add(new Line(Component.translatable(label), y, true, tip));
+        addBox(valueX(), y, VALUE_W, min, max, value, field, tip);
+        return y + ROW_H;
+    }
+
+    private int priorityRow(int y) {
+        Supplier<List<Component>> tip = () -> List.of(Component.translatable("gui.flowline.row.priority"),
+                Component.translatable("gui.flowline.value.priority.desc").withStyle(ChatFormatting.GRAY),
+                Component.translatable("gui.flowline.value.hint").withStyle(ChatFormatting.DARK_GRAY));
+        lines.add(new Line(Component.translatable("gui.flowline.row.priority"), y, true, tip));
+        int x = valueX();
+        FlatButton minus = addRenderableWidget(new FlatButton(x, topPos + y, 11, ROW_H, () -> Component.literal("−"),
+                accent, b -> sendValue(PipeMenu.FIELD_PRIORITY, menu.priority() - step())));
+        FlatButton plus = addRenderableWidget(new FlatButton(x + VALUE_W - 11, topPos + y, 11, ROW_H,
+                () -> Component.literal("+"), accent, b -> sendValue(PipeMenu.FIELD_PRIORITY, menu.priority() + step())));
+        tips.add(new Tip(minus, tip));
+        tips.add(new Tip(plus, tip));
+        addBox(x + 13, y, VALUE_W - 26, -SideConfig.MAX_PRIORITY, SideConfig.MAX_PRIORITY, menu::priority,
+                PipeMenu.FIELD_PRIORITY, tip);
+        return y + ROW_H;
+    }
+
+    private static int step() {
+        return hasControlDown() ? 100 : hasShiftDown() ? 10 : 1;
+    }
+
+    private void sendValue(int field, int value) {
+        int bound = field == PipeMenu.FIELD_PRIORITY ? SideConfig.MAX_PRIORITY : SideConfig.MAX_AMOUNT;
+        int min = field == PipeMenu.FIELD_PRIORITY ? -bound : 0;
+        ModNetwork.sendToServer(new SetSideValuePayload(menu.containerId, field, Math.max(min, Math.min(bound, value))));
+    }
+
+    /** A number field inside a well spanning {@code width} pixels from {@code x}. */
+    private void addBox(int x, int y, int width, int min, int max, IntSupplier value, int field,
+                        Supplier<List<Component>> tip) {
+        NumberBox box = new NumberBox(font, x + 3, topPos + y + 2, width - 6, min, max, value,
                 v -> ModNetwork.sendToServer(new SetSideValuePayload(menu.containerId, field, v)));
+        box.setBordered(false);
+        box.setTextColor(Theme.TEXT);
         addRenderableWidget(box);
-        fields.add(new Field(box, label, help, x));
+        boxes.add(box);
+        tips.add(new Tip(box, tip));
+    }
+
+    private int channelRow(int y) {
+        Supplier<List<Component>> tip = () -> List.of(Component.translatable("gui.flowline.value.channels"),
+                Component.translatable("gui.flowline.channels.desc").withStyle(ChatFormatting.GRAY));
+        lines.add(new Line(Component.translatable("gui.flowline.row.channels"), y, true, tip));
+        String[] icons = {"channel_items", "channel_fluids", "channel_energy"};
+        int x = leftPos + settingsRight() - 4 - 3 * 12 + 1;
+        for (int i = 0; i < 3; i++) {
+            int bit = 1 << i, id = PipeMenu.BTN_CHANNEL + i, channel = i;
+            String icon = icons[i];
+            IconButton button = addRenderableWidget(new IconButton(x + i * 12, topPos + y, 11, () -> icon, accent,
+                    () -> (menu.channels() & bit) == 0, b -> press(id)));
+            tips.add(new Tip(button, () -> {
+                boolean on = (menu.channels() & bit) != 0;
+                return List.of(Component.translatable("gui.flowline.channel." + channel),
+                        Component.translatable(on ? "gui.flowline.channel.on" : "gui.flowline.channel.off")
+                                .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED));
+            }));
+        }
+        return y + ROW_H;
     }
 
     private void press(int id) {
@@ -158,63 +247,139 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         }
     }
 
-    /** 1000 mB -> "1B", 1500 mB -> "1500mB". */
-    private static String buckets(int millibuckets) {
-        return millibuckets % 1000 == 0 ? millibuckets / 1000 + "B" : millibuckets + "mB";
-    }
-
     private static String key(Enum<?> value) {
         return value.name().toLowerCase(Locale.ROOT);
     }
 
+    // ---- rule list ----------------------------------------------------------------------------------------
+
+    /** Rules in the usable positions, then the "add rule" row while there is room. */
+    private List<Item> items() {
+        List<Item> items = new ArrayList<>();
+        for (int i = 0; i < Math.min(menu.capacity(), menu.clientFilter().size()); i++) {
+            FilterEntry rule = menu.clientEntry(i);
+            if (rule != null) items.add(new Item(i, rule));
+        }
+        if (!items.isEmpty() && menu.firstFreeClient() >= 0) items.add(new Item(-1, null));
+        return items;
+    }
+
+    private static int visibleRules() {
+        return (BODY_B - 2 - LIST_T) / RULE_H;
+    }
+
+    private int clampScroll(int scroll, int count) {
+        return Math.max(0, Math.min(scroll, Math.max(0, count - visibleRules())));
+    }
+
+    private boolean overList(double mouseX, double mouseY) {
+        return menu.hasFilter() && Ui.in(mouseX, mouseY, leftPos + RIGHT_L + 1, topPos + LIST_T,
+                leftPos + RIGHT_R - 1, topPos + BODY_B - 1);
+    }
+
+    /** The list entry under the mouse; an empty list counts as one big "add rule" entry. */
+    @Nullable
+    private Item itemAt(double mouseX, double mouseY) {
+        if (!overList(mouseX, mouseY)) return null;
+        List<Item> items = items();
+        if (items.isEmpty()) return new Item(-1, null);
+        int row = (int) (mouseY - topPos - LIST_T) / RULE_H;
+        if (row >= visibleRules()) return null;
+        int index = row + clampScroll(ruleScroll, items.size());
+        return index < items.size() ? items.get(index) : null;
+    }
+
+    /** Whether the mouse is on the Allow/Block chip of the rule row it is over. */
+    private boolean overChip(double mouseX, double mouseY, Item item) {
+        if (item.rule() == null) return false;
+        int rowTop = topPos + LIST_T + (int) (mouseY - topPos - LIST_T) / RULE_H * RULE_H;
+        int[] chip = chipRect(item.rule(), leftPos + RIGHT_R, rowTop);
+        return Ui.in(mouseX, mouseY, chip[0], chip[1], chip[2], chip[3]);
+    }
+
+    /** Screen area that accepts an ingredient dragged from JEI or EMI, or null while the filter is full. */
+    @Nullable
+    public int[] ruleDropArea() {
+        if (!menu.hasFilter() || menu.firstFreeClient() < 0) return null;
+        return new int[]{leftPos + RIGHT_L, topPos + BODY_T, RIGHT_R - RIGHT_L, BODY_B - BODY_T};
+    }
+
+    private void openEditor(int index, @Nullable FilterEntry rule) {
+        if (minecraft == null || index < 0) return;
+        minecraft.setScreen(new RuleEditorScreen(this, menu, index, rule, accent));
+    }
+
     // ---- input --------------------------------------------------------------------------------------------
 
-    /**
-     * Filter slots with an empty hand: left click opens the rule library, shift + left click removes the rule.
-     * Clicking with an item in hand goes to the menu, which turns the item into a rule.
-     */
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        for (Field field : fields) {
-            if (!field.box().isMouseOver(mouseX, mouseY)) field.box().setFocused(false);
+        for (NumberBox box : boxes) {
+            if (!box.isMouseOver(mouseX, mouseY)) box.setFocused(false);
         }
-        if (button == 1 && redstoneButton.visible && redstoneButton.isMouseOver(mouseX, mouseY)) {
-            press(PipeMenu.BTN_REDSTONE_BACK);
+        Direction tab = tabAt(mouseX, mouseY);
+        if (tab != null) {
+            if (button == 0 && tab != menu.side && tabOpens(tab)) press(PipeMenu.BTN_SIDE + tab.get3DDataValue());
             return true;
         }
-        if (button == 1 && signalButton.visible && signalButton.isMouseOver(mouseX, mouseY)) {
-            press(PipeMenu.BTN_SIGNAL_BACK);
-            return true;
-        }
-        if (button == 1 && distributionButton.visible && distributionButton.isMouseOver(mouseX, mouseY)) {
-            press(PipeMenu.BTN_DISTRIBUTION_BACK);
-            return true;
-        }
-        if (hoveredSlot instanceof PipeMenu.GhostSlot ghost && menu.getCarried().isEmpty() && minecraft != null) {
-            if (button == 0 && hasShiftDown()) {
-                if (menu.clientEntry(ghost.getContainerSlot()) != null) {
-                    ModNetwork.sendToServer(
-                            new SetFilterEntryPayload(menu.containerId, ghost.filterIndex(), Optional.empty()));
-                }
-            } else if (button == 0) {
-                minecraft.setScreen(new RuleEditorScreen(this, menu, ghost.filterIndex(),
-                        menu.clientEntry(ghost.getContainerSlot()), accent));
+        if (overList(mouseX, mouseY)) {
+            listPress = true;
+            Item item = itemAt(mouseX, mouseY);
+            if (button == 0 && item != null && menu.getCarried().isEmpty() && !hasShiftDown()
+                    && overChip(mouseX, mouseY, item)) {
+                ModNetwork.sendToServer(new SetFilterEntryPayload(menu.containerId, item.index(),
+                        Optional.of(item.rule().withInvert(!item.rule().invert()))));
+            } else {
+                clickList(item, button);
             }
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
+    /**
+     * With a stack in hand a click turns it into a rule (in place of the clicked one, or in the first free spot).
+     * With an empty hand: click edits, Shift + click or right-click removes, the "add rule" row opens a new rule.
+     */
+    private void clickList(@Nullable Item item, int button) {
+        if (item == null || minecraft == null) return;
+        if (!menu.getCarried().isEmpty()) {
+            ModNetwork.sendToServer(new RuleFromCarriedPayload(menu.containerId, item.index()));
+            return;
+        }
+        if (item.rule() == null) {
+            if (button == 0) openEditor(menu.firstFreeClient(), null);
+        } else if (button == 1 || button == 0 && hasShiftDown()) {
+            ModNetwork.sendToServer(new SetFilterEntryPayload(menu.containerId, item.index(), Optional.empty()));
+        } else if (button == 0) {
+            openEditor(item.index(), item.rule());
+        }
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (listPress) {
+            listPress = false;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (listPress) return true;
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
     /** Typing into a number field must not close the screen or swap hotbar items. */
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        for (Field field : fields) {
-            if (field.box().isFocused() && keyCode != org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
-                if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) {
-                    field.box().setFocused(false);
+        for (NumberBox box : boxes) {
+            if (box.isFocused() && keyCode != GLFW.GLFW_KEY_ESCAPE) {
+                if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+                    box.setFocused(false);
                     setFocused(null);
                 } else {
-                    field.box().keyPressed(keyCode, scanCode, modifiers);
+                    box.keyPressed(keyCode, scanCode, modifiers);
                 }
                 return true;
             }
@@ -222,157 +387,311 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    /** Mouse wheel over the filter panel flips filter pages; over a number field it steps the number. */
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
-        for (Field field : fields) {
-            if (field.box().isMouseOver(mouseX, mouseY) && scrollY != 0) {
-                field.box().step(scrollY);
+        for (NumberBox box : boxes) {
+            if (box.isMouseOver(mouseX, mouseY) && scrollY != 0) {
+                box.step(scrollY);
                 return true;
             }
         }
-        if (menu.hasFilter() && menu.pageCount() > 1 && scrollY != 0
-                && isHovering(FILTER_L, PANEL_TOP, FILTER_R - FILTER_L, PANEL_BOTTOM - PANEL_TOP, mouseX, mouseY)) {
-            int target = menu.page() + (scrollY < 0 ? 1 : -1);
-            if (target >= 0 && target < menu.pageCount()) {
-                press(scrollY < 0 ? PipeMenu.BTN_NEXT_PAGE : PipeMenu.BTN_PREV_PAGE);
-            }
+        if (overList(mouseX, mouseY) && scrollY != 0) {
+            ruleScroll = clampScroll(ruleScroll + (scrollY < 0 ? 1 : -1), items().size());
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollY);
     }
 
+    /** Clear filter: a second click within three seconds, or Shift + click, removes every rule. */
+    private void clickClear() {
+        if (hasShiftDown() || clearArmed()) {
+            clearArmedUntil = 0;
+            press(PipeMenu.BTN_CLEAR);
+        } else {
+            clearArmedUntil = Util.getMillis() + 3000;
+        }
+    }
+
+    private boolean clearArmed() {
+        return Util.getMillis() < clearArmedUntil;
+    }
+
+    // ---- side tabs ----------------------------------------------------------------------------------------
+
+    @Nullable
+    private Direction tabAt(double mouseX, double mouseY) {
+        for (int i = 0; i < TAB_ORDER.length; i++) {
+            int x = leftPos + 40 + i * 16;
+            if (Ui.in(mouseX, mouseY, x, topPos + TABS_Y, x + 13, topPos + TABS_Y + 13)) return TAB_ORDER[i];
+        }
+        return null;
+    }
+
+    private Conn conn(Direction dir) {
+        if (minecraft == null || minecraft.level == null) return Conn.NONE;
+        BlockState state = minecraft.level.getBlockState(menu.pos);
+        return state.getBlock() instanceof PipeBlock ? state.getValue(PipeBlock.prop(dir)) : Conn.NONE;
+    }
+
+    private boolean tabOpens(Direction dir) {
+        return conn(dir).isEndpoint();
+    }
+
+    private void renderTabs(GuiGraphics g, int mouseX, int mouseY) {
+        Ui.text(g, font, Component.translatable("gui.flowline.tabs"), leftPos + 8, topPos + TABS_Y + 3, Theme.MUTED);
+        for (int i = 0; i < TAB_ORDER.length; i++) {
+            Direction dir = TAB_ORDER[i];
+            int l = leftPos + 40 + i * 16, t = topPos + TABS_Y, r = l + 13, b = t + 13;
+            Conn conn = conn(dir);
+            boolean current = dir == menu.side;
+            Component letter = Component.translatable("gui.flowline.tab." + dir.getName());
+            int color = Theme.TEXT;
+            if (current) {
+                g.fill(l, t, r, b, accent);
+                color = Theme.ON_ACCENT;
+            } else {
+                if (conn.isEndpoint() && Ui.in(mouseX, mouseY, l, t, r, b)) g.fill(l, t, r, b, Theme.HOVER);
+                switch (conn) {
+                    case EXTRACT -> {
+                        Ui.frame(g, l, t, r, b, Theme.TEXT);
+                        Ui.frame(g, l + 1, t + 1, r - 1, b - 1, Theme.TEXT);
+                    }
+                    case ENDPOINT -> Ui.frame(g, l, t, r, b, Theme.EDGE);
+                    case PIPE -> {
+                        Ui.dashed(g, l, t, r, b, Theme.MUTED, 1);
+                        color = Theme.MUTED;
+                    }
+                    case NONE -> {
+                        Ui.dashed(g, l, t, r, b, Theme.LINE, 2);
+                        color = Theme.MUTED;
+                    }
+                }
+            }
+            Ui.textCentered(g, font, letter, l + 7, t + 3, color);
+        }
+    }
+
+    private List<Component> tabTooltip(Direction dir) {
+        Conn conn = conn(dir);
+        String state = switch (conn) {
+            case EXTRACT -> "gui.flowline.tab.extract";
+            case ENDPOINT -> "gui.flowline.tab.insert";
+            case PIPE -> "gui.flowline.tab.pipe";
+            case NONE -> "gui.flowline.tab.none";
+        };
+        List<Component> tip = new ArrayList<>();
+        tip.add(Component.translatable("gui.flowline.side_line", Component.translatable("direction.flowline." + dir.getName())));
+        tip.add(Component.translatable(state).withStyle(ChatFormatting.GRAY));
+        if (dir == menu.side) {
+            tip.add(Component.translatable("gui.flowline.tab.current").withStyle(ChatFormatting.DARK_GRAY));
+        } else if (conn.isEndpoint()) {
+            tip.add(Component.translatable("gui.flowline.tab.open").withStyle(ChatFormatting.DARK_GRAY));
+        }
+        return tip;
+    }
+
     // ---- rendering ----------------------------------------------------------------------------------------
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        boolean filter = menu.hasFilter();
-        clearButton.visible = filter;
-        boolean paged = filter && menu.pageCount() > 1;
-        prevPageButton.visible = paged;
-        nextPageButton.visible = paged;
-        prevPageButton.active = menu.page() > 0;
-        nextPageButton.active = menu.page() < menu.pageCount() - 1;
-        fields.forEach(field -> field.box().follow());
-
-        renderBackground(graphics);
-        super.render(graphics, mouseX, mouseY, partialTick);
-        renderTooltip(graphics, mouseX, mouseY);
-        renderButtonTooltips(graphics, mouseX, mouseY);
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        boxes.forEach(NumberBox::follow);
+        if (clearButton != null) clearButton.visible = menu.ruleCount() > 0;
+        renderBackground(g);
+        super.render(g, mouseX, mouseY, partialTick);
+        renderTooltips(g, mouseX, mouseY);
     }
 
     @Override
-    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
-        int l = leftPos, t = topPos, r = leftPos + imageWidth, b = topPos + imageHeight;
-
-        // window with clipped corners and an accent strip on top
-        graphics.fill(l + 1, t - 1, r - 1, b + 1, BG_EDGE);
-        graphics.fill(l - 1, t + 1, r + 1, b - 1, BG_EDGE);
-        graphics.fill(l, t, r, b, BG);
-        graphics.fill(l + 1, t, r - 1, t + 2, accent);
-
-        panel(graphics, SETTINGS_L, SETTINGS_R);
-        panel(graphics, FILTER_L, FILTER_R);
-        panel(graphics, UPGRADE_L, UPGRADE_R);
-        graphics.fill(l + SETTINGS_L, t + VALUES_TOP, l + UPGRADE_R, t + VALUES_BOTTOM, PANEL_EDGE);
-        graphics.fill(l + SETTINGS_L + 1, t + VALUES_TOP + 1, l + UPGRADE_R - 1, t + VALUES_BOTTOM - 1, PANEL);
-
-        for (Slot slot : menu.slots) {
-            if (!slot.isActive()) continue;
-            int x = l + slot.x;
-            int y = t + slot.y;
-            boolean upgrade = slot instanceof PipeMenu.UpgradeSlot;
-            graphics.fill(x - 1, y - 1, x + 17, y + 17, upgrade && slot.hasItem() ? accent : SLOT_EDGE);
-            graphics.fill(x, y, x + 16, y + 16, SLOT);
+    protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
+        int l = leftPos, t = topPos;
+        Ui.window(g, l, t, l + W, t + H);
+        g.fill(l + 6, t + TABS_Y - 3, l + W - 6, t + TABS_Y - 2, Theme.LINE);
+        g.fill(l + 6, t + TABS_Y + 15, l + W - 6, t + TABS_Y + 16, Theme.LINE);
+        Ui.panel(g, l + LEFT_L, t + BODY_T, l + settingsRight(), t + BODY_B);
+        if (menu.hasFilter()) Ui.panel(g, l + RIGHT_L, t + BODY_T, l + RIGHT_R, t + BODY_B);
+        for (NumberBox box : boxes) {
+            Ui.well(g, box.getX() - 3, box.getY() - 2, box.getX() + box.getWidth() + 3, box.getY() + box.getHeight() - 2);
         }
+        for (Slot slot : menu.slots) {
+            int x = l + slot.x, y = t + slot.y;
+            boolean filledUpgrade = slot instanceof PipeMenu.UpgradeSlot && slot.hasItem();
+            g.fill(x - 1, y - 1, x + 17, y + 17, filledUpgrade ? accent : Theme.LINE);
+            g.fill(x, y, x + 16, y + 16, Theme.SLOT);
+        }
+        g.renderItem(pipeStack(), l + 8, t + 5);
+        renderTabs(g, mouseX, mouseY);
+        if (menu.hasFilter()) renderRules(g, mouseX, mouseY);
+    }
 
-        // header icon
-        graphics.renderItem(pipeStack(), l + 6, t + 6);
-
-        if (!menu.hasFilter()) {
-            int cx = l + (FILTER_L + FILTER_R) / 2;
-            smallCentered(graphics, Component.translatable("gui.flowline.no_filter"), cx, t + 66, MUTED);
-        } else if (menu.pageCount() > 1) {
-            // page dots in the strip right of the grid
-            int x = l + FILTER_R - 4;
-            for (int i = 0; i < menu.pageCount(); i++) {
-                int y = t + PipeMenu.FILTER_Y + 2 + i * 5;
-                graphics.fill(x, y, x + 2, y + 3, i == menu.page() ? accent : PANEL_EDGE);
+    @Override
+    protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
+        renderHeader(g);
+        int right = settingsRight();
+        for (Line line : lines) {
+            if (line.row()) {
+                Ui.text(g, font, Ui.fit(font, line.text().getString(), right - 4 - VALUE_W - LEFT_L - 8),
+                        LEFT_L + 4, line.y() + 2, Theme.TEXT);
+            } else {
+                Ui.text(g, font, line.text(), LEFT_L + 4, line.y() + 1, Theme.MUTED);
+                g.fill(LEFT_L + 3, line.y() + 9, right - 3, line.y() + 10, Theme.LINE);
             }
         }
+        if (menu.hasFilter()) renderFilterHeader(g);
+        renderUpgradeText(g);
     }
 
-    private void panel(GuiGraphics graphics, int left, int right) {
-        int l = leftPos + left, r = leftPos + right, t = topPos + PANEL_TOP, b = topPos + PANEL_BOTTOM;
+    private void renderHeader(GuiGraphics g) {
+        Component badge;
+        Component reason;
+        boolean working = false;
+        if (menu.extracting()) {
+            SideStatus status = menu.status();
+            working = status == SideStatus.WORKING;
+            badge = Component.translatable("gui.flowline.status." + key(status));
+            reason = switch (status) {
+                case WORKING -> Component.translatable("gui.flowline.status.pace", menu.interval(), amount());
+                case WAITING -> Component.translatable(menu.redstone() == RedstoneMode.PULSE
+                        ? "gui.flowline.status.waiting.pulse" : "gui.flowline.status.waiting.why");
+                default -> Component.translatable("gui.flowline.status." + key(status) + ".why");
+            };
+        } else {
+            badge = Component.translatable("gui.flowline.status.target");
+            reason = Component.translatable("gui.flowline.priority", menu.priority());
+        }
+        int badgeW = font.width(badge) + 10;
+        int badgeX = W - 8 - badgeW;
+        if (working) {
+            g.fill(badgeX, 5, badgeX + badgeW, 16, accent);
+            Ui.text(g, font, badge, badgeX + 5, 7, Theme.ON_ACCENT);
+        } else {
+            Ui.frame(g, badgeX, 5, badgeX + badgeW, 16, Theme.MUTED);
+            Ui.text(g, font, badge, badgeX + 5, 7, Theme.TEXT);
+        }
+        int reasonW = Math.min(font.width(reason), 120);
+        Ui.text(g, font, Ui.fit(font, reason.getString(), 120), W - 8 - reasonW, 17, Theme.MUTED);
 
-        graphics.fill(l, t, r, b, PANEL_EDGE);
-        graphics.fill(l + 1, t + 1, r - 1, b - 1, PANEL);
-    }
-
-    @Override
-    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        // header
+        int textW = Math.min(badgeX, W - 8 - reasonW) - 34;
         Component name = Component.translatable("block.flowline." + menu.type.getSerializedName() + "_pipe");
-        graphics.drawString(font, name, 26, 7, TEXT, false);
+        Ui.text(g, font, Ui.fit(font, name.getString(), textW), 28, 5, Theme.TEXT);
         Component sub = Component.translatable("gui.flowline.side_line",
-                Component.translatable("direction.flowline." + menu.side.getName()),
-                Component.translatable(menu.extracting() ? "mode.flowline.extract" : "mode.flowline.insert"));
-        small(graphics, sub, 26, 18, MUTED);
-
-        // badge: stack multiplier and current interval (extract), priority (insert)
-        String amount = menu.type.movesItems() ? Integer.toString(menu.itemsPerOperation())
-                : menu.type.movesFluids() ? buckets(menu.fluidPerOperation())
-                : menu.type.movesChemicals() ? buckets(menu.chemicalPerOperation())
-                : "x" + menu.multiplier();
-        String badge = !menu.extracting() ? "P " + menu.priority()
-                : menu.redstone() == com.knozyy.flowline.pipe.RedstoneMode.PULSE ? amount + " · ⚡"
-                : amount + " · " + (menu.sleeping() ? "zZ" : menu.interval() + "t");
-        badgeW = font.width(badge) + 8;
-        badgeX = imageWidth - 7 - badgeW;
-        boolean boosted = menu.extracting() ? menu.speedCount() > 0 || menu.stackCount() > 0 : menu.priority() != 0;
-        graphics.fill(badgeX, BADGE_Y, badgeX + badgeW, BADGE_Y + BADGE_H, boosted ? accent : PANEL_EDGE);
-        graphics.drawString(font, badge, badgeX + 4, BADGE_Y + 2, TEXT, false);
-
-        small(graphics, playerInventoryTitle, 8, inventoryLabelY, MUTED);
-
-        // panel captions
-        small(graphics, caption("gui.flowline.section.settings"), SETTINGS_L + 4, PANEL_TOP + 4, MUTED);
-        small(graphics, caption("gui.flowline.section.filter"), FILTER_L + 4, PANEL_TOP + 4, MUTED);
-        small(graphics, caption("gui.flowline.section.upgrade"), UPGRADE_L + 3, PANEL_TOP + 4, MUTED);
-        for (Field field : fields) small(graphics, caption(field.label()), field.x(), VALUES_TOP + 3, MUTED);
-        if (!channelButtons.isEmpty()) {
-            small(graphics, caption("gui.flowline.value.channels"), UPGRADE_R - 44, VALUES_TOP + 3, MUTED);
-        }
-
-        renderRuleMarks(graphics);
+                Component.translatable("direction.flowline." + menu.side.getName()))
+                .append(" · ")
+                .append(Component.translatable(menu.extracting() ? "mode.flowline.extract" : "mode.flowline.insert"));
+        Ui.text(g, font, Ui.fit(font, sub.getString(), textW), 28, 15, Theme.MUTED);
     }
 
-    /** Small marks over filter slots: "#" for tags, a purple corner for NBT, a red bar for blocking rules. */
-    private void renderRuleMarks(GuiGraphics graphics) {
-        graphics.pose().pushPose();
-        graphics.pose().translate(0, 0, 300);
-        for (Slot slot : menu.slots) {
-            if (!(slot instanceof PipeMenu.GhostSlot ghost) || !ghost.isActive()) continue;
-            FilterEntry entry = menu.clientEntry(ghost.getContainerSlot());
-            if (entry == null) continue;
-            int x = slot.x, y = slot.y;
-            if (entry.isFluidRule(menu.type)) FluidIcon.draw(graphics, entry.displayFluid(), x, y, 16);
-            if (!entry.tags().isEmpty()) {
-                small(graphics, Component.literal("#" + (entry.tags().size() > 1 ? entry.tags().size() : "")), x, y,
-                        0xFF7FD3FF);
-            } else if (entry.mod().isPresent()) {
-                small(graphics, Component.literal("@"), x, y, 0xFFFFC857);
+    /** What one operation moves, e.g. "16 items", "1000 mB" or "x16". */
+    private Component amount() {
+        if (menu.type.movesItems()) return Component.translatable("gui.flowline.amount.items", menu.itemsPerOperation());
+        if (menu.type.movesFluids()) return Component.translatable("gui.flowline.amount.mb", menu.fluidPerOperation());
+        if (menu.type.movesChemicals()) return Component.translatable("gui.flowline.amount.mb", menu.chemicalPerOperation());
+        return Component.translatable("gui.flowline.amount.energy", menu.multiplier());
+    }
+
+    private void renderFilterHeader(GuiGraphics g) {
+        int count = menu.ruleCount();
+        Ui.text(g, font, Component.translatable("gui.flowline.section.filter"), RIGHT_L + 4, BODY_T + 4, Theme.TEXT);
+        Component counter = Component.literal(count + " / " + menu.capacity());
+        Ui.textRight(g, font, counter, RIGHT_R - (count > 0 ? 18 : 5), BODY_T + 4, Theme.MUTED);
+        boolean allow = false, block = false;
+        for (Item item : items()) {
+            if (item.rule() == null) continue;
+            if (item.rule().invert()) block = true;
+            else allow = true;
+        }
+        String mode = allow ? "gui.flowline.filter.allow_only" : block ? "gui.flowline.filter.block_only"
+                : "gui.flowline.filter.none";
+        Ui.text(g, font, Ui.fit(font, Component.translatable(mode).getString(), RIGHT_R - RIGHT_L - 8),
+                RIGHT_L + 4, BODY_T + 14, Theme.MUTED);
+    }
+
+    private void renderRules(GuiGraphics g, int mouseX, int mouseY) {
+        int l = leftPos + RIGHT_L, r = leftPos + RIGHT_R, top = topPos + LIST_T;
+        List<Item> items = items();
+        if (items.isEmpty()) {
+            int b = topPos + BODY_B - 3;
+            boolean full = menu.firstFreeClient() < 0;
+            if (!full && overList(mouseX, mouseY)) g.fill(l + 3, top, r - 3, b, Theme.HOVER);
+            Ui.dashed(g, l + 3, top, r - 3, b, Theme.EDGE, 2);
+            int center = (l + r) / 2;
+            Ui.textCentered(g, font, Component.translatable(full ? "gui.flowline.filter.full"
+                    : "gui.flowline.filter.empty.title"), center, top + 22, Theme.TEXT);
+            if (!full) {
+                int lineY = top + 34;
+                for (var line : font.split(Component.translatable("gui.flowline.filter.empty.hint"), r - l - 16)) {
+                    g.drawString(font, line, center - font.width(line) / 2, lineY, Theme.MUTED, false);
+                    lineY += 10;
+                }
             }
-            if (entry.name().isPresent()) small(graphics, Component.literal("Aa"), x + 8, y + 9, 0xFF9CF0B0);
-            if (entry.hasDurability()) graphics.fill(x, y + 12, x + 2, y + 14, 0xFF4AE6F0);
-            if (entry.nbt().isPresent()) graphics.fill(x + 13, y, x + 16, y + 3, 0xFFB86BFF);
-            if (entry.invert()) graphics.fill(x, y + 14, x + 16, y + 16, 0xFFE04848);
+            return;
         }
-        graphics.pose().popPose();
+        ruleScroll = clampScroll(ruleScroll, items.size());
+        int visible = visibleRules();
+        for (int row = 0; row < visible && row + ruleScroll < items.size(); row++) {
+            Item item = items.get(row + ruleScroll);
+            int y = top + row * RULE_H;
+            boolean hover = Ui.in(mouseX, mouseY, l + 1, y, r - 1, y + RULE_H);
+            if (item.rule() == null) {
+                if (hover) g.fill(l + 3, y + 1, r - 6, y + RULE_H - 1, Theme.HOVER);
+                Ui.dashed(g, l + 3, y + 1, r - 6, y + RULE_H - 1, Theme.EDGE, 2);
+                Ui.textCentered(g, font, Component.translatable("gui.flowline.filter.add"), (l + r - 3) / 2, y + 7,
+                        Theme.MUTED);
+                continue;
+            }
+            if (hover) g.fill(l + 1, y, r - 1, y + RULE_H, Theme.HOVER);
+            if (row > 0) g.fill(l + 3, y, r - 6, y + 1, Theme.LINE);
+            int[] chip = chipRect(item.rule(), r, y);
+            renderRuleRow(g, item.rule(), l, r, y, Ui.in(mouseX, mouseY, chip[0], chip[1], chip[2], chip[3]));
+        }
+        Ui.scrollbar(g, r - 4, top, topPos + BODY_B - 2, ruleScroll, items.size(), visible, accent);
     }
 
-    private static Component caption(String key) {
-        return Component.literal(Component.translatable(key).getString().toUpperCase(Locale.ROOT));
+    private void renderRuleRow(GuiGraphics g, FilterEntry rule, int l, int r, int y, boolean chipHover) {
+        if (rule.isFluidRule(menu.type)) {
+            FluidIcon.draw(g, rule.displayFluid(), l + 3, y + 2, 16);
+        } else {
+            g.renderItem(rule.displayStack(menu.type, menu.registries()), l + 3, y + 2);
+        }
+        int[] chip = chipRect(rule, r, y);
+        if (chipHover) g.fill(chip[0] - 1, chip[1] - 1, chip[2] + 1, chip[3] + 1, accent);
+        Ui.chip(g, font, chipText(rule), chip[0], chip[1], rule.invert());
+        int textL = l + 23;
+        String title = RuleText.title(rule, menu.type, menu.registries()).getString();
+        Ui.text(g, font, Ui.fit(font, title, chip[0] - 4 - textL), textL, y + 2, Theme.TEXT);
+        String detail = RuleText.detail(rule, menu.type, menu.extracting()).getString();
+        Ui.text(g, font, Ui.fit(font, detail, r - 8 - textL), textL, y + 12, Theme.MUTED);
+    }
+
+    private static Component chipText(FilterEntry rule) {
+        return Component.translatable(rule.invert() ? "gui.flowline.chip.block" : "gui.flowline.chip.allow");
+    }
+
+    /** Screen rectangle of a rule row's Allow/Block chip, which switches the rule when clicked. */
+    private int[] chipRect(FilterEntry rule, int r, int y) {
+        int w = Ui.chipWidth(font, chipText(rule));
+        return new int[]{r - 7 - w, y + 1, r - 7, y + 12};
+    }
+
+    private void renderUpgradeText(GuiGraphics g) {
+        int installed = 0;
+        for (int i = 0; i < SideConfig.UPGRADE_SLOTS; i++) {
+            if (menu.slots.get(i).hasItem()) installed++;
+        }
+        int x = PipeMenu.UPGRADE_X - 1, width = RIGHT_R - x;
+        Ui.text(g, font, Ui.fit(font, Component.translatable("gui.flowline.upgrades.count", installed,
+                SideConfig.UPGRADE_SLOTS).getString(), width), x, UPGRADE_TEXT_Y, Theme.TEXT);
+        List<Component> effects = new ArrayList<>();
+        if (menu.extracting()) {
+            effects.add(Component.translatable("gui.flowline.upgrades.start", menu.startInterval()));
+            effects.add(Component.translatable("gui.flowline.upgrades.per_operation", amount()));
+        } else {
+            effects.add(Component.translatable("gui.flowline.upgrades.filter_only"));
+            if (menu.hasFilter()) effects.add(Component.translatable("gui.flowline.upgrades.rules", menu.capacity()));
+        }
+        for (int i = 0; i < effects.size(); i++) {
+            Ui.text(g, font, Ui.fit(font, effects.get(i).getString(), width), x, UPGRADE_TEXT_Y + 10 * (i + 1),
+                    Theme.MUTED);
+        }
     }
 
     private ItemStack pipeStack() {
@@ -387,23 +706,59 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
 
     // ---- tooltips -----------------------------------------------------------------------------------------
 
-    /** Filter slots describe their rule instead of the displayed item. */
-    @Override
-    protected void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (hoveredSlot instanceof PipeMenu.GhostSlot ghost && menu.getCarried().isEmpty()) {
-            graphics.renderComponentTooltip(font, ruleTooltip(menu.clientEntry(ghost.getContainerSlot())), mouseX, mouseY);
-            return;
+    private void renderTooltips(GuiGraphics g, int mouseX, int mouseY) {
+        List<Component> lines = hoveredTooltip(mouseX, mouseY);
+        if (lines != null) {
+            g.renderComponentTooltip(font, lines, mouseX, mouseY);
+        } else {
+            renderTooltip(g, mouseX, mouseY);
         }
-        super.renderTooltip(graphics, mouseX, mouseY);
     }
 
-    private List<Component> ruleTooltip(@Nullable FilterEntry entry) {
-        List<Component> lines = new ArrayList<>();
-        if (entry == null) {
-            lines.add(Component.translatable("gui.flowline.rule.empty"));
-            lines.add(Component.translatable("gui.flowline.rule.empty_hint").withStyle(ChatFormatting.GRAY));
-            return lines;
+    @Nullable
+    private List<Component> hoveredTooltip(int mouseX, int mouseY) {
+        for (Tip tip : tips) {
+            if (tip.widget().visible && tip.widget().isHovered()) return tip.lines().get();
         }
+        for (Line line : lines) {
+            if (line.row() && line.tip() != null && Ui.in(mouseX, mouseY, leftPos + LEFT_L, topPos + line.y(),
+                    leftPos + settingsRight() - VALUE_W - 4, topPos + line.y() + ROW_H)) {
+                return line.tip().get();
+            }
+        }
+        Direction tab = tabAt(mouseX, mouseY);
+        if (tab != null) return tabTooltip(tab);
+        if (Ui.in(mouseX, mouseY, leftPos + W - 130, topPos + 4, leftPos + W - 6, topPos + 26)) {
+            return menu.extracting() ? pacingTooltip() : List.of(
+                    Component.translatable("gui.flowline.priority", menu.priority()),
+                    Component.translatable("gui.flowline.value.priority.desc").withStyle(ChatFormatting.GRAY));
+        }
+        if (menu.getCarried().isEmpty() && overList(mouseX, mouseY)) {
+            Item item = itemAt(mouseX, mouseY);
+            if (item != null && item.rule() != null && overChip(mouseX, mouseY, item)) {
+                return List.of(chipText(item.rule()),
+                        Component.translatable("gui.flowline.chip.toggle").withStyle(ChatFormatting.GRAY));
+            }
+            if (item != null && item.rule() != null) return ruleTooltip(item.rule());
+            if (item != null) {
+                return List.of(Component.translatable(menu.firstFreeClient() < 0 ? "gui.flowline.filter.full"
+                                : "gui.flowline.filter.add"),
+                        Component.translatable("gui.flowline.rule.empty_hint").withStyle(ChatFormatting.GRAY));
+            }
+        }
+        if (Ui.in(mouseX, mouseY, leftPos + PipeMenu.UPGRADE_X - 1, topPos + UPGRADE_TEXT_Y,
+                leftPos + RIGHT_R, topPos + UPGRADE_TEXT_Y + 30)) {
+            return upgradeLegend();
+        }
+        if (hoveredSlot instanceof PipeMenu.UpgradeSlot && !hoveredSlot.hasItem() && menu.getCarried().isEmpty()) {
+            return List.of(Component.translatable("gui.flowline.upgrade_slot"),
+                    Component.translatable("gui.flowline.upgrade_slot.desc").withStyle(ChatFormatting.GRAY));
+        }
+        return null;
+    }
+
+    private List<Component> ruleTooltip(FilterEntry entry) {
+        List<Component> lines = new ArrayList<>();
         if (entry.item().isPresent() && entry.isFluidRule(menu.type)) {
             lines.add(entry.displayFluid().getFluidType().getDescription().copy());
             lines.add(Component.literal(entry.item().get()).withStyle(ChatFormatting.DARK_GRAY));
@@ -434,7 +789,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                     .withStyle(ChatFormatting.GRAY));
             int shown = Math.min(6, entry.tags().size());
             for (int i = 0; i < shown; i++) {
-                lines.add(Component.literal("  #" + entry.tags().get(i)).withStyle(s -> s.withColor(accent)));
+                lines.add(Component.literal("  #" + entry.tags().get(i)).withStyle(ChatFormatting.WHITE));
             }
             if (entry.tags().size() > shown) {
                 lines.add(Component.translatable("gui.flowline.rule.more", entry.tags().size() - shown)
@@ -452,73 +807,6 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                 : Component.translatable("gui.flowline.rule.allows").withStyle(ChatFormatting.GREEN));
         lines.add(Component.translatable("gui.flowline.rule.hint").withStyle(ChatFormatting.DARK_GRAY));
         return lines;
-    }
-
-    private void renderButtonTooltips(GuiGraphics graphics, int mouseX, int mouseY) {
-        List<Component> lines = null;
-        for (Field field : fields) {
-            if (field.box().isHovered()) {
-                lines = List.of(Component.translatable(field.label()),
-                        Component.translatable(field.help()).withStyle(ChatFormatting.GRAY),
-                        Component.translatable("gui.flowline.value.hint").withStyle(ChatFormatting.DARK_GRAY));
-            }
-        }
-        for (int i = 0; i < channelButtons.size(); i++) {
-            if (channelButtons.get(i).isHovered()) {
-                boolean on = (menu.channels() & (1 << i)) != 0;
-                lines = List.of(Component.translatable("gui.flowline.channel." + i),
-                        Component.translatable(on ? "gui.flowline.channel.on" : "gui.flowline.channel.off")
-                                .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED));
-            }
-        }
-        if (lines != null) {
-            graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
-            return;
-        }
-        if (redstoneButton.visible && redstoneButton.isHovered()) {
-            lines = describe("gui.flowline.redstone", "redstone.flowline." + key(menu.redstone()), true);
-        } else if (distributionButton.visible && distributionButton.isHovered()) {
-            lines = describe("gui.flowline.distribution", "distribution.flowline." + key(menu.distribution()), true);
-        } else if (prevPageButton.visible && (prevPageButton.isHovered() || nextPageButton.isHovered())) {
-            lines = List.of(Component.translatable("gui.flowline.filter_page", menu.page() + 1, menu.pageCount()),
-                    Component.translatable("gui.flowline.filter_capacity", menu.capacity())
-                            .withStyle(ChatFormatting.GRAY));
-        } else if (signalButton.visible && signalButton.isHovered()) {
-            lines = describe("gui.flowline.signal", "signal.flowline." + key(menu.signal()), true);
-        } else if (overflowButton.visible && overflowButton.isHovered()) {
-            lines = List.of(Component.translatable(menu.overflow() ? "gui.flowline.overflow.on" : "gui.flowline.overflow.off"),
-                    Component.translatable("gui.flowline.overflow.desc").withStyle(ChatFormatting.GRAY));
-        } else if (clearButton.visible && clearButton.isHovered()) {
-            lines = clearArmed()
-                    ? List.of(Component.translatable("gui.flowline.clear.confirm").withStyle(ChatFormatting.RED))
-                    : List.of(Component.translatable("gui.flowline.clear"),
-                            Component.translatable("gui.flowline.clear.desc").withStyle(ChatFormatting.GRAY),
-                            Component.translatable("gui.flowline.clear.how").withStyle(ChatFormatting.DARK_GRAY));
-        } else if (upgradeHelp.isHovered()) {
-            lines = upgradeLegend();
-        } else if (isHovering(badgeX, BADGE_Y, badgeW, BADGE_H, mouseX, mouseY)) {
-            lines = menu.extracting() ? pacingTooltip() : List.of(
-                    Component.translatable("gui.flowline.priority", menu.priority()),
-                    Component.translatable("gui.flowline.value.priority.desc").withStyle(ChatFormatting.GRAY));
-        } else if (hoveredSlot instanceof PipeMenu.UpgradeSlot && !hoveredSlot.hasItem() && menu.getCarried().isEmpty()) {
-            lines = List.of(Component.translatable("gui.flowline.upgrade_slot"),
-                    Component.translatable("gui.flowline.upgrade_slot.desc").withStyle(ChatFormatting.GRAY));
-        }
-        if (lines != null) graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
-    }
-
-    /** Clear filter: a second click within three seconds, or Shift + click, removes every rule. */
-    private void clickClear() {
-        if (hasShiftDown() || clearArmed()) {
-            clearArmedUntil = 0;
-            press(PipeMenu.BTN_CLEAR);
-        } else {
-            clearArmedUntil = Util.getMillis() + 3000;
-        }
-    }
-
-    private boolean clearArmed() {
-        return Util.getMillis() < clearArmedUntil;
     }
 
     /** What each upgrade does, and what the installed ones add up to on this side. */
@@ -550,8 +838,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable("gui.flowline.pacing.title"));
         lines.add(Component.translatable("gui.flowline.pacing.counts", menu.speedCount(), menu.stackCount(),
-                menu.filterCount())
-                .withStyle(ChatFormatting.GRAY));
+                menu.filterCount()).withStyle(ChatFormatting.GRAY));
         if (menu.type.movesItems()) {
             lines.add(Component.translatable("gui.flowline.pacing.items", menu.itemsPerOperation())
                     .withStyle(ChatFormatting.GRAY));
@@ -576,35 +863,11 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         return lines;
     }
 
-    /** "Label: Value", a grey description line and, when disabled, why. */
-    private List<Component> describe(String labelKey, String valueKey, boolean enabled) {
-        List<Component> lines = new ArrayList<>();
-        lines.add(Component.translatable(labelKey, Component.translatable(valueKey).withStyle(s -> s.withColor(accent))));
-        lines.add(Component.translatable(valueKey + ".desc").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.translatable("gui.flowline.cycle_hint").withStyle(ChatFormatting.DARK_GRAY));
-        return lines;
-    }
-
-    // ---- small text ---------------------------------------------------------------------------------------
-
-    private void small(GuiGraphics graphics, Component text, int x, int y, int color) {
-        graphics.pose().pushPose();
-        graphics.pose().translate(x, y, 0);
-        graphics.pose().scale(0.75f, 0.75f, 1f);
-        graphics.drawString(font, text, 0, 0, color, false);
-        graphics.pose().popPose();
-    }
-
-    private void smallCentered(GuiGraphics graphics, Component text, int centerX, int y, int color) {
-        List<FormattedCharSequence> lines = font.split(text, 76);
-        for (int i = 0; i < lines.size(); i++) {
-            FormattedCharSequence line = lines.get(i);
-            float w = font.width(line) * 0.75f;
-            graphics.pose().pushPose();
-            graphics.pose().translate(centerX - w / 2f, y + i * 8, 0);
-            graphics.pose().scale(0.75f, 0.75f, 1f);
-            graphics.drawString(font, line, 0, 0, color, false);
-            graphics.pose().popPose();
-        }
+    /** "Label: Value", a grey description line and how to cycle it. */
+    private List<Component> describe(String labelKey, String valueKey) {
+        return List.of(
+                Component.translatable(labelKey, Component.translatable(valueKey).withStyle(ChatFormatting.WHITE)),
+                Component.translatable(valueKey + ".desc").withStyle(ChatFormatting.GRAY),
+                Component.translatable("gui.flowline.cycle_hint").withStyle(ChatFormatting.DARK_GRAY));
     }
 }

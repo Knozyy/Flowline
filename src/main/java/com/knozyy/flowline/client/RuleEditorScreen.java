@@ -1,15 +1,21 @@
 package com.knozyy.flowline.client;
 
-import com.knozyy.flowline.util.Stacks;
+import com.knozyy.flowline.client.ui.FlatButton;
+import com.knozyy.flowline.client.ui.RuleText;
+import com.knozyy.flowline.client.ui.Theme;
+import com.knozyy.flowline.client.ui.Ui;
+import com.knozyy.flowline.filter.CompiledFilter;
 import com.knozyy.flowline.filter.FilterEntry;
 import com.knozyy.flowline.menu.PipeMenu;
+import com.knozyy.flowline.network.ModNetwork;
 import com.knozyy.flowline.network.SetFilterEntryPayload;
 import com.knozyy.flowline.pipe.PipeType;
+import com.knozyy.flowline.util.Stacks;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -25,7 +31,6 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import com.knozyy.flowline.network.ModNetwork;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
 import org.jetbrains.annotations.Nullable;
@@ -37,31 +42,34 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.IntConsumer;
+import java.util.function.Supplier;
 
 /**
- * The filter "library": pick a sample from the inventory, then tick the tags and data components a rule should
- * match. Opened from {@link PipeScreen} while the pipe menu stays open; closing it returns there.
+ * The filter "library": pick a sample from the inventory, then tick the tags and data a rule should match, and add
+ * mod, name, durability and amount conditions below. A summary line says what the rule does and whether the sample
+ * matches it. Opened from {@link PipeScreen} while the pipe menu stays open; closing it returns there.
  * <p>
  * It is a container screen over a slotless {@link Blank} menu only so that recipe viewers (JEI, EMI) show their
  * ingredient list beside it, which they do for container screens. The pipe's real menu stays open underneath and is
  * what rules are sent to; no slot of it is drawn or clicked here.
  */
 public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.Blank> {
-    private static final int W = 300, H = 270;
-    private static final int BG = 0xFF1E2229, BG_EDGE = 0xFF0E1014, PANEL = 0xFF262B33, PANEL_EDGE = 0xFF343A45;
-    private static final int SLOT = 0xFF14171C, SLOT_EDGE = 0xFF3A404C, TEXT = 0xFFE6E9EF, MUTED = 0xFF8A93A3;
-    private static final int ERROR = 0xFFFF6B6B, ROW_HOVER = 0xFF30363F;
-    private static final int ROW_H = 11;
+    private static final int W = 300, H = 234;
+    private static final int ROW_H = 10;
 
-    // column bounds, relative to the panel origin
-    private static final int BODY_T = 24, BODY_B = 126;
-    private static final int LEFT_L = 6, LEFT_R = 92, MID_L = 96, MID_R = 204, RIGHT_L = 208, RIGHT_R = 294;
-    private static final int TAG_LIST_T = 50, NBT_LIST_T = 38;
-    /** Row under the columns: mod, name pattern, durability range. */
-    private static final int EXTRA_T = 128, EXTRA_B = 152;
-    private static final int MOD_L = 6, MOD_R = 76, NAME_L = 80, NAME_R = 158, AMT_L = 162, AMT_R = 204;
-    private static final int DUR_L = 208, DUR_R = 294;
-    private static final int INV_Y = 190, HOTBAR_Y = 248, INV_X = (W - 9 * 18) / 2;
+    // section bounds, relative to the window origin
+    private static final int BODY_T = 22, BODY_B = 106;
+    private static final int LEFT_L = 6, LEFT_R = 80, MID_L = 84, MID_R = 210, RIGHT_L = 214, RIGHT_R = 294;
+    private static final int TAG_LIST_T = 48, TAG_LIST_B = 88, PREVIEW_Y = 91;
+    private static final int NBT_LIST_T = 36, NBT_LIST_B = 91;
+    /** Row under the sections: mod, name pattern, durability range, amount. */
+    private static final int EXTRA_T = 109, EXTRA_B = 123;
+    private static final int MOD_L = 6, MOD_R = 70, NAME_L = 74, NAME_R = 160, DUR_L = 164, DUR_R = 228;
+    private static final int AMT_L = 232, AMT_R = 294;
+    private static final int SUMMARY_T = 127, SUMMARY_B = 150;
+    private static final int INV_Y = 155, HOTBAR_Y = 213, INV_X = (W - 9 * 18) / 2;
+    private static final int PREVIEW_ICONS = 8, PREVIEW_STEP = 13;
 
     private final PipeScreen parent;
     /** The pipe's open menu (hides the container screen's own {@code menu}, which is the {@link Blank}). */
@@ -96,10 +104,15 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     private boolean nbtTextValid = true;
     private int tagScroll = 0;
     private int nbtScroll = 0;
-    private final List<TagRow> tagRows = new ArrayList<>();
-    private final List<NbtRow> nbtRows = new ArrayList<>();
+    private final List<ResourceLocation> tagRows = new ArrayList<>();
+    private final List<String> nbtRows = new ArrayList<>();
+    /** The last tag hovered, previewed while no tag is ticked, so the mouse can still reach its items. */
     @Nullable
-    private ResourceLocation hoveredTag;
+    private ResourceLocation lastHoveredTag;
+    /** What the preview shows, and which tags it was built from. */
+    private String previewKey = "";
+    private List<ItemStack> previewMembers = List.of();
+    private int previewTotal = 0;
 
     private int left, top;
     private EditBox itemBox;
@@ -110,13 +123,15 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     private EditBox minBox;
     private EditBox maxBox;
     private MultiLineEditBox nbtText;
-    private Button saveButton;
-    private Button anyAllButton;
-    private IconButton exactButton;
+    private FlatButton saveButton;
+    private FlatButton anyAllButton;
+    private FlatButton exactButton;
+    private final List<EditBox> fields = new ArrayList<>();
+    private final List<Tip> tips = new ArrayList<>();
+    /** False while {@link #init} builds the widgets: field responders fire on their first value, before the rest exists. */
+    private boolean ready = false;
 
-    private record TagRow(ResourceLocation id) {}
-
-    private record NbtRow(String key) {}
+    private record Tip(AbstractWidget widget, Supplier<List<Component>> lines) {}
 
     /** A menu without slots, so the container screen machinery has nothing to draw, click or sync. */
     public static final class Blank extends AbstractContainerMenu {
@@ -172,111 +187,165 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     @Override
     protected void init() {
         super.init();
+        ready = false;
         left = leftPos;
         top = topPos;
+        fields.clear();
+        tips.clear();
 
         // header
-        addRenderableWidget(new IconButton(left + 132, top + 4, 14, () -> invert ? "blacklist" : "whitelist", accent,
-                b -> invert = !invert));
-        IconButton delete = addRenderableWidget(new IconButton(left + 150, top + 4, 14, () -> "clear", accent, b -> {
+        FlatButton allow = addRenderableWidget(new FlatButton(left + 112, top + 4, 32, 13,
+                () -> Component.translatable("gui.flowline.chip.allow"), accent, b -> setInvert(false))
+                .style(() -> invert ? FlatButton.Style.PLAIN : FlatButton.Style.SELECTED));
+        FlatButton block = addRenderableWidget(new FlatButton(left + 144, top + 4, 40, 13,
+                () -> Component.translatable("gui.flowline.chip.block"), accent, b -> setInvert(true))
+                .style(() -> invert ? FlatButton.Style.SELECTED : FlatButton.Style.PLAIN));
+        tips.add(new Tip(allow, () -> List.of(Component.translatable("gui.flowline.editor.allow"),
+                Component.translatable("gui.flowline.editor.allow.desc").withStyle(ChatFormatting.GRAY))));
+        tips.add(new Tip(block, () -> List.of(Component.translatable("gui.flowline.editor.block"),
+                Component.translatable("gui.flowline.editor.block.desc").withStyle(ChatFormatting.GRAY))));
+        IconButton delete = addRenderableWidget(new IconButton(left + 189, top + 4, 13, () -> "clear", accent, b -> {
             send(null);
             onClose();
         }));
-        delete.active = existing;
-        if (menu.type == PipeType.UNIVERSAL) {
-            addRenderableWidget(new IconButton(left + 114, top + 4, 14, () -> fluidRule ? "rule_fluid" : "rule_item", accent,
-                    b -> setFluidRule(!fluidRule)));
-        }
-        addRenderableWidget(Button.builder(Component.translatable("gui.flowline.editor.cancel"), b -> onClose())
-                .bounds(left + W - 94, top + 4, 40, 14).build());
-        saveButton = addRenderableWidget(Button.builder(Component.translatable("gui.flowline.editor.save"), b -> save())
-                .bounds(left + W - 50, top + 4, 44, 14).build());
+        delete.visible = existing;
+        tips.add(new Tip(delete, () -> List.of(Component.translatable("gui.flowline.editor.delete"))));
+        addRenderableWidget(new FlatButton(left + 206, top + 4, 42, 13,
+                () -> Component.translatable("gui.flowline.editor.cancel"), accent, b -> onClose()));
+        saveButton = addRenderableWidget(new FlatButton(left + 252, top + 4, 42, 13,
+                () -> Component.translatable("gui.flowline.editor.save"), accent, b -> save())
+                .style(FlatButton.Style.PRIMARY));
 
-        // item
-        itemBox = addRenderableWidget(new EditBox(font, left + LEFT_L + 3, top + 106, LEFT_R - LEFT_L - 6, 12,
-                Component.empty()));
-        itemBox.setMaxLength(256);
-        itemBox.setHint(Component.literal(type == PipeType.FLUID ? "minecraft:water" : "minecraft:stone")
-                .withStyle(ChatFormatting.DARK_GRAY));
-        itemBox.setValue(itemId);
-        itemBox.setResponder(value -> {
+        // sample
+        if (menu.type == PipeType.UNIVERSAL) {
+            FlatButton kind = addRenderableWidget(new FlatButton(left + LEFT_R - 33, top + BODY_T + 2, 30, 11,
+                    () -> Component.translatable(fluidRule ? "gui.flowline.editor.kind_fluid_short"
+                            : "gui.flowline.editor.kind_item_short"), accent, b -> setFluidRule(!fluidRule)));
+            tips.add(new Tip(kind, () -> List.of(
+                    Component.translatable(fluidRule ? "gui.flowline.rule.kind_fluid" : "gui.flowline.rule.kind_item"),
+                    Component.translatable("gui.flowline.editor.kind.desc").withStyle(ChatFormatting.GRAY))));
+        }
+        itemBox = field(LEFT_L + 3, 92, LEFT_R - LEFT_L - 6, 256, "", value -> {
             itemId = value;
             validate();
         });
+        itemBox.setValue(itemId);
+        updateItemHint();
 
         // tags
-        searchBox = addRenderableWidget(new EditBox(font, left + MID_L + 3, top + 36, MID_R - MID_L - 6, 12,
-                Component.empty()));
-        searchBox.setMaxLength(128);
-        searchBox.setHint(Component.translatable("gui.flowline.library.search").withStyle(ChatFormatting.DARK_GRAY));
-        searchBox.setValue(search);
-        searchBox.setResponder(value -> {
+        anyAllButton = addRenderableWidget(new FlatButton(left + MID_R - 52, top + BODY_T + 2, 48, 11,
+                () -> Component.translatable(allTags ? "gui.flowline.library.all_short" : "gui.flowline.library.any_short"),
+                accent, b -> {
+                    allTags = !allTags;
+                    validate();
+                }));
+        tips.add(new Tip(anyAllButton, () -> List.of(
+                Component.translatable(allTags ? "gui.flowline.library.all" : "gui.flowline.library.any"),
+                Component.translatable(allTags ? "gui.flowline.library.all.desc" : "gui.flowline.library.any.desc")
+                        .withStyle(ChatFormatting.GRAY))));
+        searchBox = field(MID_L + 3, 34, MID_R - MID_L - 6, 128, Component.translatable("gui.flowline.library.search")
+                .getString(), value -> {
             search = value.trim().toLowerCase(Locale.ROOT);
             tagScroll = 0;
             rebuildTagRows();
         });
-        anyAllButton = addRenderableWidget(Button.builder(Component.empty(), b -> allTags = !allTags)
-                .bounds(left + MID_R - 30, top + 24, 27, 11).build());
+        searchBox.setValue(search);
 
-        // data components
-        exactButton = addRenderableWidget(new IconButton(left + RIGHT_R - 26, top + 24, 11,
-                () -> exact ? "match_components" : "ignore_components", accent, b -> exact = !exact));
-        addRenderableWidget(new IconButton(left + RIGHT_R - 14, top + 24, 11, () -> textMode ? "page_prev" : "page_next",
-                accent, b -> setTextMode(!textMode)));
+        // data
+        exactButton = addRenderableWidget(new FlatButton(left + RIGHT_R - 41, top + BODY_T + 2, 38, 11,
+                () -> Component.translatable(exact ? "gui.flowline.editor.exact_short" : "gui.flowline.editor.contains_short"),
+                accent, b -> {
+                    exact = !exact;
+                    validate();
+                }));
+        tips.add(new Tip(exactButton, () -> List.of(
+                Component.translatable(exact ? "gui.flowline.editor.exact" : "gui.flowline.editor.contains"),
+                Component.translatable(exact ? "gui.flowline.editor.exact.desc" : "gui.flowline.editor.contains.desc")
+                        .withStyle(ChatFormatting.GRAY))));
+        FlatButton textToggle = addRenderableWidget(new FlatButton(left + RIGHT_L + 3, top + NBT_LIST_B + 2,
+                RIGHT_R - RIGHT_L - 6, 11, () -> Component.translatable(textMode ? "gui.flowline.library.list_short"
+                : "gui.flowline.library.text_short"), accent, b -> setTextMode(!textMode)));
+        tips.add(new Tip(textToggle, () -> List.of(Component.translatable(
+                textMode ? "gui.flowline.library.list_mode" : "gui.flowline.library.text_mode"))));
         nbtText = addRenderableWidget(new MultiLineEditBox(font, left + RIGHT_L + 2, top + NBT_LIST_T,
-                RIGHT_R - RIGHT_L - 4, BODY_B - NBT_LIST_T - 2, Component.literal("{}"), Component.empty()));
+                RIGHT_R - RIGHT_L - 4, NBT_LIST_B - NBT_LIST_T - 1, Component.literal("{}"), Component.empty()));
         nbtText.setCharacterLimit(4096);
         nbtText.setValueListener(this::onNbtText);
         setTextMode(textMode);
 
-        // mod, name, durability
-        modBox = addRenderableWidget(new EditBox(font, left + MOD_L + 3, top + EXTRA_T + 11, MOD_R - MOD_L - 6, 12,
-                Component.empty()));
-        modBox.setMaxLength(64);
-        modBox.setHint(Component.literal("minecraft").withStyle(ChatFormatting.DARK_GRAY));
-        modBox.setValue(mod);
-        modBox.setResponder(value -> {
+        // extra conditions
+        modBox = field(MOD_L, EXTRA_T, MOD_R - MOD_L, 64, "@mod", value -> {
             mod = value.trim().startsWith("@") ? value.trim().substring(1) : value.trim();
             validate();
         });
-        nameBox = addRenderableWidget(new EditBox(font, left + NAME_L + 3, top + EXTRA_T + 11, NAME_R - NAME_L - 6, 12,
-                Component.empty()));
-        nameBox.setMaxLength(FilterEntry.MAX_TEXT);
-        nameBox.setHint(Component.literal("ingot|gem").withStyle(ChatFormatting.DARK_GRAY));
+        modBox.setValue(mod);
+        nameBox = field(NAME_L, EXTRA_T, NAME_R - NAME_L, FilterEntry.MAX_TEXT,
+                Component.translatable("gui.flowline.library.name_hint").getString(), value -> {
+                    name = value;
+                    validate();
+                });
         nameBox.setValue(name);
-        nameBox.setResponder(value -> {
-            name = value;
-            validate();
-        });
-        amountBox = addRenderableWidget(new EditBox(font, left + AMT_L + 3, top + EXTRA_T + 11, AMT_R - AMT_L - 6, 12,
-                Component.empty()));
-        amountBox.setMaxLength(9);
+        minBox = percentBox(DUR_L, minDurability, value -> minDurability = value);
+        maxBox = percentBox(DUR_L + 32, maxDurability, value -> maxDurability = value);
+        amountBox = field(AMT_L, EXTRA_T, AMT_R - AMT_L, 9,
+                Component.translatable("gui.flowline.library.amount_hint").getString(), text -> {
+                    amount = text.isEmpty() ? 0 : Integer.parseInt(text);
+                    validate();
+                });
         amountBox.setFilter(text -> text.matches("\\d{0,9}"));
-        amountBox.setHint(Component.literal("-").withStyle(ChatFormatting.DARK_GRAY));
         amountBox.setValue(amount == 0 ? "" : Integer.toString(amount));
-        amountBox.setResponder(text -> {
-            amount = text.isEmpty() ? 0 : Integer.parseInt(text);
-            validate();
-        });
-        minBox = addRenderableWidget(percentBox(DUR_L + 3, minDurability, value -> minDurability = value));
-        maxBox = addRenderableWidget(percentBox(DUR_L + 49, maxDurability, value -> maxDurability = value));
+        tips.add(new Tip(modBox, () -> List.of(Component.translatable("gui.flowline.library.mod"),
+                Component.translatable("gui.flowline.library.mod.desc").withStyle(ChatFormatting.GRAY))));
+        tips.add(new Tip(nameBox, () -> List.of(Component.translatable("gui.flowline.library.name"),
+                Component.translatable("gui.flowline.library.name.desc").withStyle(ChatFormatting.GRAY))));
+        Supplier<List<Component>> durabilityTip = () -> List.of(Component.translatable("gui.flowline.library.durability"),
+                Component.translatable("gui.flowline.library.durability.desc").withStyle(ChatFormatting.GRAY));
+        tips.add(new Tip(minBox, durabilityTip));
+        tips.add(new Tip(maxBox, durabilityTip));
+        tips.add(new Tip(amountBox, () -> List.of(Component.translatable("gui.flowline.library.amount"),
+                Component.translatable(menu.extracting() ? "gui.flowline.library.amount.keep"
+                        : "gui.flowline.library.amount.max").withStyle(ChatFormatting.GRAY))));
 
         rebuildTagRows();
         rebuildNbtRows();
         updateKindWidgets();
+        ready = true;
         validate();
     }
 
-    private EditBox percentBox(int x, int value, java.util.function.IntConsumer setter) {
-        EditBox box = new EditBox(font, left + x, top + EXTRA_T + 11, 32, 12, Component.empty());
-        box.setMaxLength(3);
-        box.setFilter(text -> text.matches("\\d{0,3}"));
-        box.setValue(Integer.toString(value));
-        box.setResponder(text -> {
+    /** A borderless text field drawn inside a well spanning {@code x..x+width} from {@code y} (11 high). */
+    private EditBox field(int x, int y, int width, int maxLength, String hint, java.util.function.Consumer<String> responder) {
+        EditBox box = addRenderableWidget(new EditBox(font, left + x + 3, top + y + 2, width - 6, 10, Component.empty()));
+        box.setBordered(false);
+        box.setMaxLength(maxLength);
+        box.setTextColor(Theme.TEXT);
+        if (!hint.isEmpty()) box.setHint(hint(hint));
+        box.setResponder(responder);
+        fields.add(box);
+        return box;
+    }
+
+    private static Component hint(String text) {
+        return Component.literal(text).withStyle(style -> style.withColor(Theme.MUTED & 0xFFFFFF).withItalic(true));
+    }
+
+    private EditBox percentBox(int x, int value, IntConsumer setter) {
+        EditBox box = field(x, EXTRA_T, 24, 3, "", text -> {
             setter.accept(text.isEmpty() ? 0 : Math.min(100, Integer.parseInt(text)));
             validate();
         });
+        box.setFilter(text -> text.matches("\\d{0,3}"));
+        box.setValue(Integer.toString(value));
         return box;
+    }
+
+    private void setInvert(boolean value) {
+        invert = value;
+        validate();
+    }
+
+    private void updateItemHint() {
+        itemBox.setHint(hint(fluidRule ? "minecraft:water" : "minecraft:stone"));
     }
 
     /** Universal pipes: switch the rule between items and fluids. The sample and item-specific parts are reset. */
@@ -290,13 +359,17 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
         sample = ItemStack.EMPTY;
         sampleTags = List.of();
         sampleData = new CompoundTag();
+        lastHoveredTag = null;
+        previewKey = "";
+        previewMembers = List.of();
+        previewTotal = 0;
         if (fluid) {
             minDurability = 0;
             maxDurability = 100;
             minBox.setValue("0");
             maxBox.setValue("100");
         }
-        itemBox.setHint(Component.literal(fluid ? "minecraft:water" : "minecraft:stone").withStyle(ChatFormatting.DARK_GRAY));
+        updateItemHint();
         rebuildTagRows();
         rebuildNbtRows();
         updateKindWidgets();
@@ -353,8 +426,8 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     // ---- recipe viewer drag and drop -----------------------------------------------------------------------
 
     /**
-     * Where an item or fluid dragged from JEI or EMI can be dropped: the sample column (becomes the sample and the
-     * rule's item), the tag list (becomes the sample so its tags are listed to tick) and the mod box (its mod).
+     * Where an item or fluid dragged from JEI or EMI can be dropped: the sample section (becomes the sample and the
+     * rule's item), the tag section (becomes the sample so its tags are listed to tick) and the mod box (its mod).
      */
     public List<GhostTargets.Slot> dropTargets(ItemStack item, FluidStack fluid) {
         List<GhostTargets.Slot> targets = new ArrayList<>();
@@ -396,18 +469,41 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
             FilterEntry.allTags(type).filter(id -> id.toString().contains(query)).sorted().limit(60)
                     .forEach(shown::add);
         }
-        for (ResourceLocation id : shown) tagRows.add(new TagRow(id));
+        tagRows.addAll(shown);
     }
 
     private void rebuildNbtRows() {
         nbtRows.clear();
         Set<String> keys = new LinkedHashSet<>(nbt.getAllKeys());
         keys.addAll(sampleData.getAllKeys());
-        for (String key : keys.stream().sorted().toList()) nbtRows.add(new NbtRow(key));
+        nbtRows.addAll(keys.stream().sorted().toList());
     }
 
-    private int visibleRows(int listTop) {
-        return (BODY_B - listTop - 2) / ROW_H;
+    /**
+     * The preview follows the hovered tag; otherwise it shows what the ticked tags select (all of them in common
+     * when "All" is on), and only without ticked tags the last hovered one.
+     */
+    private void updatePreview(@Nullable ResourceLocation hovered) {
+        if (hovered != null) lastHoveredTag = hovered;
+        List<ResourceLocation> source = hovered != null ? List.of(hovered)
+                : !selectedTags.isEmpty() ? List.copyOf(selectedTags)
+                : lastHoveredTag != null ? List.of(lastHoveredTag) : List.of();
+        boolean intersect = hovered == null && allTags && source.size() > 1;
+        String key = source + "|" + intersect;
+        if (key.equals(previewKey)) return;
+        previewKey = key;
+        java.util.Map<net.minecraft.world.item.Item, ItemStack> members = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < source.size(); i++) {
+            java.util.Map<net.minecraft.world.item.Item, ItemStack> ofTag = new java.util.LinkedHashMap<>();
+            for (ItemStack stack : FilterEntry.tagMembers(type, source.get(i), 512)) ofTag.putIfAbsent(stack.getItem(), stack);
+            if (intersect && i > 0) {
+                members.keySet().retainAll(ofTag.keySet());
+            } else {
+                ofTag.forEach(members::putIfAbsent);
+            }
+        }
+        previewTotal = members.size();
+        previewMembers = members.values().stream().limit(PREVIEW_ICONS).toList();
     }
 
     // ---- saving -------------------------------------------------------------------------------------------
@@ -428,28 +524,27 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
         FilterEntry draft = draft();
         String problem = draft.problem(menu.type);
         if (problem != null) return problem;
-        // the client only knows the visible page; the server checks the whole filter again
-        int pageStart = index - index % com.knozyy.flowline.pipe.SideConfig.FILTER_PAGE;
-        for (int i = 0; i < com.knozyy.flowline.pipe.SideConfig.FILTER_PAGE; i++) {
-            FilterEntry other = menu.clientEntry(i);
-            if (pageStart + i != index && other != null && other.sameMatch(draft)) return "gui.flowline.editor.error.exists";
+        List<FilterEntry> rules = menu.clientFilter();
+        for (int i = 0; i < Math.min(rules.size(), menu.capacity()); i++) {
+            FilterEntry other = rules.get(i);
+            if (i != index && other != null && other.sameMatch(draft)) return "gui.flowline.editor.error.exists";
         }
         return null;
     }
 
     private void validate() {
-        if (saveButton == null) return;
+        if (!ready) return;
         String problem = problem();
         saveButton.active = problem == null;
         boolean itemBad = matchItem && problem != null && (problem.endsWith("unknown_item")
                 || problem.endsWith("unknown_fluid") || problem.endsWith("syntax"));
-        itemBox.setTextColor(itemBad ? 0xFF6B6B : 0xE0E0E0);
+        itemBox.setTextColor(itemBad ? 0xFF6B6B : Theme.TEXT);
         if (modBox != null) {
-            modBox.setTextColor(problem != null && problem.endsWith("unknown_mod") ? 0xFF6B6B : 0xE0E0E0);
-            nameBox.setTextColor(problem != null && problem.endsWith("regex") ? 0xFF6B6B : 0xE0E0E0);
+            modBox.setTextColor(problem != null && problem.endsWith("unknown_mod") ? 0xFF6B6B : Theme.TEXT);
+            nameBox.setTextColor(problem != null && problem.endsWith("regex") ? 0xFF6B6B : Theme.TEXT);
             boolean durBad = problem != null && problem.endsWith("durability");
-            minBox.setTextColor(durBad ? 0xFF6B6B : 0xE0E0E0);
-            maxBox.setTextColor(durBad ? 0xFF6B6B : 0xE0E0E0);
+            minBox.setTextColor(durBad ? 0xFF6B6B : Theme.TEXT);
+            maxBox.setTextColor(durBad ? 0xFF6B6B : Theme.TEXT);
         }
         exactButton.active = !nbt.isEmpty();
     }
@@ -474,6 +569,61 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
         return false;
     }
 
+    // ---- live match -----------------------------------------------------------------------------------------
+
+    /** Whether the sample passes {@code rule} on its own, as an Allow rule. */
+    private boolean matches(FilterEntry rule) {
+        CompiledFilter filter = CompiledFilter.compile(List.of(rule.withInvert(false)), menu.type);
+        if (rule.isFluidRule(menu.type)) {
+            FluidStack fluid = FluidUtil.getFluidContained(sample).orElse(FluidStack.EMPTY);
+            return !fluid.isEmpty() && filter.allowsFluid(fluid);
+        }
+        return filter.allowsItem(sample);
+    }
+
+    /** The first condition of {@code draft} the sample fails, as a translation key. */
+    private String failingCondition(FilterEntry draft) {
+        boolean fluid = draft.fluid();
+        if (draft.item().isPresent() && !matches(FilterEntry.ofItem(draft.item().get()).withFluid(fluid))) {
+            return "gui.flowline.editor.match.item";
+        }
+        if (!draft.tags().isEmpty()
+                && !matches(FilterEntry.ofTags(draft.allTags(), draft.tags().toArray(String[]::new)).withFluid(fluid))) {
+            return "gui.flowline.editor.match.tags";
+        }
+        if (draft.mod().isPresent() && !matches(FilterEntry.ofMod(draft.mod().get()).withFluid(fluid))) {
+            return "gui.flowline.editor.match.mod";
+        }
+        if (draft.name().isPresent() && !matches(FilterEntry.ofName(draft.name().get()).withFluid(fluid))) {
+            return "gui.flowline.editor.match.name";
+        }
+        if (draft.hasDurability() && !draft.isFluidRule(menu.type)
+                && !matches(FilterEntry.ofDurability(draft.minDurability(), draft.maxDurability()))) {
+            return "gui.flowline.editor.match.durability";
+        }
+        if (draft.nbt().isPresent() && !matches(new FilterEntry(Optional.empty(), List.of(), false, draft.nbt(),
+                draft.exactNbt(), false).withFluid(fluid))) {
+            return "gui.flowline.editor.match.data";
+        }
+        return "gui.flowline.editor.match.other";
+    }
+
+    /** "Allows: ..." / "Blocks: ...", or what is wrong with the rule. */
+    private Component summary(FilterEntry draft, @Nullable String problem) {
+        if (draft.isEmpty()) return Component.translatable("gui.flowline.editor.error.empty");
+        if (problem != null) return Component.translatable(problem);
+        return Component.translatable(invert ? "gui.flowline.editor.summary.block" : "gui.flowline.editor.summary.allow",
+                RuleText.conditions(draft, menu.type, menu.registries()));
+    }
+
+    @Nullable
+    private Component matchLine(FilterEntry draft, @Nullable String problem) {
+        if (sample.isEmpty()) return Component.translatable("gui.flowline.editor.match.no_sample");
+        if (problem != null || draft.isEmpty()) return null;
+        if (matches(draft)) return Component.translatable("gui.flowline.editor.match.yes");
+        return Component.translatable("gui.flowline.editor.match.no", Component.translatable(failingCondition(draft)));
+    }
+
     // ---- input --------------------------------------------------------------------------------------------
 
     // The container screen's own input handling is about slots (and would swallow every click, or close the
@@ -482,33 +632,34 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         for (GuiEventListener child : children()) {
+            // vanilla's MultiLineEditBox takes left clicks even while hidden, which would cover the data rows
+            if (child instanceof AbstractWidget widget && !widget.visible) continue;
             if (child.mouseClicked(mouseX, mouseY, button)) {
                 setFocused(child);
                 if (button == 0) setDragging(true);
                 return true;
             }
         }
+        setFocused(null);
         int mx = (int) mouseX - left, my = (int) mouseY - top;
 
         // "match this item" checkbox
-        if (in(mx, my, LEFT_L + 3, 92, LEFT_R - 3, 102)) {
+        if (Ui.in(mx, my, LEFT_L + 3, 80, LEFT_R - 3, 91)) {
             matchItem = !matchItem;
             validate();
             return true;
         }
-        // tag rows
-        int tagRow = rowAt(mx, my, MID_L, MID_R, TAG_LIST_T, tagRows.size(), tagScroll);
+        int tagRow = rowAt(mx, my, MID_L, MID_R, TAG_LIST_T, TAG_LIST_B, tagRows.size(), tagScroll);
         if (tagRow >= 0) {
-            ResourceLocation id = tagRows.get(tagRow).id();
+            ResourceLocation id = tagRows.get(tagRow);
             if (!selectedTags.remove(id) && selectedTags.size() < FilterEntry.MAX_TAGS) selectedTags.add(id);
             validate();
             return true;
         }
-        // component rows
         if (!textMode) {
-            int nbtRow = rowAt(mx, my, RIGHT_L, RIGHT_R, NBT_LIST_T, nbtRows.size(), nbtScroll);
+            int nbtRow = rowAt(mx, my, RIGHT_L, RIGHT_R, NBT_LIST_T, NBT_LIST_B, nbtRows.size(), nbtScroll);
             if (nbtRow >= 0) {
-                String key = nbtRows.get(nbtRow).key();
+                String key = nbtRows.get(nbtRow);
                 if (nbt.contains(key)) {
                     nbt.remove(key);
                 } else if (sampleData.contains(key)) {
@@ -518,7 +669,11 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
                 return true;
             }
         }
-        // inventory: pick a sample
+        ItemStack member = previewAt(mx, my);
+        if (!member.isEmpty()) {
+            setSample(member, true);
+            return true;
+        }
         ItemStack stack = inventoryStackAt(mx, my);
         if (!stack.isEmpty()) {
             setSample(stack, true);
@@ -560,38 +715,46 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
         int mx = (int) mouseX - left, my = (int) mouseY - top;
         int step = scrollY < 0 ? 1 : -1;
-        if (in(mx, my, MID_L, TAG_LIST_T, MID_R, BODY_B)) {
-            tagScroll = clampScroll(tagScroll + step, tagRows.size(), visibleRows(TAG_LIST_T));
+        if (Ui.in(mx, my, MID_L, TAG_LIST_T, MID_R, TAG_LIST_B)) {
+            tagScroll = clampScroll(tagScroll + step, tagRows.size(), visibleRows(TAG_LIST_T, TAG_LIST_B));
             return true;
         }
-        if (!textMode && in(mx, my, RIGHT_L, NBT_LIST_T, RIGHT_R, BODY_B)) {
-            nbtScroll = clampScroll(nbtScroll + step, nbtRows.size(), visibleRows(NBT_LIST_T));
+        if (!textMode && Ui.in(mx, my, RIGHT_L, NBT_LIST_T, RIGHT_R, NBT_LIST_B)) {
+            nbtScroll = clampScroll(nbtScroll + step, nbtRows.size(), visibleRows(NBT_LIST_T, NBT_LIST_B));
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollY);
+    }
+
+    private static int visibleRows(int listTop, int listBottom) {
+        return (listBottom - listTop) / ROW_H;
     }
 
     private static int clampScroll(int value, int rows, int visible) {
         return Math.max(0, Math.min(value, Math.max(0, rows - visible)));
     }
 
-    private int rowAt(int mx, int my, int l, int r, int listTop, int rows, int scroll) {
-        if (mx < l + 2 || mx >= r - 2 || my < listTop || my >= BODY_B - 2) return -1;
+    private static int rowAt(int mx, int my, int l, int r, int listTop, int listBottom, int rows, int scroll) {
+        if (mx < l + 2 || mx >= r - 2 || my < listTop || my >= listBottom) return -1;
         int row = (my - listTop) / ROW_H;
-        if (row >= visibleRows(listTop)) return -1;
+        if (row >= visibleRows(listTop, listBottom)) return -1;
         int index = row + scroll;
         return index < rows ? index : -1;
     }
 
-    private static boolean in(int mx, int my, int l, int t, int r, int b) {
-        return mx >= l && mx < r && my >= t && my < b;
+    private ItemStack previewAt(int mx, int my) {
+        for (int i = 0; i < previewMembers.size(); i++) {
+            int x = MID_L + 4 + i * PREVIEW_STEP;
+            if (Ui.in(mx, my, x, PREVIEW_Y, x + 12, PREVIEW_Y + 12)) return previewMembers.get(i);
+        }
+        return ItemStack.EMPTY;
     }
 
     private ItemStack inventoryStackAt(int mx, int my) {
         Inventory inventory = minecraft.player.getInventory();
         for (int i = 0; i < 36; i++) {
             int x = slotX(i), y = slotY(i);
-            if (in(mx, my, x, y, x + 16, y + 16)) return inventory.getItem(i);
+            if (Ui.in(mx, my, x, y, x + 16, y + 16)) return inventory.getItem(i);
         }
         return ItemStack.EMPTY;
     }
@@ -614,258 +777,226 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {}
 
     @Override
-    public void renderBackground(GuiGraphics graphics) {
-        super.renderBackground(graphics);
-        int l = left, t = top, r = left + W, b = top + H;
-        graphics.fill(l + 1, t - 1, r - 1, b + 1, BG_EDGE);
-        graphics.fill(l - 1, t + 1, r + 1, b - 1, BG_EDGE);
-        graphics.fill(l, t, r, b, BG);
-        graphics.fill(l + 1, t, r - 1, t + 2, accent);
-        panel(graphics, LEFT_L, LEFT_R);
-        panel(graphics, MID_L, MID_R);
-        panel(graphics, RIGHT_L, RIGHT_R);
-        for (int[] p : new int[][]{{MOD_L, MOD_R}, {NAME_L, NAME_R}, {AMT_L, AMT_R}, {DUR_L, DUR_R}}) {
-            graphics.fill(left + p[0], top + EXTRA_T, left + p[1], top + EXTRA_B, PANEL_EDGE);
-            graphics.fill(left + p[0] + 1, top + EXTRA_T + 1, left + p[1] - 1, top + EXTRA_B - 1, PANEL);
+    public void renderBackground(GuiGraphics g) {
+        super.renderBackground(g);
+        Ui.window(g, left, top, left + W, top + H);
+        g.fill(left + 6, top + 19, left + W - 6, top + 20, Theme.LINE);
+        Ui.panel(g, left + LEFT_L, top + BODY_T, left + LEFT_R, top + BODY_B);
+        Ui.panel(g, left + MID_L, top + BODY_T, left + MID_R, top + BODY_B);
+        Ui.panel(g, left + RIGHT_L, top + BODY_T, left + RIGHT_R, top + BODY_B);
+        for (EditBox box : fields) {
+            if (box.visible) {
+                Ui.well(g, box.getX() - 3, box.getY() - 2, box.getX() + box.getWidth() + 3, box.getY() + box.getHeight());
+            }
         }
-    }
-
-    private void panel(GuiGraphics graphics, int l, int r) {
-        graphics.fill(left + l, top + BODY_T, left + r, top + BODY_B, PANEL_EDGE);
-        graphics.fill(left + l + 1, top + BODY_T + 1, left + r - 1, top + BODY_B - 1, PANEL);
+        g.fill(left + 6, top + SUMMARY_T, left + W - 6, top + SUMMARY_B, Theme.LINE);
+        g.fill(left + 7, top + SUMMARY_T + 1, left + W - 7, top + SUMMARY_B - 1, Theme.SLOT);
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        anyAllButton.setMessage(Component.translatable(allTags ? "gui.flowline.library.all" : "gui.flowline.library.any"));
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         anyAllButton.active = selectedTags.size() > 1;
-        renderBackground(graphics);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        renderBackground(g);
+        super.render(g, mouseX, mouseY, partialTick);
 
         int mx = mouseX - left, my = mouseY - top;
-        hoveredTag = null;
-        graphics.pose().pushPose();
-        graphics.pose().translate(left, top, 0);
-        renderHeader(graphics);
-        renderSampleColumn(graphics, mx, my);
-        renderTagColumn(graphics, mx, my);
-        renderNbtColumn(graphics, mx, my);
-        renderExtraRow(graphics);
-        renderTagPreview(graphics);
-        renderInventory(graphics, mx, my);
-        graphics.pose().popPose();
-        renderTooltips(graphics, mouseX, mouseY, mx, my);
+        g.pose().pushPose();
+        g.pose().translate(left, top, 0);
+        Ui.text(g, font, getTitle(), 8, 7, Theme.TEXT);
+        renderSampleSection(g);
+        renderTagSection(g, mx, my);
+        renderNbtSection(g, mx, my);
+        renderExtraRow(g);
+        renderSummary(g);
+        renderInventory(g, mx, my);
+        g.pose().popPose();
+        renderTooltips(g, mouseX, mouseY, mx, my);
     }
 
-    private void renderHeader(GuiGraphics graphics) {
-        graphics.drawString(font, getTitle(), 8, 7, TEXT, false);
-        String problem = problem();
-        if (problem != null && !draft().isEmpty()) {
-            small(graphics, Component.translatable(problem), 8, 17, ERROR);
-        } else {
-            small(graphics, Component.translatable(invert ? "gui.flowline.editor.block" : "gui.flowline.editor.allow"),
-                    8, 17, invert ? ERROR : 0xFF6BD68A);
-        }
-    }
-
-    private void renderSampleColumn(GuiGraphics graphics, int mx, int my) {
-        small(graphics, caption("gui.flowline.library.sample"), LEFT_L + 4, BODY_T + 4, MUTED);
-        int sx = (LEFT_L + LEFT_R) / 2 - 17, sy = BODY_T + 14;
-        graphics.fill(sx - 1, sy - 1, sx + 35, sy + 35, sample.isEmpty() ? SLOT_EDGE : accent);
-        graphics.fill(sx, sy, sx + 34, sy + 34, SLOT);
+    private void renderSampleSection(GuiGraphics g) {
+        Ui.text(g, font, Component.translatable("gui.flowline.library.sample"), LEFT_L + 4, BODY_T + 4, Theme.MUTED);
+        int sx = (LEFT_L + LEFT_R) / 2 - 16, sy = 36;
+        g.fill(sx - 1, sy - 1, sx + 33, sy + 33, sample.isEmpty() ? Theme.LINE : accent);
+        g.fill(sx, sy, sx + 32, sy + 32, Theme.SLOT);
         if (!sample.isEmpty() && type.filtersFluids()) {
-            FluidIcon.draw(graphics, FilterEntry.fluidOf(sample), sx + 1, sy + 1, 32);
+            FluidIcon.draw(g, FilterEntry.fluidOf(sample), sx, sy, 32);
         } else if (!sample.isEmpty()) {
-            graphics.pose().pushPose();
-            graphics.pose().translate(sx + 1, sy + 1, 0);
-            graphics.pose().scale(2f, 2f, 1f);
-            graphics.renderItem(sample, 0, 0);
-            graphics.pose().popPose();
+            g.pose().pushPose();
+            g.pose().translate(sx, sy, 0);
+            g.pose().scale(2f, 2f, 1f);
+            g.renderItem(sample, 0, 0);
+            g.pose().popPose();
         } else {
-            smallCentered(graphics, Component.translatable("gui.flowline.library.pick"), sx + 17, sy + 9, MUTED, 44);
+            Ui.textCentered(g, font, Component.literal("?"), sx + 16, sy + 12, Theme.MUTED);
         }
-        Component under = sample.isEmpty() ? Component.translatable("gui.flowline.library.pick_hint")
+        Component under = sample.isEmpty() ? Component.translatable("gui.flowline.library.pick")
                 : type.filtersFluids() ? FilterEntry.fluidOf(sample).getFluidType().getDescription()
                 : sample.getHoverName();
-        smallCentered(graphics, under, (LEFT_L + LEFT_R) / 2, sy + 38, sample.isEmpty() ? MUTED : TEXT, 80);
-
-        // "match this item" checkbox
-        checkbox(graphics, LEFT_L + 4, 94, matchItem);
-        small(graphics, Component.translatable("gui.flowline.library.match_item"), LEFT_L + 13, 94, TEXT);
+        String shown = Ui.fit(font, under.getString(), LEFT_R - LEFT_L - 6);
+        Ui.text(g, font, shown, (LEFT_L + LEFT_R) / 2 - font.width(shown) / 2, 70, sample.isEmpty() ? Theme.MUTED : Theme.TEXT);
+        Ui.checkbox(g, LEFT_L + 4, 81, matchItem, accent);
+        Ui.text(g, font, Ui.fit(font, Component.translatable("gui.flowline.library.match_short").getString(),
+                LEFT_R - LEFT_L - 20), LEFT_L + 16, 82, Theme.TEXT);
     }
 
-    private void renderTagColumn(GuiGraphics graphics, int mx, int my) {
-        small(graphics, caption("gui.flowline.library.tags"), MID_L + 4, BODY_T + 4, MUTED);
-        int visible = visibleRows(TAG_LIST_T);
+    private void renderTagSection(GuiGraphics g, int mx, int my) {
+        Ui.text(g, font, Component.translatable("gui.flowline.library.tags"), MID_L + 4, BODY_T + 4, Theme.MUTED);
+        int visible = visibleRows(TAG_LIST_T, TAG_LIST_B);
         if (tagRows.isEmpty()) {
-            smallCentered(graphics, Component.translatable(search.isEmpty() ? "gui.flowline.library.no_tags"
-                    : "gui.flowline.library.no_results"), (MID_L + MID_R) / 2, TAG_LIST_T + 8, MUTED, 100);
+            List<net.minecraft.util.FormattedCharSequence> lines = font.split(Component.translatable(
+                    search.isEmpty() ? "gui.flowline.library.no_tags" : "gui.flowline.library.no_results"),
+                    MID_R - MID_L - 10);
+            for (int i = 0; i < Math.min(4, lines.size()); i++) {
+                g.drawString(font, lines.get(i), MID_L + 5, TAG_LIST_T + 1 + i * 10, Theme.MUTED, false);
+            }
         }
+        ResourceLocation hovered = null;
         for (int row = 0; row < visible && row + tagScroll < tagRows.size(); row++) {
-            ResourceLocation id = tagRows.get(row + tagScroll).id();
+            ResourceLocation id = tagRows.get(row + tagScroll);
             int y = TAG_LIST_T + row * ROW_H;
-            boolean hover = in(mx, my, MID_L + 2, y, MID_R - 2, y + ROW_H);
-            if (hover) {
-                graphics.fill(MID_L + 2, y, MID_R - 2, y + ROW_H, ROW_HOVER);
-                hoveredTag = id;
+            if (Ui.in(mx, my, MID_L + 2, y, MID_R - 2, y + ROW_H)) {
+                g.fill(MID_L + 2, y, MID_R - 2, y + ROW_H, Theme.HOVER);
+                hovered = id;
             }
             boolean checked = selectedTags.contains(id);
-            checkbox(graphics, MID_L + 4, y + 2, checked);
-            int color = sampleTags.contains(id) || sample.isEmpty() ? TEXT : MUTED;
-            small(graphics, Component.literal(fit("#" + id, MID_R - MID_L - 20)), MID_L + 13, y + 2, checked ? accent : color);
+            Ui.checkbox(g, MID_L + 4, y, checked, accent);
+            String count = Integer.toString(FilterEntry.tagSize(type, id));
+            int countX = MID_R - 6 - font.width(count);
+            Ui.text(g, font, count, countX, y + 1, Theme.MUTED);
+            int color = sampleTags.contains(id) || sample.isEmpty() ? Theme.TEXT : Theme.MUTED;
+            Ui.text(g, font, Ui.fit(font, RuleText.tag(id.toString()), countX - MID_L - 20), MID_L + 16, y + 1, color);
         }
-        scrollbar(graphics, MID_R - 3, TAG_LIST_T, BODY_B - 2, tagScroll, tagRows.size(), visible);
+        Ui.scrollbar(g, MID_R - 3, TAG_LIST_T, TAG_LIST_B, tagScroll, tagRows.size(), visible, accent);
+
+        updatePreview(hovered);
+        g.fill(MID_L + 3, PREVIEW_Y - 2, MID_R - 3, PREVIEW_Y - 1, Theme.LINE);
+        if (previewMembers.isEmpty()) {
+            Ui.text(g, font, Ui.fit(font, Component.translatable("gui.flowline.library.preview_short").getString(),
+                    MID_R - MID_L - 8), MID_L + 4, PREVIEW_Y + 3, Theme.MUTED);
+            return;
+        }
+        for (int i = 0; i < previewMembers.size(); i++) {
+            int x = MID_L + 4 + i * PREVIEW_STEP;
+            if (Ui.in(mx, my, x, PREVIEW_Y, x + 12, PREVIEW_Y + 12)) g.fill(x - 1, PREVIEW_Y - 1, x + 13, PREVIEW_Y + 13, Theme.HOVER);
+            g.pose().pushPose();
+            g.pose().translate(x, PREVIEW_Y, 0);
+            g.pose().scale(0.75f, 0.75f, 1f);
+            g.renderItem(previewMembers.get(i), 0, 0);
+            g.pose().popPose();
+        }
+        if (previewTotal > previewMembers.size()) {
+            Ui.textRight(g, font, Component.literal("+" + (previewTotal - previewMembers.size())), MID_R - 5, PREVIEW_Y + 3,
+                    Theme.MUTED);
+        }
     }
 
-    private void renderNbtColumn(GuiGraphics graphics, int mx, int my) {
-        small(graphics, caption("gui.flowline.library.data"), RIGHT_L + 4, BODY_T + 4, MUTED);
+    private void renderNbtSection(GuiGraphics g, int mx, int my) {
+        Ui.text(g, font, Component.translatable("gui.flowline.library.data_short"), RIGHT_L + 4, BODY_T + 4, Theme.MUTED);
         if (textMode) return;
-        int visible = visibleRows(NBT_LIST_T);
+        int visible = visibleRows(NBT_LIST_T, NBT_LIST_B);
         if (nbtRows.isEmpty()) {
-            smallCentered(graphics, Component.translatable("gui.flowline.library.no_data"), (RIGHT_L + RIGHT_R) / 2,
-                    NBT_LIST_T + 8, MUTED, 80);
+            List<net.minecraft.util.FormattedCharSequence> lines = font.split(Component.translatable(
+                    "gui.flowline.library.no_data"), RIGHT_R - RIGHT_L - 10);
+            for (int i = 0; i < Math.min(5, lines.size()); i++) {
+                g.drawString(font, lines.get(i), RIGHT_L + 5, NBT_LIST_T + 1 + i * 10, Theme.MUTED, false);
+            }
         }
         for (int row = 0; row < visible && row + nbtScroll < nbtRows.size(); row++) {
-            String key = nbtRows.get(row + nbtScroll).key();
+            String key = nbtRows.get(row + nbtScroll);
             int y = NBT_LIST_T + row * ROW_H;
-            if (in(mx, my, RIGHT_L + 2, y, RIGHT_R - 2, y + ROW_H)) {
-                graphics.fill(RIGHT_L + 2, y, RIGHT_R - 2, y + ROW_H, ROW_HOVER);
+            if (Ui.in(mx, my, RIGHT_L + 2, y, RIGHT_R - 2, y + ROW_H)) {
+                g.fill(RIGHT_L + 2, y, RIGHT_R - 2, y + ROW_H, Theme.HOVER);
             }
-            boolean checked = nbt.contains(key);
-            checkbox(graphics, RIGHT_L + 4, y + 2, checked);
-            small(graphics, Component.literal(fit(componentName(key), RIGHT_R - RIGHT_L - 20)), RIGHT_L + 13, y + 2,
-                    checked ? accent : TEXT);
+            Ui.checkbox(g, RIGHT_L + 4, y, nbt.contains(key), accent);
+            Ui.text(g, font, Ui.fit(font, componentName(key), RIGHT_R - RIGHT_L - 24), RIGHT_L + 16, y + 1, Theme.TEXT);
         }
-        scrollbar(graphics, RIGHT_R - 3, NBT_LIST_T, BODY_B - 2, nbtScroll, nbtRows.size(), visible);
+        Ui.scrollbar(g, RIGHT_R - 3, NBT_LIST_T, NBT_LIST_B, nbtScroll, nbtRows.size(), visible, accent);
     }
 
-    private void renderExtraRow(GuiGraphics graphics) {
-        small(graphics, caption("gui.flowline.library.mod"), MOD_L + 4, EXTRA_T + 3, MUTED);
-        small(graphics, caption("gui.flowline.library.name"), NAME_L + 4, EXTRA_T + 3, MUTED);
-        small(graphics, caption("gui.flowline.library.amount"), AMT_L + 4, EXTRA_T + 3, MUTED);
+    private void renderExtraRow(GuiGraphics g) {
         if (!fluidRule) {
-            small(graphics, caption("gui.flowline.library.durability"), DUR_L + 4, EXTRA_T + 3, MUTED);
-            small(graphics, Component.literal("-"), DUR_L + 40, EXTRA_T + 14, MUTED);
-            small(graphics, Component.literal("%"), DUR_R - 8, EXTRA_T + 14, MUTED);
+            Ui.text(g, font, "–", DUR_L + 26, EXTRA_T + 2, Theme.MUTED);
+            Ui.text(g, font, "%", DUR_L + 58, EXTRA_T + 2, Theme.MUTED);
         }
     }
 
-    /** Members of the hovered tag, below the columns. */
-    private void renderTagPreview(GuiGraphics graphics) {
-        int y = EXTRA_B + 3;
-        if (hoveredTag == null) {
-            small(graphics, Component.translatable("gui.flowline.library.preview_hint"), LEFT_L, y + 5, MUTED);
-            return;
-        }
-        int size = FilterEntry.tagSize(type, hoveredTag);
-        small(graphics, Component.translatable("gui.flowline.library.members", size), LEFT_L, y + 5, MUTED);
-        if (type.filtersFluids()) {
-            List<net.minecraft.world.level.material.Fluid> fluids = FilterEntry.tagFluids(hoveredTag, 12);
-            for (int i = 0; i < fluids.size(); i++) FluidIcon.draw(graphics, fluids.get(i), 80 + i * 17, y, 16);
-            return;
-        }
-        List<ItemStack> members = FilterEntry.tagMembers(type, hoveredTag, 12);
-        for (int i = 0; i < members.size(); i++) graphics.renderItem(members.get(i), 80 + i * 17, y);
+    private void renderSummary(GuiGraphics g) {
+        FilterEntry draft = draft();
+        String problem = problem();
+        int width = W - 20;
+        Ui.text(g, font, Ui.fit(font, summary(draft, problem).getString(), width), 10, SUMMARY_T + 3,
+                problem != null && !draft.isEmpty() ? 0xFFFF8A80 : Theme.TEXT);
+        Component match = matchLine(draft, problem);
+        if (match != null) Ui.text(g, font, Ui.fit(font, match.getString(), width), 10, SUMMARY_T + 13, Theme.MUTED);
     }
 
-    private void renderInventory(GuiGraphics graphics, int mx, int my) {
-        small(graphics, Component.translatable("gui.flowline.library.inventory"), INV_X, INV_Y - 9, MUTED);
+    private void renderInventory(GuiGraphics g, int mx, int my) {
         Inventory inventory = minecraft.player.getInventory();
         for (int i = 0; i < 36; i++) {
             int x = slotX(i), y = slotY(i);
-            graphics.fill(x - 1, y - 1, x + 17, y + 17, SLOT_EDGE);
-            graphics.fill(x, y, x + 16, y + 16, SLOT);
+            g.fill(x - 1, y - 1, x + 17, y + 17, Theme.LINE);
+            g.fill(x, y, x + 16, y + 16, Theme.SLOT);
             ItemStack stack = inventory.getItem(i);
             if (!stack.isEmpty()) {
-                graphics.renderItem(stack, x, y);
-                graphics.renderItemDecorations(font, stack, x, y);
+                g.renderItem(stack, x, y);
+                g.renderItemDecorations(font, stack, x, y);
             }
-            if (in(mx, my, x, y, x + 16, y + 16)) graphics.fill(x, y, x + 16, y + 16, 0x40FFFFFF);
+            if (Ui.in(mx, my, x, y, x + 16, y + 16)) g.fill(x, y, x + 16, y + 16, 0x40FFFFFF);
         }
     }
 
-    private void renderTooltips(GuiGraphics graphics, int mouseX, int mouseY, int mx, int my) {
+    private void renderTooltips(GuiGraphics g, int mouseX, int mouseY, int mx, int my) {
         ItemStack stack = inventoryStackAt(mx, my);
+        if (stack.isEmpty()) stack = previewAt(mx, my);
         if (!stack.isEmpty()) {
-            graphics.renderTooltip(font, stack, mouseX, mouseY);
+            g.renderTooltip(font, stack, mouseX, mouseY);
             return;
         }
-        if (!textMode) {
-            int row = rowAt(mx, my, RIGHT_L, RIGHT_R, NBT_LIST_T, nbtRows.size(), nbtScroll);
-            if (row >= 0) {
-                String key = nbtRows.get(row).key();
-                Tag value = nbt.contains(key) ? nbt.get(key) : sampleData.get(key);
-                List<Component> lines = new ArrayList<>();
-                lines.add(Component.literal(componentName(key)));
-                lines.add(Component.literal(key).withStyle(ChatFormatting.DARK_GRAY));
-                if (value != null) {
-                    String text = value.toString();
-                    if (text.length() > 120) text = text.substring(0, 117) + "...";
-                    lines.add(Component.literal(text).withStyle(ChatFormatting.LIGHT_PURPLE));
-                }
-                lines.add(Component.translatable(nbt.contains(key) ? "gui.flowline.library.data_on"
-                        : "gui.flowline.library.data_off").withStyle(ChatFormatting.GRAY));
-                graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
+        for (Tip tip : tips) {
+            if (tip.widget().visible && tip.widget().isHovered()) {
+                g.renderComponentTooltip(font, tip.lines().get(), mouseX, mouseY);
                 return;
             }
         }
-        if (anyAllButton.isHovered()) {
-            graphics.renderComponentTooltip(font, List.of(
-                    Component.translatable(allTags ? "gui.flowline.library.all" : "gui.flowline.library.any"),
-                    Component.translatable(allTags ? "gui.flowline.library.all.desc" : "gui.flowline.library.any.desc")
+        if (!textMode) {
+            int row = rowAt(mx, my, RIGHT_L, RIGHT_R, NBT_LIST_T, NBT_LIST_B, nbtRows.size(), nbtScroll);
+            if (row >= 0) {
+                g.renderComponentTooltip(font, nbtTooltip(nbtRows.get(row)), mouseX, mouseY);
+                return;
+            }
+        }
+        int tagRow = rowAt(mx, my, MID_L, MID_R, TAG_LIST_T, TAG_LIST_B, tagRows.size(), tagScroll);
+        if (tagRow >= 0) {
+            ResourceLocation id = tagRows.get(tagRow);
+            g.renderComponentTooltip(font, List.of(Component.literal("#" + id),
+                    Component.translatable("gui.flowline.library.members", FilterEntry.tagSize(type, id))
                             .withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
-        } else if (exactButton.isHovered()) {
-            graphics.renderComponentTooltip(font, List.of(
-                    Component.translatable(exact ? "gui.flowline.editor.exact" : "gui.flowline.editor.contains"),
-                    Component.translatable(exact ? "gui.flowline.editor.exact.desc" : "gui.flowline.editor.contains.desc")
-                            .withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
-        } else if (in(mx, my, RIGHT_R - 14, BODY_T, RIGHT_R - 3, BODY_T + 11)) {
-            graphics.renderComponentTooltip(font, List.of(Component.translatable(
-                    textMode ? "gui.flowline.library.list_mode" : "gui.flowline.library.text_mode")), mouseX, mouseY);
-        } else if (in(mx, my, 132, 4, 146, 18)) {
-            graphics.renderComponentTooltip(font, List.of(
-                    Component.translatable(invert ? "gui.flowline.editor.block" : "gui.flowline.editor.allow"),
-                    Component.translatable(invert ? "gui.flowline.editor.block.desc" : "gui.flowline.editor.allow.desc")
-                            .withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
-        } else if (in(mx, my, 150, 4, 164, 18)) {
-            graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.flowline.editor.delete")),
-                    mouseX, mouseY);
-        } else if (menu.type == PipeType.UNIVERSAL && in(mx, my, 114, 4, 128, 18)) {
-            graphics.renderComponentTooltip(font, List.of(
-                    Component.translatable(fluidRule ? "gui.flowline.rule.kind_fluid" : "gui.flowline.rule.kind_item"),
-                    Component.translatable("gui.flowline.editor.kind.desc").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
-        } else if (in(mx, my, MOD_L, EXTRA_T, MOD_R, EXTRA_B)) {
-            graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.flowline.library.mod"),
-                    Component.translatable("gui.flowline.library.mod.desc").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
-        } else if (in(mx, my, AMT_L, EXTRA_T, AMT_R, EXTRA_B)) {
-            graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.flowline.library.amount"),
-                    Component.translatable(menu.extracting() ? "gui.flowline.library.amount.keep"
-                            : "gui.flowline.library.amount.max").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
-        } else if (in(mx, my, NAME_L, EXTRA_T, NAME_R, EXTRA_B)) {
-            graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.flowline.library.name"),
-                    Component.translatable("gui.flowline.library.name.desc").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
-        } else if (!fluidRule && in(mx, my, DUR_L, EXTRA_T, DUR_R, EXTRA_B)) {
-            graphics.renderComponentTooltip(font, List.of(Component.translatable("gui.flowline.library.durability"),
-                    Component.translatable("gui.flowline.library.durability.desc").withStyle(ChatFormatting.GRAY)),
-                    mouseX, mouseY);
+            return;
+        }
+        if (Ui.in(mx, my, 6, SUMMARY_T, W - 6, SUMMARY_B)) {
+            FilterEntry draft = draft();
+            String problem = problem();
+            List<Component> lines = new ArrayList<>();
+            lines.add(summary(draft, problem));
+            Component match = matchLine(draft, problem);
+            if (match != null) lines.add(match.copy().withStyle(ChatFormatting.GRAY));
+            g.renderComponentTooltip(font, lines, mouseX, mouseY);
         }
     }
 
-    // ---- drawing helpers ----------------------------------------------------------------------------------
-
-    private void checkbox(GuiGraphics graphics, int x, int y, boolean checked) {
-        graphics.fill(x, y, x + 7, y + 7, checked ? accent : SLOT_EDGE);
-        graphics.fill(x + 1, y + 1, x + 6, y + 6, checked ? accent : SLOT);
-        if (checked) graphics.fill(x + 2, y + 2, x + 5, y + 5, TEXT);
-    }
-
-    private void scrollbar(GuiGraphics graphics, int x, int t, int b, int scroll, int rows, int visible) {
-        if (rows <= visible) return;
-        int track = b - t;
-        int thumb = Math.max(6, track * visible / rows);
-        int y = t + (track - thumb) * scroll / Math.max(1, rows - visible);
-        graphics.fill(x, t, x + 2, b, PANEL_EDGE);
-        graphics.fill(x, y, x + 2, y + thumb, accent);
+    private List<Component> nbtTooltip(String key) {
+        Tag value = nbt.contains(key) ? nbt.get(key) : sampleData.get(key);
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.literal(componentName(key)));
+        lines.add(Component.literal(key).withStyle(ChatFormatting.DARK_GRAY));
+        if (value != null) {
+            String text = value.toString();
+            if (text.length() > 120) text = text.substring(0, 117) + "...";
+            lines.add(Component.literal(text).withStyle(ChatFormatting.LIGHT_PURPLE));
+        }
+        lines.add(Component.translatable(nbt.contains(key) ? "gui.flowline.library.data_on"
+                : "gui.flowline.library.data_off").withStyle(ChatFormatting.GRAY));
+        return lines;
     }
 
     /** "minecraft:enchantments" -> "Enchantments", "!minecraft:food" -> "- Food" (a removed default). */
@@ -878,36 +1009,5 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
         String pretty = path.replace('_', ' ');
         if (!pretty.isEmpty()) pretty = Character.toUpperCase(pretty.charAt(0)) + pretty.substring(1);
         return removed ? "- " + pretty : pretty;
-    }
-
-    /** Cuts text to fit {@code width} pixels at the small (0.75) scale. */
-    private String fit(String text, int width) {
-        int max = (int) (width / 0.75f);
-        if (font.width(text) <= max) return text;
-        return font.plainSubstrByWidth(text, max - font.width("…")) + "…";
-    }
-
-    private static Component caption(String key) {
-        return Component.literal(Component.translatable(key).getString().toUpperCase(Locale.ROOT));
-    }
-
-    private void small(GuiGraphics graphics, Component text, int x, int y, int color) {
-        graphics.pose().pushPose();
-        graphics.pose().translate(x, y, 0);
-        graphics.pose().scale(0.75f, 0.75f, 1f);
-        graphics.drawString(font, text, 0, 0, color, false);
-        graphics.pose().popPose();
-    }
-
-    private void smallCentered(GuiGraphics graphics, Component text, int centerX, int y, int color, int width) {
-        var lines = font.split(text, (int) (width / 0.75f));
-        for (int i = 0; i < lines.size(); i++) {
-            float w = font.width(lines.get(i)) * 0.75f;
-            graphics.pose().pushPose();
-            graphics.pose().translate(centerX - w / 2f, y + i * 8, 0);
-            graphics.pose().scale(0.75f, 0.75f, 1f);
-            graphics.drawString(font, lines.get(i), 0, 0, color, false);
-            graphics.pose().popPose();
-        }
     }
 }

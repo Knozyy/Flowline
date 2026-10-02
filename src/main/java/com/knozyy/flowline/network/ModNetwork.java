@@ -20,7 +20,7 @@ import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
 public final class ModNetwork {
-    private static final String PROTOCOL = "6";
+    private static final String PROTOCOL = "8";
     private static final Map<ServerPlayer, Integer> NETWORK_QUERIES = new WeakHashMap<>();
     private static final Map<ServerPlayer, Integer> BUILD_REQUESTS = new WeakHashMap<>();
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
@@ -39,9 +39,9 @@ public final class ModNetwork {
         CHANNEL.messageBuilder(WrenchScrollPayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(WrenchScrollPayload::encode).decoder(WrenchScrollPayload::decode)
                 .consumerMainThread(ModNetwork::onWrenchScroll).add();
-        CHANNEL.messageBuilder(FilterPagePayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
-                .encoder(FilterPagePayload::encode).decoder(FilterPagePayload::decode)
-                .consumerMainThread(ModNetwork::onFilterPage).add();
+        CHANNEL.messageBuilder(FilterSyncPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(FilterSyncPayload::encode).decoder(FilterSyncPayload::decode)
+                .consumerMainThread(ModNetwork::onFilterSync).add();
         CHANNEL.messageBuilder(TravelPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(TravelPayload::encode).decoder(TravelPayload::decode)
                 .consumerMainThread(ModNetwork::onTravel).add();
@@ -57,7 +57,18 @@ public final class ModNetwork {
         CHANNEL.messageBuilder(FluidFlowPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(FluidFlowPayload::encode).decoder(FluidFlowPayload::decode)
                 .consumerMainThread(ModNetwork::onFluidFlow).add();
+        CHANNEL.messageBuilder(RuleFromCarriedPayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(RuleFromCarriedPayload::encode).decoder(RuleFromCarriedPayload::decode)
+                .consumerMainThread(ModNetwork::onRuleFromCarried).add();
+        CHANNEL.messageBuilder(OffhandModePayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(OffhandModePayload::encode).decoder(OffhandModePayload::decode)
+                .consumerMainThread(ModNetwork::onOffhandMode).add();
+    }
 
+    private static void onOffhandMode(OffhandModePayload payload, Supplier<NetworkEvent.Context> context) {
+        ServerPlayer player = context.get().getSender();
+        if (player != null) com.knozyy.flowline.pipe.OffhandMode.set(player, payload.mode());
+        context.get().setPacketHandled(true);
     }
 
     public static void sendToServer(Object message) {
@@ -69,6 +80,15 @@ public final class ModNetwork {
         if (player != null && player.containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()
                 && menu.stillValid(player)) {
             menu.setEntry(payload.index(), payload.entry().orElse(null));
+        }
+        context.get().setPacketHandled(true);
+    }
+
+    private static void onRuleFromCarried(RuleFromCarriedPayload payload, Supplier<NetworkEvent.Context> context) {
+        ServerPlayer player = context.get().getSender();
+        if (player != null && player.containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()
+                && menu.stillValid(player)) {
+            menu.ruleFromCarried(payload.index());
         }
         context.get().setPacketHandled(true);
     }
@@ -122,8 +142,8 @@ public final class ModNetwork {
         context.get().setPacketHandled(true);
     }
 
-    private static void onFilterPage(FilterPagePayload payload, Supplier<NetworkEvent.Context> context) {
-        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandlers.filterPage(payload));
+    private static void onFilterSync(FilterSyncPayload payload, Supplier<NetworkEvent.Context> context) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandlers.filterSync(payload));
         context.get().setPacketHandled(true);
     }
 
@@ -134,10 +154,10 @@ public final class ModNetwork {
 
     /** Only loaded on the client. */
     private static final class ClientHandlers {
-        static void filterPage(FilterPagePayload payload) {
+        static void filterSync(FilterSyncPayload payload) {
             Player player = net.minecraft.client.Minecraft.getInstance().player;
             if (player != null && player.containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()) {
-                menu.receivePage(payload.page(), payload.entries());
+                menu.receiveFilter(payload);
             }
         }
 

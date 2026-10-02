@@ -1,6 +1,7 @@
 package com.knozyy.flowline.mixin;
 
 import com.knozyy.flowline.compat.CurvyPipesCompat;
+import com.knozyy.flowline.pipe.OffhandMode;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
@@ -35,18 +36,35 @@ public abstract class CurvyConfigMixin {
         if (material != null) cir.setReturnValue(material);
     }
 
+    /** Curvy's energy lookup finds a {@link com.knozyy.flowline.compat.CurvyPort} on Flowline pipes. */
+    @SuppressWarnings("rawtypes")
+    @org.spongepowered.asm.mixin.injection.Redirect(method = "resolveEnergyCap", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/world/level/block/entity/BlockEntity;getCapability(Lnet/minecraftforge/common/"
+                    + "capabilities/Capability;Lnet/minecraft/core/Direction;)Lnet/minecraftforge/common/util/LazyOptional;"))
+    private static net.minecraftforge.common.util.LazyOptional flowline$energyPort(
+            net.minecraft.world.level.block.entity.BlockEntity be, net.minecraftforge.common.capabilities.Capability cap,
+            net.minecraft.core.Direction side) {
+        return com.knozyy.flowline.compat.CurvyPort.capability(be, cap, side);
+    }
+
     @Inject(method = {"onIdMap", "onCommonSetup"}, at = @At("TAIL"))
     private static void flowline$restoreBlockItems(CallbackInfo ci) {
         CurvyPipesCompat.bindBlocks();
     }
 
+    /** Curvy only handles a Flowline pipe in the off hand of a player in Curvy mode; main-hand pipes place blocks. */
+    private static boolean flowline$notCurvy(PlayerInteractEvent event) {
+        return CurvyPipesCompat.supported(event.getItemStack()) && (event.getHand() == InteractionHand.MAIN_HAND
+                || OffhandMode.of(event.getEntity()) != OffhandMode.CURVY);
+    }
+
     @Inject(method = "onRightClickBlock", at = @At("HEAD"), cancellable = true)
     private static void flowline$normalBlockPlacement(PlayerInteractEvent.RightClickBlock event, CallbackInfo ci) {
-        if (event.getHand() == InteractionHand.OFF_HAND && CurvyPipesCompat.supported(event.getItemStack())) ci.cancel();
+        if (flowline$notCurvy(event)) ci.cancel();
     }
 
     @Inject(method = "onRightClickItem", at = @At("HEAD"), cancellable = true)
     private static void flowline$normalItemUse(PlayerInteractEvent.RightClickItem event, CallbackInfo ci) {
-        if (event.getHand() == InteractionHand.OFF_HAND && CurvyPipesCompat.supported(event.getItemStack())) ci.cancel();
+        if (flowline$notCurvy(event)) ci.cancel();
     }
 }

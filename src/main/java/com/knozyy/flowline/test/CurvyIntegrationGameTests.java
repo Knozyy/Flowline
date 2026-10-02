@@ -20,6 +20,7 @@ import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import java.util.function.Consumer;
 import com.knozyy.flowline.pipe.PipeBlock;
+import com.knozyy.flowline.pipe.OffhandMode;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -143,26 +144,64 @@ public final class CurvyIntegrationGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void nativeInterceptionOnlyAppliesToMainHand(GameTestHelper helper) {
+    public static void curvyFindsPortsOnFlowlinePipes(GameTestHelper helper) {
+        if (!CurvyPipesCompat.available()) { helper.succeed(); return; }
+        var level = helper.getLevel();
+        var item = helper.absolutePos(new BlockPos(1, 1, 1));
+        var energy = helper.absolutePos(new BlockPos(3, 1, 1));
+        helper.setBlock(new BlockPos(1, 1, 1), com.knozyy.flowline.registry.ModBlocks.ITEM_PIPE.get());
+        helper.setBlock(new BlockPos(3, 1, 1), com.knozyy.flowline.registry.ModBlocks.ENERGY_PIPE.get());
+        try {
+            var resolveItems = Class.forName("cyb0124.curvy_pipes.inv.ItemInv").getDeclaredMethod("resolve",
+                    net.minecraft.server.level.ServerLevel.class, int.class, int.class, int.class, byte.class);
+            var resolveFluids = Class.forName("cyb0124.curvy_pipes.inv.FluidInv").getDeclaredMethod("resolve",
+                    net.minecraft.server.level.ServerLevel.class, int.class, int.class, int.class, byte.class);
+            var resolveEnergy = Class.forName("cyb0124.curvy_pipes.common.CommonHandler").getDeclaredMethod(
+                    "resolveEnergyCap", net.minecraft.server.level.ServerLevel.class, int.class, int.class, int.class, byte.class);
+            resolveItems.setAccessible(true);
+            resolveFluids.setAccessible(true);
+            resolveEnergy.setAccessible(true);
+            helper.assertTrue(resolveItems.invoke(null, level, item.getX(), item.getY(), item.getZ(), (byte) 1) != null,
+                    "Curvy sees an item port on a Flowline item pipe");
+            helper.assertTrue(resolveFluids.invoke(null, level, item.getX(), item.getY(), item.getZ(), (byte) 1) == null,
+                    "an item pipe offers Curvy no fluid port");
+            helper.assertTrue(resolveEnergy.invoke(null, level, energy.getX(), energy.getY(), energy.getZ(), (byte) 1) != null,
+                    "Curvy sees an energy port on a Flowline energy pipe");
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void nativeInterceptionFollowsOffhandMode(GameTestHelper helper) {
         if (!CurvyPipesCompat.available()) { helper.succeed(); return; }
         var player = helper.makeMockPlayer();
         var pos = helper.absolutePos(new BlockPos(1, 2, 1));
         var hit = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
-        for (String type : CurvyPipesCompat.TYPES) {
-            var item = CurvyPipesCompat.item(type);
-            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(item, 3));
-            player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(item, 3));
-            try {
+        try {
+            for (String type : CurvyPipesCompat.TYPES) {
+                var item = CurvyPipesCompat.item(type);
+                player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(item, 3));
+                player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(item, 3));
                 var method = Class.forName("cyb0124.curvy_pipes.common.CommonHandler").getDeclaredMethod("onRightClickBlock",
                         net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock.class);
-                for (InteractionHand hand : InteractionHand.values()) {
-                    var event = new net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock(player, hand, pos, hit);
-                    method.invoke(null, event);
-                    helper.assertTrue((event.getUseItem() == net.minecraftforge.eventbus.api.Event.Result.DENY)
-                                    == (hand == InteractionHand.MAIN_HAND),
-                            "Curvy must intercept only the main hand; offhand must place ordinary blocks");
+                for (OffhandMode mode : OffhandMode.values()) {
+                    OffhandMode.set(player, mode);
+                    for (InteractionHand hand : InteractionHand.values()) {
+                        var event = new net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock(player, hand, pos, hit);
+                        method.invoke(null, event);
+                        boolean intercepted = event.getUseItem() == net.minecraftforge.eventbus.api.Event.Result.DENY;
+                        boolean expected = hand == InteractionHand.OFF_HAND && mode == OffhandMode.CURVY;
+                        helper.assertTrue(intercepted == expected, "main-hand pipes never go to Curvy, off-hand ones "
+                                + "only in Curvy mode; " + type + " " + hand + " " + mode + " intercepted=" + intercepted);
+                    }
                 }
-            } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        } finally {
+            OffhandMode.set(player, OffhandMode.BUILD);
         }
         helper.succeed();
     }

@@ -9,12 +9,11 @@ import com.knozyy.flowline.network.ModNetwork;
 import net.minecraftforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Places that accept an item or fluid dragged from a recipe viewer (JEI, EMI): the filter slots of an open pipe
+ * Places that accept an item or fluid dragged from a recipe viewer (JEI, EMI): the rule list of an open pipe
  * screen here, and the sample, tag list and mod box of the rule editor ({@link RuleEditorScreen#dropTargets}).
  */
 public final class GhostTargets {
@@ -34,17 +33,13 @@ public final class GhostTargets {
         return FilterEntry.fromStack(menu.type, item, menu.registries());
     }
 
+    /** The whole rule list of a pipe screen: a dropped ingredient becomes a rule in the first free position. */
     public static List<Slot> slots(PipeScreen screen, ItemStack item, FluidStack fluid) {
         PipeMenu menu = screen.getMenu();
         FilterEntry rule = ruleFor(menu, item, fluid);
-        if (rule == null) return List.of();
-        List<Slot> slots = new ArrayList<>();
-        for (net.minecraft.world.inventory.Slot slot : menu.slots) {
-            if (!(slot instanceof PipeMenu.GhostSlot ghost) || !ghost.isActive()) continue;
-            int index = ghost.filterIndex();
-            slots.add(new Slot(screen.getGuiLeft() + slot.x, screen.getGuiTop() + slot.y, 16, 16, () ->
-                    ModNetwork.sendToServer(new SetFilterEntryPayload(menu.containerId, index, Optional.of(rule)))));
-        }
-        return slots;
+        int[] area = screen.ruleDropArea();
+        if (rule == null || area == null) return List.of();
+        return List.of(new Slot(area[0], area[1], area[2], area[3], () ->
+                ModNetwork.sendToServer(new SetFilterEntryPayload(menu.containerId, -1, Optional.of(rule)))));
     }
 }

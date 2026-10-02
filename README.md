@@ -6,10 +6,17 @@ modes, filters, distribution modes and speed upgrades.
 Curved item, fluid and FE pipes use the **actual Curvy Pipes 1.15.8 native engine**: its renderer,
 placement preview, picking, collision, alignment grid, radial editor, endpoint menus, transport and world data.
 Curvy Pipes is optional. When 1.15.8 is installed on client and server, the **same Flowline item/fluid/energy
-pipe items** can place Curvy lines from the main hand or ordinary block pipes from the off hand. Without Curvy,
-both hands place ordinary block pipes. There are no separate curved items or conversion recipes. Build for Me
-still uses the off-hand stack. Its introduction appears once for eight seconds and stays dismissed across restarts.
-The independent Flowline curve implementation has been removed.
+pipe items** place curved lines too: a pipe in the **main hand always places a block pipe**; a pipe in the **off
+hand** has two modes, **Build for me** and **Curvy**, switched with the mode key (**B** by default) and shown under
+the crosshair, and right-click does the chosen mode's work. Without Curvy, the off hand only has Build for me.
+There are no separate curved items or conversion recipes. The Build for me introduction appears once for eight
+seconds and stays dismissed across restarts. The independent Flowline curve implementation has been removed.
+
+A Curvy line whose end sits on a Flowline pipe connects to that pipe's network: Curvy taking from it pulls from the
+network's Extract sides (under their filters and "keep" amounts), Curvy giving to it delivers to the network's
+Insert sides. A line between two Flowline pipes is therefore a bridge between two networks, configured in Flowline's
+screens. One end still has to be set to **Extract** in Curvy's endpoint menu, since Curvy only moves from active
+ends ([requested upstream](https://github.com/cyb0124/CurvyPipes-Issues/issues/27)).
 See [curved-pipe controls and migration](docs/CURVED_PIPES_TR.md) and [Curvy's ID regex research](docs/CURVY_REGEX_TR.md).
 
 > This branch is the 1.20.1 Forge backport of the NeoForge 1.21.1 version. Differences: rule "data" matches the
@@ -25,7 +32,7 @@ See [curved-pipe controls and migration](docs/CURVED_PIPES_TR.md) and [Curvy's I
 | Chemical Pipe | Only with **Mekanism** installed: moves Mekanism chemicals (gases, infuse types, pigments, slurries). |
 | Flowline Wrench | **Sneak + right-click** a side to cycle: normal (Insert) → **Extract** → **disconnected** → normal. Right-click a side: open its screen. **Sneak + scroll** on a side: Extract sides cycle their distribution (with Ctrl: their redstone mode), Insert sides change their priority (Ctrl: ±10). Wrenches from other mods (tagged `forge:tools/wrench`: Create, Mekanism, Thermal...) do the same on pipes. |
 | Empty hand | Right-click a side: opens its config screen. Sneak + right-click with both hands empty: take a facade off. |
-| Pipe in the off hand + **B** | **Build for me**: lays pipes from the block you look at (up to `buildRange` = 32 blocks away) back to you, around obstacles and with as few turns as possible. Each pipe is placed normally (protection mods apply, survival uses up the off-hand stack). The key can be changed in Controls. |
+| Pipe in the off hand, Build for me mode | Look at a block (up to `buildRange` = 32 blocks away): the route back to you is shown as **ghost pipes** with the number of pipes needed, around obstacles and with as few turns as possible. **Right-click** lays it. Each pipe is placed normally (protection mods apply, survival uses up the off-hand stack; ghosts past what you carry are drawn faint). The mode key (**B**, changeable in Controls) switches to Curvy. |
 | Speed / Stack / Filter / Knozy Upgrade | Six upgrade slots per side (GUI, or right-click the side). **Speed** lowers the starting interval, **Stack** multiplies the amount per operation, **Filter** adds filter entries, **Knozy** counts as all three. Insert sides only take Filter upgrades (for more insert rules); the rest is returned when a side goes back to Insert. Everything drops when the pipe is broken. |
 | Dye | Right-click a pipe with a dye: pipes of **two different colours never connect**, undyed pipes connect to every colour. Using the pipe's own colour again washes it off. |
 | Configuration Card | Sneak + right-click a side: copy its mode, settings and filter. Right-click another side: paste. Sneak + use in the air: clear. |
@@ -81,7 +88,9 @@ Each Extract side runs on an adaptive interval, similar to AE2's tick rate modul
 - a neighbouring block change (e.g. items arriving in the source chest) wakes it back to its starting interval,
 - sides are staggered so pipes placed together do not all run on the same tick.
 
-The badge in the GUI header shows the amount multiplier and the current interval (hover for details).
+The side screen's header shows what the side is doing (Working, Asleep: no target, Waiting: redstone, Stuck:
+targets full, Idle: source empty) with the current interval and amount per operation (hover for details), and tabs
+for the pipe's six faces: click an attached face to open its screen without closing this one.
 
 ### Filter and rule library
 
@@ -102,13 +111,16 @@ counts). A rule can combine:
 A stack matching any Block rule never passes; if there are Allow rules it must match one of them; with only Block
 rules everything else passes.
 
-Click a rule slot to open the **rule library**: click an item in your inventory to use it as the sample, then tick
-the tags it belongs to (or search every known tag, and hover a tag to see what is in it) and tick the data
-components it must have (enchantments, damage, name...). Data can also be edited as SNBT text. Clicking a rule slot
-with an item still adds that item as a rule directly; **shift + left-click** removes a rule. The same rule cannot be
-added twice. On fluid pipes, rules show the fluid itself (not a bucket). Slots show `#`/`#n` for tag rules, `@` for
-mod rules, `Aa` for name rules, a cyan mark for durability, a purple corner for NBT and a red bar for Block rules.
-Older rules load automatically.
+The side screen lists the rules as a scrollable list, each with a plain-words line ("Tag, any of them", "Everything
+from the mod"...) and an **Allow/Block** chip: click the chip to switch it. Add a rule by **shift-clicking** an item
+in your inventory, by clicking the list with an item in hand, or with "+ Add filter". **Shift + left-click** or
+right-click removes a rule. The same rule cannot be added twice. On fluid pipes, rules show the fluid itself.
+
+Click a rule to open the **rule editor**: click an item in your inventory (or an item in the tag preview) to use it
+as the sample, then tick the tags it belongs to (or search every known tag; the preview shows the hovered tag's
+items, otherwise what the ticked tags select) and tick the data it must have (enchantments, damage, name...). Data
+can also be edited as SNBT text. A summary line says what the rule does and whether the sample matches it, and if
+not, which condition fails. Older rules load automatically.
 
 ### Integrations (all optional)
 

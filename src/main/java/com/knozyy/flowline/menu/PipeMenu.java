@@ -2,55 +2,60 @@ package com.knozyy.flowline.menu;
 
 import com.knozyy.flowline.filter.FilterEntry;
 import com.knozyy.flowline.item.UpgradeItem;
-import com.knozyy.flowline.network.FilterPagePayload;
+import com.knozyy.flowline.network.FilterSyncPayload;
+import com.knozyy.flowline.network.ModNetwork;
+import com.knozyy.flowline.pipe.Caps;
+import com.knozyy.flowline.pipe.Conn;
 import com.knozyy.flowline.pipe.Distribution;
 import com.knozyy.flowline.pipe.Pacing;
+import com.knozyy.flowline.pipe.PipeBlock;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
 import com.knozyy.flowline.pipe.PipeType;
 import com.knozyy.flowline.pipe.RedstoneMode;
 import com.knozyy.flowline.pipe.SideConfig;
 import com.knozyy.flowline.pipe.SideMode;
+import com.knozyy.flowline.pipe.SideStatus;
+import com.knozyy.flowline.pipe.SignalMode;
 import com.knozyy.flowline.registry.ModMenus;
+import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-
-import com.knozyy.flowline.network.ModNetwork;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.IntSupplier;
 
 /**
- * Configuration screen for one side of a pipe (extracting or inserting). The server owns the {@link SideConfig}; the client only
- * mirrors its scalar values through data slots, its filter through ghost slots and its upgrades through real slots.
+ * Configuration screen for one side of a pipe (extracting or inserting). The server owns the {@link SideConfig}; the
+ * client mirrors its scalar values through data slots, its filter through {@link FilterSyncPayload} and its upgrades
+ * through real slots.
  *
- * <p>Slot layout: 0..5 = upgrades, 6..14 = filter (not on energy pipes), then the player inventory. Inserting sides
- * only take Filter upgrades.
- * Filter slots hold the samples themselves: items for item pipes, filled containers for fluid pipes. The nine filter
- * slots show one page of the side's filter; Filter upgrades raise the capacity and add pages.
+ * <p>Slot layout: 0..5 = upgrades, then the player inventory. Inserting sides only take Filter upgrades. Filter rules
+ * are not slots: the screen draws them as a list and edits them through packets.
  */
 public class PipeMenu extends AbstractContainerMenu {
     public static final int BTN_DISTRIBUTION = 1;
     public static final int BTN_REDSTONE = 2;
     public static final int BTN_CLEAR = 4;
-    public static final int BTN_PREV_PAGE = 6;
-    public static final int BTN_NEXT_PAGE = 7;
     public static final int BTN_DISTRIBUTION_BACK = 8;
     public static final int BTN_REDSTONE_BACK = 9;
     /** Toggles channel {@code id - BTN_CHANNEL} on universal pipes: 0 items, 1 fluids, 2 energy. */
@@ -60,20 +65,24 @@ public class PipeMenu extends AbstractContainerMenu {
     /** Extract sides: cycle the redstone output (back: the other way). */
     public static final int BTN_SIGNAL = 14;
     public static final int BTN_SIGNAL_BACK = 15;
+    /** Opens the screen of side {@code Direction.from3DDataValue(id - BTN_SIDE)} of the same pipe. */
+    public static final int BTN_SIDE = 20;
 
     /** Fields set through {@link com.knozyy.flowline.network.SetSideValuePayload}. */
     public static final int FIELD_PRIORITY = 0;
     public static final int FIELD_LIMIT = 1;
     public static final int FIELD_RATE = 2;
 
-    /** Top-left of the 2x3 upgrade grid. */
-    public static final int UPGRADE_X = 128;
-    public static final int UPGRADE_Y = 44;
-    /** Top-left of the 3x3 filter grid. */
-    public static final int FILTER_X = 60;
-    public static final int FILTER_Y = 44;
-    public static final int INVENTORY_Y = 136;
-    public static final int HOTBAR_Y = 194;
+    /** Screen size and the slot positions inside it. */
+    public static final int WIDTH = 310, HEIGHT = 230;
+    public static final int INVENTORY_X = 8, INVENTORY_Y = 150, HOTBAR_Y = 208;
+    /** Top-left of the 3x2 upgrade grid, right of the player inventory. */
+    public static final int UPGRADE_X = 180, UPGRADE_Y = 150;
+
+    /** Largest network form of one rule; bigger ones (a rule copied from a stack full of data) are refused. */
+    public static final int MAX_RULE_BYTES = 16 * 1024;
+    /** Payload budget of one filter sync packet. */
+    public static final int MAX_SYNC_BYTES = 256 * 1024;
 
     private static final int UPGRADES = SideConfig.UPGRADE_SLOTS;
 
@@ -85,20 +94,21 @@ public class PipeMenu extends AbstractContainerMenu {
     private final PipeBlockEntity pipe;
     private final SideConfig cfg;
 
-    private final SimpleContainer filterInv = new SimpleContainer(SideConfig.FILTER_PAGE);
-    /** Filter page shown in the ghost slots; server side, mirrored to the client through {@link #pageData}. */
-    private int page = 0;
-    /** Server: the player to send filter pages to, and whether the visible page changed since the last send. */
+    /** Server: the player to send filter changes to. */
     @Nullable
     private final ServerPlayer player;
-    private boolean pageDirty = true;
     private final HolderLookup.Provider registries;
-    /** Client: rules on the visible page, as last sent by the server; used by the rule editor and overlays. */
-    private final FilterEntry[] clientEntries = new FilterEntry[SideConfig.FILTER_PAGE];
-    private final int ghostCount;
+    /** Server: the rules as the client last got them, and the filter version they were taken at. */
+    private final List<FilterEntry> sentFilter = new ArrayList<>();
+    private int sentVersion = Integer.MIN_VALUE;
+    /** Client: the side's rules by position, as synced by the server. */
+    private final List<FilterEntry> clientFilter = new ArrayList<>();
     private final int inventoryStart;
     /** The mode the side had when the menu opened (sent with the open packet); the menu closes if it changes. */
     private final SideMode openedMode;
+    /** Server: whether the source holds work, cached because finding out scans the source. */
+    private boolean hasWork;
+    private long hasWorkCheckedAt = Long.MIN_VALUE;
 
     private final DataSlot modeData;
     private final DataSlot overflowData;
@@ -113,7 +123,7 @@ public class PipeMenu extends AbstractContainerMenu {
     private final DataSlot minData;
     private final DataSlot multiplierData;
     private final DataSlot sleepingData;
-    private final DataSlot pageData;
+    private final DataSlot statusData;
     private final DataSlot capacityData;
     private final DataSlot priorityData;
     private final DataSlot channelsData;
@@ -144,26 +154,22 @@ public class PipeMenu extends AbstractContainerMenu {
         this.cfg = pipe == null ? null : pipe.side(side);
         this.player = inventory.player instanceof ServerPlayer serverPlayer ? serverPlayer : null;
         this.registries = inventory.player.level().registryAccess();
-        this.ghostCount = type.hasFilter() ? SideConfig.FILTER_PAGE : 0;
         this.openedMode = mode;
 
         // The client mirrors the whole upgrade container so slot indices match the server's.
         Container upgrades = pipe != null ? pipe.upgrades() : new SimpleContainer(6 * UPGRADES);
         for (int i = 0; i < UPGRADES; i++) {
             addSlot(new UpgradeSlot(upgrades, PipeBlockEntity.upgradeSlot(side, i),
-                    UPGRADE_X + (i % 2) * 18, UPGRADE_Y + (i / 2) * 18));
-        }
-        for (int i = 0; i < ghostCount; i++) {
-            addSlot(new GhostSlot(filterInv, i, FILTER_X + (i % 3) * 18, FILTER_Y + (i / 3) * 18));
+                    UPGRADE_X + (i % 3) * 18, UPGRADE_Y + (i / 3) * 18));
         }
         inventoryStart = slots.size();
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, INVENTORY_Y + row * 18));
+                addSlot(new Slot(inventory, col + row * 9 + 9, INVENTORY_X + col * 18, INVENTORY_Y + row * 18));
             }
         }
         for (int col = 0; col < 9; col++) {
-            addSlot(new Slot(inventory, col, 8 + col * 18, HOTBAR_Y));
+            addSlot(new Slot(inventory, col, INVENTORY_X + col * 18, HOTBAR_Y));
         }
 
         modeData = track(() -> cfg.mode.ordinal());
@@ -177,7 +183,7 @@ public class PipeMenu extends AbstractContainerMenu {
         minData = track(Pacing::min);
         multiplierData = track(() -> Pacing.stackMultiplier(cfg.stackCount));
         sleepingData = track(() -> cfg.sleeping ? 1 : 0);
-        pageData = track(() -> page);
+        statusData = track(() -> serverStatus().ordinal());
         capacityData = track(() -> cfg.filterCapacity());
         priorityData = track(() -> cfg.priority);
         channelsData = track(() -> cfg.channels);
@@ -188,8 +194,6 @@ public class PipeMenu extends AbstractContainerMenu {
         itemsData = trackInt(() -> Pacing.itemsPerOperation(cfg.stackCount));
         fluidData = trackInt(() -> Pacing.fluidPerOperation(cfg.stackCount));
         chemicalData = trackInt(() -> Pacing.chemicalPerOperation(cfg.stackCount));
-
-        if (cfg != null) loadPage();
     }
 
     private DataSlot track(IntSupplier server) {
@@ -216,9 +220,9 @@ public class PipeMenu extends AbstractContainerMenu {
         return registries;
     }
 
-    /** Energy pipes have no filter. */
+    /** Energy and chemical pipes have no filter. */
     public boolean hasFilter() {
-        return ghostCount > 0;
+        return type.hasFilter();
     }
 
     // ---- state for the screen -----------------------------------------------------------------------------
@@ -268,8 +272,8 @@ public class PipeMenu extends AbstractContainerMenu {
         return sleepingData.get() != 0;
     }
 
-    public int page() {
-        return pageData.get();
+    public SideStatus status() {
+        return SideStatus.byOrdinal(statusData.get());
     }
 
     /** Usable filter entries on this side. */
@@ -313,8 +317,8 @@ public class PipeMenu extends AbstractContainerMenu {
         return channelsData.get();
     }
 
-    public com.knozyy.flowline.pipe.SignalMode signal() {
-        com.knozyy.flowline.pipe.SignalMode[] modes = com.knozyy.flowline.pipe.SignalMode.values();
+    public SignalMode signal() {
+        SignalMode[] modes = SignalMode.values();
         return modes[Math.max(0, Math.min(modes.length - 1, signalData.get()))];
     }
 
@@ -322,8 +326,46 @@ public class PipeMenu extends AbstractContainerMenu {
         return overflowData.get() != 0;
     }
 
-    public int pageCount() {
-        return Math.max(1, (capacity() + SideConfig.FILTER_PAGE - 1) / SideConfig.FILTER_PAGE);
+    // ---- client filter --------------------------------------------------------------------------------------
+
+    /** Client: the rule at {@code index}, or null. */
+    @Nullable
+    public FilterEntry clientEntry(int index) {
+        return index >= 0 && index < clientFilter.size() ? clientFilter.get(index) : null;
+    }
+
+    /** Client: rules by position, holes as null. May reach past {@link #capacity()}. */
+    public List<FilterEntry> clientFilter() {
+        return Collections.unmodifiableList(clientFilter);
+    }
+
+    /** Client: the first usable position without a rule, or -1 when the filter is full. */
+    public int firstFreeClient() {
+        for (int i = 0; i < capacity(); i++) {
+            if (clientEntry(i) == null) return i;
+        }
+        return -1;
+    }
+
+    /** Client: rules in the usable positions. */
+    public int ruleCount() {
+        int count = 0;
+        for (int i = 0; i < Math.min(capacity(), clientFilter.size()); i++) {
+            if (clientFilter.get(i) != null) count++;
+        }
+        return count;
+    }
+
+    /** Client: apply a sync from the server. */
+    public void receiveFilter(FilterSyncPayload payload) {
+        if (payload.reset()) clientFilter.clear();
+        for (FilterSyncPayload.Change change : payload.changes()) {
+            while (clientFilter.size() <= change.index()) clientFilter.add(null);
+            clientFilter.set(change.index(), change.entry().orElse(null));
+        }
+        while (!clientFilter.isEmpty() && clientFilter.get(clientFilter.size() - 1) == null) {
+            clientFilter.remove(clientFilter.size() - 1);
+        }
     }
 
     // ---- buttons ------------------------------------------------------------------------------------------
@@ -331,11 +373,18 @@ public class PipeMenu extends AbstractContainerMenu {
     @Override
     public boolean clickMenuButton(Player player, int id) {
         if (cfg == null) return false;
+        if (id >= BTN_SIDE && id < BTN_SIDE + 6) return openSide(player, Direction.from3DDataValue(id - BTN_SIDE));
         switch (id) {
             case BTN_DISTRIBUTION -> cfg.distribution = cfg.distribution.next();
             case BTN_DISTRIBUTION_BACK -> cfg.distribution = cfg.distribution.previous();
-            case BTN_REDSTONE -> cfg.redstone = cfg.redstone.next();
-            case BTN_REDSTONE_BACK -> cfg.redstone = cfg.redstone.previous();
+            case BTN_REDSTONE -> {
+                cfg.redstone = cfg.redstone.next();
+                cfg.wake();
+            }
+            case BTN_REDSTONE_BACK -> {
+                cfg.redstone = cfg.redstone.previous();
+                cfg.wake();
+            }
             case BTN_CHANNEL, BTN_CHANNEL + 1, BTN_CHANNEL + 2 -> {
                 if (!type.hasChannels()) return false;
                 cfg.channels ^= 1 << (id - BTN_CHANNEL);
@@ -354,20 +403,32 @@ public class PipeMenu extends AbstractContainerMenu {
             case BTN_CLEAR -> {
                 if (!hasFilter()) return false;
                 cfg.clearFilter();
-                loadPage();
-            }
-            case BTN_PREV_PAGE, BTN_NEXT_PAGE -> {
-                int target = page + (id == BTN_NEXT_PAGE ? 1 : -1);
-                if (!hasFilter() || target < 0 || target >= pageCount()) return false;
-                page = target;
-                loadPage();
-                return true;
             }
             default -> {
                 return false;
             }
         }
         pipe.setChanged();
+        return true;
+    }
+
+    /** Whether {@code dir} of the pipe at {@code state} has a block attached, so it has a screen of its own. */
+    public static boolean canOpenSide(BlockState state, Direction dir) {
+        return state.getBlock() instanceof PipeBlock && state.getValue(PipeBlock.prop(dir)).isEndpoint();
+    }
+
+    /** Server: replace this menu by the one of another side of the same pipe, without closing the screen first. */
+    private boolean openSide(Player player, Direction dir) {
+        if (dir == side || !(player instanceof ServerPlayer serverPlayer) || serverPlayer.containerMenu != this
+                || !pipe.menuValid(player) || pipe.getLevel() == null) {
+            return false;
+        }
+        BlockState state = pipe.getLevel().getBlockState(pos);
+        if (!canOpenSide(state, dir)) return false;
+        Conn conn = state.getValue(PipeBlock.prop(dir));
+        // no close packet: the client goes straight from this screen to the next one
+        serverPlayer.doCloseContainer();
+        PipeBlock.openConfig(pipe, dir, conn, serverPlayer);
         return true;
     }
 
@@ -386,97 +447,153 @@ public class PipeMenu extends AbstractContainerMenu {
         pipe.setChanged();
     }
 
-    // ---- ghost filter slots -------------------------------------------------------------------------------
-
-    private boolean isGhost(int slotId) {
-        return slotId >= UPGRADES && slotId < UPGRADES + ghostCount;
-    }
+    // ---- filter rules -------------------------------------------------------------------------------------
 
     /**
-     * Ghost slots: click with a stack to turn it into a rule. Clicks with an empty hand are handled by the screen
-     * (open the rule library, or shift-click to remove the rule).
+     * Server: replace one rule (null removes it). {@code index} -1 means the first free position. Invalid,
+     * oversized and duplicate rules are refused, the last two with a message.
      */
-    @Override
-    public void clicked(int slotId, int button, ClickType clickType, Player player) {
-        if (isGhost(slotId)) {
-            if (clickType == ClickType.PICKUP) clickGhost((GhostSlot) slots.get(slotId), getCarried(), button);
-            return;
-        }
-        super.clicked(slotId, button, clickType, player);
-    }
-
-    private void clickGhost(GhostSlot slot, ItemStack carried, int button) {
-        int index = slot.filterIndex();
-        if (cfg == null || carried.isEmpty() || index >= capacity()) return;   // server decides; the page syncs back
-        FilterEntry entry = FilterEntry.fromStack(type, carried, registries);
-        if (entry != null) setEntry(index, entry);
-    }
-
-    /** Server: replace one rule (null removes it), then refresh the page for the client. */
     public void setEntry(int index, @Nullable FilterEntry entry) {
-        if (cfg == null || !hasFilter() || index < 0 || index >= cfg.filterCapacity()) return;
-        if (entry != null && entry.problem(type) != null) return;
+        if (cfg == null || !hasFilter()) return;
+        if (index == -1) {
+            if (entry == null) return;
+            index = firstFree(cfg);
+            if (index < 0) {
+                message(Component.translatable("message.flowline.filter_full"));
+                return;
+            }
+        }
+        if (index < 0 || index >= cfg.filterCapacity()) return;
         if (entry != null) {
+            if (entry.problem(type) != null) return;
+            if (encodedSize(entry) > MAX_RULE_BYTES) {
+                message(Component.translatable("message.flowline.rule_too_large"));
+                return;
+            }
             for (int i = 0; i < cfg.filterCapacity(); i++) {
                 FilterEntry other = cfg.getEntry(i);
                 if (i != index && other != null && other.sameMatch(entry)) {
-                    if (player != null) {
-                        player.displayClientMessage(Component.translatable("message.flowline.rule_exists", i + 1), true);
-                    }
+                    message(Component.translatable("message.flowline.rule_exists", i + 1));
                     return;
                 }
             }
         }
         cfg.setEntry(index, entry);
         pipe.setChanged();
-        loadPage();
     }
 
-    /** Client: the rules on the visible page, from {@link com.knozyy.flowline.network.FilterPagePayload}. */
-    public void receivePage(int page, List<Optional<FilterEntry>> entries) {
-        for (int i = 0; i < clientEntries.length; i++) {
-            clientEntries[i] = i < entries.size() ? entries.get(i).orElse(null) : null;
+    /** Server: turn the carried stack into a rule at {@code index} (-1: first free position). */
+    public void ruleFromCarried(int index) {
+        ItemStack carried = getCarried();
+        if (cfg == null || carried.isEmpty()) return;
+        FilterEntry entry = FilterEntry.fromStack(type, carried, registries);
+        if (entry != null) setEntry(index, entry);
+    }
+
+    private void message(Component text) {
+        if (player != null) player.displayClientMessage(text, true);
+    }
+
+    /** The first usable position of {@code cfg}'s filter without a rule, or -1. */
+    public static int firstFree(SideConfig cfg) {
+        for (int i = 0; i < cfg.filterCapacity(); i++) {
+            if (cfg.getEntry(i) == null) return i;
+        }
+        return -1;
+    }
+
+    /** Bytes {@code entry} takes in a packet. */
+    public static int encodedSize(FilterEntry entry) {
+        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            entry.write(buf);
+            return buf.readableBytes();
+        } finally {
+            buf.release();
         }
     }
 
-    /** Client: the rule shown in ghost slot {@code slotIndex} of the visible page. */
-    @Nullable
-    public FilterEntry clientEntry(int slotIndex) {
-        return slotIndex >= 0 && slotIndex < clientEntries.length ? clientEntries[slotIndex] : null;
-    }
-
-    /** Server: show the current page in the ghost slots and queue the rules for the client. */
-    private void loadPage() {
-        for (int i = 0; i < filterInv.getContainerSize(); i++) {
-            FilterEntry entry = cfg.getEntry(page * SideConfig.FILTER_PAGE + i);
-            // fluid rules are drawn by the screen with the fluid's own texture, not as a bucket
-            filterInv.setItem(i, entry == null || entry.isFluidRule(type) ? ItemStack.EMPTY
-                    : entry.displayStack(type, registries));
+    /**
+     * The positions whose rule differs between {@code sent} and {@code cfg}, which is then brought up to date.
+     * Positions past {@link FilterSyncPayload#MAX_INDEX} are never synced.
+     */
+    public static List<FilterSyncPayload.Change> diffFilter(List<FilterEntry> sent, SideConfig cfg) {
+        List<FilterSyncPayload.Change> changes = new ArrayList<>();
+        int end = Math.min(Math.max(sent.size(), cfg.filterSize()), FilterSyncPayload.MAX_INDEX + 1);
+        for (int i = 0; i < end; i++) {
+            FilterEntry now = cfg.getEntry(i);
+            FilterEntry before = i < sent.size() ? sent.get(i) : null;
+            if (Objects.equals(now, before)) continue;
+            changes.add(new FilterSyncPayload.Change(i, Optional.ofNullable(now)));
+            while (sent.size() <= i) sent.add(null);
+            sent.set(i, now);
         }
-        pageDirty = true;
+        return changes;
     }
 
-    /** Keeps the page valid when a Filter upgrade is taken out, and sends page rules after changes. */
+    /** Splits changes into packets of at most {@link FilterSyncPayload#MAX_CHANGES} entries and {@code maxBytes}. */
+    public static List<List<FilterSyncPayload.Change>> packets(List<FilterSyncPayload.Change> changes, int maxBytes) {
+        List<List<FilterSyncPayload.Change>> packets = new ArrayList<>();
+        List<FilterSyncPayload.Change> current = new ArrayList<>();
+        int bytes = 0;
+        for (FilterSyncPayload.Change change : changes) {
+            int size = change.entry().map(PipeMenu::encodedSize).orElse(0) + 8;
+            if (!current.isEmpty() && (current.size() == FilterSyncPayload.MAX_CHANGES || bytes + size > maxBytes)) {
+                packets.add(current);
+                current = new ArrayList<>();
+                bytes = 0;
+            }
+            current.add(change);
+            bytes += size;
+        }
+        if (!current.isEmpty()) packets.add(current);
+        return packets;
+    }
+
+    /** Sends the rules that changed since the last sync, e.g. after an edit, a Configuration Card or another player. */
+    private void syncFilter() {
+        if (cfg == null || player == null || !hasFilter() || sentVersion == cfg.filterVersion()) return;
+        boolean reset = sentVersion == Integer.MIN_VALUE;
+        sentVersion = cfg.filterVersion();
+        List<List<FilterSyncPayload.Change>> packets = packets(diffFilter(sentFilter, cfg), MAX_SYNC_BYTES);
+        if (packets.isEmpty() && reset) packets.add(List.of());
+        for (int i = 0; i < packets.size(); i++) {
+            ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
+                    new FilterSyncPayload(containerId, reset && i == 0, packets.get(i)));
+        }
+    }
+
     @Override
     public void broadcastChanges() {
-        if (cfg != null && page >= pageCount()) {
-            page = pageCount() - 1;
-            loadPage();
-        }
         super.broadcastChanges();
-        if (cfg != null && pageDirty && player != null) {
-            pageDirty = false;
-            List<Optional<FilterEntry>> entries = new ArrayList<>();
-            for (int i = 0; i < SideConfig.FILTER_PAGE; i++) {
-                entries.add(Optional.ofNullable(cfg.getEntry(page * SideConfig.FILTER_PAGE + i)));
-            }
-            ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new FilterPagePayload(containerId, page, entries));
+        syncFilter();
+    }
+
+    // ---- status -------------------------------------------------------------------------------------------
+
+    private SideStatus serverStatus() {
+        if (cfg.mode != SideMode.EXTRACT) return SideStatus.STARTING;
+        return SideStatus.of(cfg, this::sourceHasWork);
+    }
+
+    /** Whether the source holds something this side would move; looked up at most once a second. */
+    private boolean sourceHasWork() {
+        if (!(pipe.getLevel() instanceof ServerLevel level)) return false;
+        long now = level.getGameTime();
+        if (now - hasWorkCheckedAt >= 20) {
+            hasWorkCheckedAt = now;
+            if (cfg.sourceCaps == null) cfg.sourceCaps = Caps.create(type, level, pos.relative(side), side.getOpposite());
+            hasWork = type.hasWork(cfg.sourceCaps, cfg);
         }
+        return hasWork;
     }
 
     // ---- menu plumbing ------------------------------------------------------------------------------------
 
-    /** Shift-click moves upgrades between the player inventory and the upgrade slots. */
+    /**
+     * Shift-click moves upgrades between the player inventory and the upgrade slots; any other stack in the
+     * inventory becomes a filter rule in the first free position (the stack itself stays where it is).
+     */
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
         Slot slot = slots.get(index);
@@ -489,6 +606,10 @@ public class PipeMenu extends AbstractContainerMenu {
         } else if (index >= inventoryStart && slots.get(0).mayPlace(stack)) {
             if (!moveItemStackTo(stack, 0, UPGRADES, false)) return ItemStack.EMPTY;
         } else {
+            if (index >= inventoryStart && cfg != null && hasFilter()) {
+                FilterEntry entry = FilterEntry.fromStack(type, stack, registries);
+                if (entry != null) setEntry(-1, entry);
+            }
             return ItemStack.EMPTY;
         }
 
@@ -522,36 +643,6 @@ public class PipeMenu extends AbstractContainerMenu {
         @Override
         public int getMaxStackSize() {
             return 1;
-        }
-    }
-
-    /**
-     * A slot that only displays a filter entry: nothing can be put in or taken out by the vanilla logic. Positions
-     * past the side's capacity (a partial last page) are hidden.
-     */
-    public class GhostSlot extends Slot {
-        GhostSlot(SimpleContainer container, int index, int x, int y) {
-            super(container, index, x, y);
-        }
-
-        @Override
-        public boolean mayPlace(ItemStack stack) {
-            return false;
-        }
-
-        @Override
-        public boolean mayPickup(Player player) {
-            return false;
-        }
-
-        /** Position of this slot's rule in the whole filter. */
-        public int filterIndex() {
-            return page() * SideConfig.FILTER_PAGE + getContainerSlot();
-        }
-
-        @Override
-        public boolean isActive() {
-            return filterIndex() < capacity();
         }
     }
 }

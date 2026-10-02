@@ -1,6 +1,8 @@
 package com.knozyy.flowline.mixin;
 
+import com.knozyy.flowline.client.OffhandPipe;
 import com.knozyy.flowline.compat.CurvyPipesCompat;
+import com.knozyy.flowline.pipe.OffhandMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionHand;
 import net.minecraftforge.client.event.InputEvent;
@@ -11,23 +13,44 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * Curvy's client only sees a Flowline pipe in the off hand, and only in Curvy mode: a pipe in the main hand always
+ * places a block, and the off hand's other mode is Build for me.
+ */
 @Pseudo
 @Mixin(targets = "cyb0124.curvy_pipes.client.ClientHandler", remap = false)
 public abstract class CurvyClientMixin {
+    private static boolean flowline$curvyOffhand() {
+        var player = Minecraft.getInstance().player;
+        return player != null && CurvyPipesCompat.supported(player.getOffhandItem())
+                && OffhandPipe.mode() == OffhandMode.CURVY;
+    }
+
     @Inject(method = "onInteract", at = @At("HEAD"), cancellable = true)
-    private static void flowline$normalOffhand(InputEvent.InteractionKeyMappingTriggered event, CallbackInfo ci) {
+    private static void flowline$handRules(InputEvent.InteractionKeyMappingTriggered event, CallbackInfo ci) {
         var player = Minecraft.getInstance().player;
         if (player == null) return;
-        if (event.isUseItem() && CurvyPipesCompat.supported(player.getOffhandItem())
-                && (event.getHand() == InteractionHand.OFF_HAND || player.getMainHandItem().isEmpty())) ci.cancel();
-        if (event.isAttack() && CurvyPipesCompat.supported(player.getOffhandItem())
-                && !CurvyPipesCompat.supported(player.getMainHandItem())) ci.cancel();
+        boolean main = CurvyPipesCompat.supported(player.getMainHandItem());
+        boolean off = CurvyPipesCompat.supported(player.getOffhandItem());
+        if (event.isUseItem()) {
+            boolean pipe = CurvyPipesCompat.supported(player.getItemInHand(event.getHand()));
+            if (pipe && (event.getHand() == InteractionHand.MAIN_HAND || !flowline$curvyOffhand())) ci.cancel();
+        }
+        if (event.isAttack() && (main || off && !flowline$curvyOffhand())) ci.cancel();
+    }
+
+    @ModifyArg(method = "renderLevel(Lnet/minecraftforge/client/event/RenderLevelStageEvent;)V",
+            at = @At(value = "INVOKE", target = "Lcyb0124/curvy_pipes/client/ClientHandler;renderLevel(DDDZZIIIIDFII)V"), index = 11)
+    private static int flowline$noMainHandCurvePreview(int itemId) {
+        var player = Minecraft.getInstance().player;
+        return player != null && CurvyPipesCompat.supported(player.getMainHandItem()) ? 0 : itemId;
     }
 
     @ModifyArg(method = "renderLevel(Lnet/minecraftforge/client/event/RenderLevelStageEvent;)V",
             at = @At(value = "INVOKE", target = "Lcyb0124/curvy_pipes/client/ClientHandler;renderLevel(DDDZZIIIIDFII)V"), index = 12)
-    private static int flowline$noOffhandCurvePreview(int itemId) {
+    private static int flowline$offhandCurvePreviewInCurvyMode(int itemId) {
         var player = Minecraft.getInstance().player;
-        return player != null && CurvyPipesCompat.supported(player.getOffhandItem()) ? 0 : itemId;
+        if (player == null || !CurvyPipesCompat.supported(player.getOffhandItem())) return itemId;
+        return flowline$curvyOffhand() ? itemId : 0;
     }
 }

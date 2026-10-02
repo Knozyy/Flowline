@@ -56,6 +56,13 @@ public final class PipeNetwork {
         }
     }
 
+    /** An EXTRACT side of some pipe: it pulls from the block at {@code pipePos.relative(side)} through {@code caps}. */
+    public record Source(BlockPos pipePos, Direction side, Caps caps, PipeBlockEntity pipe) {
+        public SideConfig cfg() {
+            return pipe.side(side);
+        }
+    }
+
     /** One connected pipe network. */
     public static final class Graph {
         final PipeType type;
@@ -64,6 +71,8 @@ public final class PipeNetwork {
         final Map<BlockPos, PipeBlockEntity> pipes = new HashMap<>();
         /** Target lists per extracting side, keyed by {@link #key}. */
         final Map<Long, List<Target>> targets = new HashMap<>();
+        /** Every extracting side of the graph; built on first use. */
+        List<Source> sources;
         boolean valid = true;
 
         Graph(PipeType type) {
@@ -170,6 +179,28 @@ public final class PipeNetwork {
                     k -> scan(level, cfg.graph, origin, extractSide, type));
         }
         return order(new ArrayList<>(cfg.cachedTargets), cfg);
+    }
+
+    /** Every extracting side of the network the pipe at {@code pos} belongs to, in a stable order. */
+    public static List<Source> sources(ServerLevel level, BlockPos pos, PipeType type) {
+        Graph graph = graphAt(level, pos, type);
+        if (graph.sources == null) {
+            List<Source> sources = new ArrayList<>();
+            for (Map.Entry<BlockPos, PipeBlockEntity> entry : graph.pipes.entrySet()) {
+                BlockPos pipePos = entry.getKey();
+                PipeBlockEntity be = entry.getValue();
+                BlockState state = be.getBlockState();
+                for (Direction dir : Direction.values()) {
+                    if (state.getValue(PipeBlock.prop(dir)).isEndpoint() && be.side(dir).mode == SideMode.EXTRACT) {
+                        sources.add(new Source(pipePos, dir,
+                                Caps.create(type, level, pipePos.relative(dir), dir.getOpposite()), be));
+                    }
+                }
+            }
+            sources.sort(Comparator.comparingLong((Source s) -> s.pipePos().asLong()).thenComparingInt(s -> s.side().ordinal()));
+            graph.sources = List.copyOf(sources);
+        }
+        return graph.sources;
     }
 
     /** Breadth-first search over the graph's links: distances, paths and every inserting side. */

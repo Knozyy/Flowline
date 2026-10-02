@@ -268,7 +268,10 @@ public class PipeBlockEntity extends BlockEntity {
             if (cfg.redstone == RedstoneMode.PULSE) {
                 if (cfg.pulsePending) {
                     cfg.pulsePending = false;
-                    cfg.signalling = signalAfter(level, dir, cfg, operate(level, dir, cfg, 1), false);
+                    long pulsed = operate(level, dir, cfg, 1);
+                    cfg.lastMoved = pulsed;
+                    cfg.lastBlocked = false;
+                    cfg.signalling = signalAfter(level, dir, cfg, pulsed, false);
                 }
                 continue;
             }
@@ -294,10 +297,14 @@ public class PipeBlockEntity extends BlockEntity {
             if (!blocked) {
                 moved = operate(level, dir, cfg, cfg.interval);
                 if (moved < 0) {   // asleep
+                    cfg.lastMoved = moved;
+                    cfg.lastBlocked = false;
                     cfg.signalling = signalAfter(level, dir, cfg, moved, false);
                     continue;
                 }
             }
+            cfg.lastMoved = moved;
+            cfg.lastBlocked = blocked;
             cfg.signalling = signalAfter(level, dir, cfg, moved, blocked);
             cfg.interval = moved <= 0 ? Pacing.afterIdle(cfg.interval, cfg.speedCount)
                     // energy flows every tick while there is work, like a cable: many sources only give one

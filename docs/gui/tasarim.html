@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flowline GUI Tasarımı</title>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#34302D;--panel:#403B37;--line:#5A534D;--edge:#6B635B;--slot:#2A2724;--frame:#1E1B19;--text:#EFE9E2;--muted:#B9AFA5;--on:#1B1F23;--item:#E0A030;--universal:#B58CF0;--page:#F4F2EF;--ink:#2A2724}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#151312;--ink:#EFE9E2}}
+:root[data-theme="dark"]{--page:#151312;--ink:#EFE9E2}
+body{margin:0;background:var(--page);color:var(--ink);font-family:system-ui,sans-serif;padding:24px 16px}
+h1{font-size:22px;font-weight:500;margin:0 0 4px}
+p.note{font-size:14px;margin:0 0 20px;opacity:.8;max-width:760px;line-height:1.5}
+h2{font-size:15px;font-weight:500;margin:28px 0 8px}
+.stage{overflow-x:auto;padding-bottom:6px}
+.mc{font-family:'Pixelify Sans',monospace;font-size:15px;line-height:1.25;color:var(--text)}
+.win{background:var(--bg);border:2px solid var(--frame);padding:12px;width:580px}
+.pan{background:var(--panel);border:1px solid var(--line);padding:8px}
+.row{display:flex;align-items:center;gap:6px}
+.ico{width:22px;height:22px;flex:none}
+.mu{color:var(--muted)}
+.grp{color:var(--muted);margin:8px 0 2px;border-bottom:1px solid var(--line)}
+.prop{display:flex;justify-content:space-between;align-items:center;padding:3px 0;gap:6px}
+.val{border:1px solid var(--edge);padding:0 5px;white-space:nowrap}
+.num{border:1px solid var(--line);background:var(--slot);padding:0 5px}
+.s{width:32px;height:32px;margin:1px;background:var(--slot);border:1px solid var(--line)}
+.inv{display:grid;grid-template-columns:repeat(9,36px)}
+.inv .gap{grid-column:1/-1;height:8px}
+.tab{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--edge)}
+.chipA{border:1px solid var(--edge);padding:0 6px}
+.chipB{background:var(--text);color:var(--bg);padding:0 6px}
+.add{margin-top:6px;padding:4px 6px;border:1px dashed var(--edge);color:var(--muted)}
+.ck{width:12px;height:12px;border:1px solid var(--muted);display:inline-block;flex:none}
+.ck.on{background:var(--item);border-color:var(--item)}
+.legend{font-size:13px;margin-top:8px;opacity:.85}
+</style>
+</head>
+<body>
+<h1>Flowline boru ekranı ve kural editörü</h1>
+<p class="note">Onaylanan tasarım (2026-10-02): Dökme Demir paleti, Y3+ yerleşimi ve bölümleri ayrı kural editörü. Mockup ölçeği 2× GUI pikseli; oyunda Minecraft'ın kendi yazı tipi tam ölçekte kullanılır. Vurgu borunun türünden gelir ve yalnız dolgu ya da çerçevedir. Uygulamada yükseltme ızgarası 3×2'ye döndü ve ek koşulların etiketleri kutu içi ipucuna dönüştü (pencere 240 GUI piksel yüksekliğe sığsın diye).</p>
+
+<h2>Ana ekran — Çek tarafı (universal boru)</h2>
+<div class="stage"><div class="mc win" id="extract"></div></div>
+
+<h2>Ana ekran — Ekle tarafı (eşya borusu)</h2>
+<div class="stage"><div class="mc win" id="insert"></div></div>
+
+<h2>Kural editörü</h2>
+<div class="stage"><div class="mc win" style="width:620px" id="editor"></div></div>
+<p class="legend">Kontrast (WCAG): metin/zemin 10.8, metin/panel 9.2, soluk/panel 5.1, vurgu üstü koyu metin en az 4.9 (enerji).</p>
+
+<script>
+const s=bg=>`<div class="s" ${bg?`style="background:${bg}"`:''}></div>`;
+let inv='';for(let i=0;i<27;i++)inv+=s();inv+='<div class="gap"></div>';for(let i=0;i<9;i++)inv+=s();
+const p=(l,v)=>`<div class="prop"><span>${l}</span>${v}</div>`,cyc=v=>`<span class="val">‹ ${v} ›</span>`,num=v=>`<span class="num">${v}</span>`,g=t=>`<div class="grp">${t}</div>`;
+const tab=(l,k,a)=>`<span class="tab" style="${{cur:`background:${a};color:#1B1F23;border-color:${a}`,ext:'border:2px solid #EFE9E2',ins:'',pipe:'color:#B9AFA5;border-style:dotted',none:'color:#B9AFA5;border-style:dashed'}[k]}">${l}</span>`;
+const head=(a,n,sub,st,tk,work)=>`<div class="row" style="gap:8px;margin-bottom:6px"><div class="ico" style="background:${a}"></div><div style="flex:1">${n}<div class="mu">${sub}</div></div><div style="text-align:right"><span style="${work?`background:${a};color:#1B1F23`:'border:1px solid #B9AFA5'};padding:1px 8px">${st}</span><div class="mu" style="margin-top:3px">${tk}</div></div></div><div class="row" style="gap:4px;padding:6px 0;border-top:1px solid #5A534D;border-bottom:1px solid #5A534D;margin-bottom:10px"><span class="mu" style="margin-right:6px">Taraf</span>${tab('K','ins',a)}${tab('G','pipe',a)}${tab('D','ins',a)}${tab('B','cur',a)}${tab('Ü','none',a)}${tab('A','ext',a)}</div>`;
+const rule=(c,n,sub,b)=>`<div class="row" style="padding:4px 0;border-top:1px solid #5A534D"><div class="ico" style="background:${c}"></div><span style="flex:1;min-width:0">${n}<div class="mu">${sub}</div></span>${b?'<span class="chipB">Engel</span>':'<span class="chipA">İzin</span>'}</div>`;
+const bottom=(ups,lines)=>`<div style="display:flex;gap:10px;margin-top:10px;align-items:flex-start"><div class="inv">${inv}</div><div><div style="display:grid;grid-template-columns:repeat(3,36px)">${ups}</div><div style="margin-top:4px">${lines}</div></div></div>`;
+document.getElementById('extract').innerHTML=head('#B58CF0','Universal Boru','Batı tarafı · Çek','Çalışıyor','26 tick · 16 eşya',1)+
+`<div style="display:grid;grid-template-columns:222px minmax(0,1fr);gap:8px"><div class="pan" style="padding-top:2px">${g('Akış')}${p('Dağıtım',cyc('Dengeli'))}${p('Kanallar','<span class="mu">eşya · sıvı · FE</span>')}${g('Redstone')}${p('Çalışma',cyc('Sinyalle'))}${p('Çıkış',cyc('Tıkanınca'))}${g('Sınırlar')}${p('Bırak ≥',num('0'))}${p('FE/t ≤',num('8000'))}</div>
+<div class="pan"><div class="row"><span style="flex:1">Filtre</span><span class="mu">5 / 18</span></div><div class="mu" style="margin-bottom:4px">Yalnız izin verilenler geçer</div>${rule('#4FD6CF','Elmas','Eşya · bırak ≥ 16')}${rule('#7A5A32','#logs +1','Etiket, herhangi biri')}${rule('#9AA0A6','@create','Modun tüm eşyaları',1)}${rule('#C8C8C8','“kılıç”','İsim deseni · dayanıklılık %0–10',1)}<div class="add">+ Kural ekle</div></div></div>`+
+bottom(s('#6E5520')+s('#6E5520')+s('#1F5E66')+s()+s()+s(),'<div>Yükseltme 3/6</div><div class="mu">Başlangıç 26t</div><div class="mu">İşlem başı 16 eşya</div>');
+document.getElementById('insert').innerHTML=head('#E0A030','Eşya Borusu','Kuzey tarafı · Ekle','Hedef','Öncelik: 5',0)+
+`<div style="display:grid;grid-template-columns:222px minmax(0,1fr);gap:8px"><div class="pan" style="padding-top:2px">${g('Hedef')}${p('Öncelik','<span class="row" style="gap:3px"><span class="val">−</span>'+num('5')+'<span class="val">+</span></span>')}${p('En fazla',num('64'))}${p('Taşma',cyc('Kapalı'))}</div>
+<div class="pan"><div class="row"><span style="flex:1">Filtre</span><span class="mu">2 / 18</span></div><div class="mu" style="margin-bottom:4px">Yalnız izin verilenler geçer</div>${rule('#4FD6CF','Elmas','Eşya')}${rule('#C9C9C9','Demir Külçe','Eşya · veri: içerir')}<div class="add">+ Kural ekle</div></div></div>`+
+bottom(s('#1F5E66')+s()+s(),'<div>Yükseltme 1/6</div><div class="mu">Yalnız Filtre</div><div class="mu">Kural 18</div>');
+const tag=(on,t,c)=>`<div class="row" style="padding:3px 0;border-top:1px solid #5A534D"><span class="ck ${on?'on':''}"></span><span style="flex:1">#${t}</span><span class="mu">${c}</span></div>`;
+document.getElementById('editor').innerHTML=`<div class="row" style="margin-bottom:8px;gap:6px"><span style="flex:1">Kural #2</span><span style="background:#EFE9E2;color:#34302D;padding:0 8px">İzin</span><span class="val mu">Engel</span><span class="val">İptal</span><span style="background:#E0A030;color:#1B1F23;padding:0 9px">Kaydet</span></div>
+<div style="display:grid;grid-template-columns:150px minmax(0,1.25fr) minmax(0,1fr);gap:6px">
+<div class="pan"><div>Örnek</div><div class="s" style="width:44px;height:44px;background:#7A5A32;border-color:#E0A030;margin-top:6px"></div><div style="margin-top:4px">Meşe Kütüğü</div><div class="row" style="margin-top:8px"><span class="ck"></span><span>Eşleştir</span></div><div class="num mu" style="margin-top:3px">minecraft:oak_log</div></div>
+<div class="pan"><div class="row"><span style="flex:1">Etiketler</span><span class="val">Herhangi</span></div><div class="num mu" style="margin:4px 0">Tüm etiketlerde ara…</div>${tag(1,'logs','58')}${tag(1,'logs_that_burn','44')}${tag(0,'oak_logs','4')}<div class="mu" style="margin-top:6px;border-top:1px solid #5A534D;padding-top:4px">önizleme: etiketin eşyaları · tık = örnek yap</div></div>
+<div class="pan"><div class="row"><span style="flex:1">Veri</span><span class="val">İçerir</span></div><div class="mu" style="margin-top:8px">Örnekte ek veri yok</div><div class="val" style="margin-top:10px;text-align:center">Metinle düzenle</div></div></div>
+<div class="row" style="margin-top:6px;gap:6px"><span class="num mu" style="flex:1">@mod</span><span class="num mu" style="flex:1.4">isim deseni</span><span class="num">0</span>–<span class="num">100</span><span class="mu">%</span><span class="num mu" style="flex:1">miktar</span></div>
+<div style="margin-top:6px;padding:5px 8px;border:1px solid #5A534D;background:#2A2724">İzin verir: #logs ya da #logs_that_burn<div class="mu">Örnek bu kurala uyuyor</div></div>
+<div style="display:flex;justify-content:center;margin-top:8px"><div class="inv">${inv}</div></div>`;
+</script>
+</body>
+</html>

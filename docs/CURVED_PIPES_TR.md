@@ -1,16 +1,18 @@
 # Flowline ve gerçek Curvy Pipes motoru
 
-Flowline 0.1.4, **Minecraft 1.20.1** için geliştirilmiştir. **Curvy Pipes isteğe bağlıdır.** Curvy 1.15.8 varsa aynı Flowline eşya/sıvı/enerji borusu item'ları Curvy yerleşimini de destekler. Curvy yoksa iki elde de normal blok yerleşimi çalışır. Ayrı kıvrımlı item, creative girişi veya dönüşüm tarifi yoktur. Çok oyunculuda Curvy hem istemcide hem sunucuda kurulu olmalıdır. Render, önizleme, seçim, radyal menü, hizalama, fizik, uç ayarları, aktarım ve kayıt gerçek Curvy native motorunda çalışır.
+Flowline 0.1.9, **Minecraft 1.20.1** için geliştirilmiştir. **Curvy Pipes isteğe bağlıdır.** Curvy 1.15.8 varsa aynı Flowline eşya/sıvı/enerji borusu item'ları Curvy yerleşimini de destekler. Curvy yoksa iki elde de normal blok yerleşimi çalışır. Ayrı kıvrımlı item, creative girişi veya dönüşüm tarifi yoktur. Çok oyunculuda Curvy hem istemcide hem sunucuda kurulu olmalıdır. Render, önizleme, seçim, radyal menü, hizalama, fizik, uç ayarları, aktarım ve kayıt gerçek Curvy native motorunda çalışır.
 
 ## Kullanım
 
-- **Curvy varken sağ el:** normal Flowline eşya/sıvı/enerji borusunu sağ eline al. Curvy'nin kendi HUD'ı, yerleşimi ve düzenleyicisi açılır. Yerleştirme, uzatma, düğüme/hatta bağlama ve yeniden bağlama Curvy'nin kendi sistemidir.
-- **Curvy varken sol el:** aynı boruyu sol eline al ve sağ elini boş bırak. Sağ tık normal Flowline blok borusunu yerleştirir. Curvy önizlemesi sol elde açılmaz.
-- **Curvy yokken:** aynı item'lar iki elde de normal blok borularını yerleştirir.
-- **Sol elde boru + B:** Build for Me, hedef bloktan sana doğru normal blok boruları döşer. Tuş Controls ekranından değiştirilebilir. İlk uygun durumda gösterilen ipucu 8 saniye sürer; `config/flowline-client.toml` içindeki `buildForMeHintSeen` ile saklanır ve başka dünyalarda ya da oyunu yeniden açınca tekrarlanmaz.
+- **Sağ el:** boru her zaman normal Flowline blok borusu yerleştirir; Curvy sağ elde açılmaz.
+- **Sol el, iki mod:** mod tuşu (varsayılan **B**, Controls'tan değiştirilebilir) **Build for Me ↔ Curvy** arasında geçer; seçili mod nişangâhın altında yazar. Sağ tık seçili modun işini yapar; sağ el boş ya da tıklamayı kullanmayan bir eşya olmalı.
+  - **Build for Me:** bakılan bloktan sana giden rota hayalet borularla ve gereken boru sayısıyla gösterilir, **sağ tık kurar**. Elinde yetmeyen kısım soluk çizilir. İlk uygun durumda gösterilen ipucu 8 saniye sürer; `config/flowline-client.toml` içindeki `buildForMeHintSeen` ile saklanır.
+  - **Curvy:** Curvy'nin kendi HUD'ı, önizlemesi, yerleşimi ve düzenleyicisi sol eldeki boruyla çalışır.
+- **Curvy yokken:** sağ el blok borusu, sol el yalnız Build for Me.
+- **Curvy hattı Flowline borusuna takılınca** o borunun ağına bağlanır: Curvy oradan çekerse ağın Çek taraflarının bağlı olduğu envanterlerden (filtre ve "bırak ≥" geçerli), verirse ağın Ekle hedeflerine dağıtılır. İki Flowline borusu arasındaki hat iki ağ arasında köprüdür. Hattın kaynak ucu Curvy menüsünden bir kez **Extract** yapılmalıdır; Curvy yalnız etkin uçlardan taşır ([Curvy'ye istek](https://github.com/cyb0124/CurvyPipes-Issues/issues/27)).
 - Orta tık Curvy hizalama desenlerini değiştirir; Shift ters yönde çevirir. Düğüm düzenleme, taşıma, keskin eklem ve silme gerçek radyal menüdedir.
 - Uçtaki aktarım ayarları ve filtreler Curvy'nindir: Passive / Extract / Retrieve, ID regex ve miktar düzenleme. Şeffaf item borusu için Curvy'nin glass ile değiştirme davranışı kullanılır.
-- Normal Flowline boruları sıradan blok yerleşimini, Flowline filtre/upgrade ekranını ve **sol elde boru + B** ile Build for Me özelliğini kullanır.
+- Normal Flowline boruları sıradan blok yerleşimini, Flowline filtre/upgrade ekranını ve sol eldeki Build for Me modunu kullanır.
 
 Curvy'nin yerel lojistik türleri item, fluid ve FE'dir. Universal ve Mekanism chemical boruları Flowline'da normal blok borusu olarak kalır; bunlar için sahte bir Curvy varyantı üretilmez. Yeni kıvrımlı ağlar Flowline blok ağından ayrıdır ve Flowline upgrade'lerini kullanmaz. Curvy'nin kurulu AE2/GregTech/ComputerCraft entegrasyonları kendi ayarlarına göre çalışır.
 
