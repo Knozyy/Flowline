@@ -100,6 +100,12 @@ public enum PipeType implements StringRepresentable {
      */
     public long transfer(Level level, BlockPos sourcePos, Caps source, SideConfig cfg, List<PipeNetwork.Target> targets,
                          int elapsed, @Nullable BiConsumer<PipeNetwork.Target, ItemStack> onItem) {
+        return transfer(level, sourcePos, source, cfg, targets, elapsed, onItem, null);
+    }
+
+    public long transfer(Level level, BlockPos sourcePos, Caps source, SideConfig cfg, List<PipeNetwork.Target> targets,
+                         int elapsed, @Nullable BiConsumer<PipeNetwork.Target, ItemStack> onItem,
+                         @Nullable BiConsumer<PipeNetwork.Target, FluidStack> onFluid) {
         int multiplier = Pacing.stackMultiplier(cfg.stackCount);
         boolean balanced = cfg.distribution == Distribution.BALANCED;
         // overflow targets only get what the others could not take, in nearest-first order
@@ -117,7 +123,7 @@ public enum PipeType implements StringRepresentable {
         }
         if (fluids && cfg.channel(CH_FLUIDS, this)) {
             moved += inTwoPasses(main, overflow, Pacing.fluidPerOperation(cfg.stackCount), (list, budget, first) ->
-                    FluidTransfer.run(level, source, cfg, list, budget, first && balanced, this));
+                    FluidTransfer.run(level, source, cfg, list, budget, first && balanced, this, onFluid));
         }
         if (energy && cfg.channel(CH_ENERGY, this)) {
             long ticks = Math.max(1, elapsed);

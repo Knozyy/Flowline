@@ -5,6 +5,8 @@ import com.knozyy.flowline.pipe.PipeBlock;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
 import com.knozyy.flowline.registry.ModBlocks;
 import com.knozyy.flowline.registry.ModMenus;
+import com.knozyy.flowline.registry.ModBlockEntities;
+import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.BlockModelShaper;
 import net.minecraft.client.resources.model.BakedModel;
@@ -38,6 +40,11 @@ public final class ClientSetup {
     private static final int UNDYED = 0xFFB9BEC7;
 
     private ClientSetup() {}
+
+    @SubscribeEvent
+    public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(ModBlockEntities.PIPE.get(), FluidPipeRenderer::new);
+    }
 
     @SubscribeEvent
     public static void registerScreens(FMLClientSetupEvent event) {
@@ -80,6 +87,8 @@ public final class ClientSetup {
 
     @SubscribeEvent
     public static void registerKeys(RegisterKeyMappingsEvent event) {
+        event.register(Keys.CURVE_FINISH);
+        event.register(Keys.CURVE_CANCEL);
         event.register(Keys.BUILD);
     }
 

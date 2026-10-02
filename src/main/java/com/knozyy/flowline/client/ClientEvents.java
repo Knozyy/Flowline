@@ -17,6 +17,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.client.event.RenderGuiEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -47,6 +48,15 @@ public final class ClientEvents {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES || event.getPoseStack() == null) return;
         TravellingItems.render(event.getPoseStack(), event.getCamera().getPosition(),
                 event.getPartialTick());
+        NetworkOverlay.render(event.getPoseStack(), event.getCamera().getPosition());
+        CurveRenderer.render(event.getPoseStack(), event.getCamera().getPosition(), event.getPartialTick());
+    }
+
+    @SubscribeEvent
+    public static void onHud(RenderGuiEvent.Post event) {
+        NetworkOverlay.legend(event.getGuiGraphics());
+        CurveClient.hud(event.getGuiGraphics());
+        BuildHint.render(event.getGuiGraphics());
     }
 
     @SubscribeEvent
@@ -54,6 +64,9 @@ public final class ClientEvents {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != null) TravellingItems.tick(mc.level);
+        NetworkOverlay.tick();
+        FlowingFluids.tick();
+        CurveClient.tick();
         while (Keys.BUILD.consumeClick()) {
             // the server checks the off hand and looks where the player looks itself
             if (mc.player != null && mc.screen == null) ModNetwork.sendToServer(new BuildPayload());
@@ -63,5 +76,8 @@ public final class ClientEvents {
     @SubscribeEvent
     public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         TravellingItems.clear();
+        NetworkOverlay.clear();
+        FlowingFluids.clear();
+        CurveClient.clear();
     }
 }

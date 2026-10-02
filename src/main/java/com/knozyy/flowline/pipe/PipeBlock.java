@@ -364,6 +364,7 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
                     buf.writeEnum(side);
                     buf.writeEnum(be.type());
                     buf.writeEnum(be.side(side).mode);
+                    buf.writeBoolean(be instanceof com.knozyy.flowline.curve.CurveNode.Endpoint);
                 });
     }
 

@@ -26,7 +26,7 @@ import java.util.List;
 public final class TravellingItems {
     private static final ArrayDeque<Entry> ENTRIES = new ArrayDeque<>();
 
-    private record Entry(ItemStack stack, List<Vec3> points, long start, int duration) {}
+    private record Entry(ItemStack stack, List<Vec3> points, long start, int duration, float scale) {}
 
     private TravellingItems() {}
 
@@ -46,7 +46,16 @@ public final class TravellingItems {
         }
         int duration = Math.max(1, (points.size() - 1) * FlowlineConfig.Client.TICKS_PER_PIPE.get());
         while (ENTRIES.size() >= max) ENTRIES.pollFirst();
-        ENTRIES.add(new Entry(payload.stack(), points, mc.level.getGameTime(), duration));
+        ENTRIES.add(new Entry(payload.stack(), points, mc.level.getGameTime(), duration, 0.35f));
+    }
+
+    public static void addCurve(ItemStack stack, List<Vec3> points) {
+        Minecraft mc=Minecraft.getInstance();
+        if(mc.level==null||points.size()<2||!FlowlineConfig.Client.RENDER_ITEMS.get())return;
+        int max=FlowlineConfig.Client.MAX_TRAVELLING.get();if(max<=0)return;
+        double length=0;for(int i=1;i<points.size();i++)length+=points.get(i-1).distanceTo(points.get(i));
+        while(ENTRIES.size()>=max)ENTRIES.pollFirst();
+        ENTRIES.add(new Entry(stack.copy(),List.copyOf(points),mc.level.getGameTime(),Math.max(1,(int)(length*FlowlineConfig.Client.TICKS_PER_PIPE.get())),0.14f));
     }
 
     public static void tick(ClientLevel level) {
@@ -73,7 +82,7 @@ public final class TravellingItems {
             if (pos.distanceToSqr(camera) > 64 * 64) continue;
             pose.pushPose();
             pose.translate(pos.x - camera.x, pos.y - camera.y, pos.z - camera.z);
-            pose.scale(0.35f, 0.35f, 0.35f);
+            pose.scale(e.scale(), e.scale(), e.scale());
             pose.mulPose(Axis.YP.rotationDegrees((float) ((now * 4) % 360)));
             int light = LevelRenderer.getLightColor(level, BlockPos.containing(pos));
             mc.getItemRenderer().renderStatic(e.stack(), ItemDisplayContext.FIXED, light, OverlayTexture.NO_OVERLAY, pose,

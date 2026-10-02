@@ -14,8 +14,8 @@ MODID = "flowline"
 ROOT = os.path.join("src", "main", "resources")
 # Built-in resource pack (Options > Resource Packs) that swaps the see-through pipe walls for solid ones.
 SOLID_PACK = "resourcepacks/solid_pipes"
-TYPES = {"item": (0xE0, 0x8A, 0x2B), "fluid": (0x2F, 0x7F, 0xE0), "energy": (0xD8, 0x3A, 0x3A),
-         "universal": (0x9C, 0x7B, 0xD8), "chemical": (0x7C, 0xD9, 0x57)}
+TYPES = {"item": (0xCC, 0xAE, 0x49), "fluid": (0x50, 0x8D, 0xAF), "energy": (0xC9, 0x85, 0x48),
+         "universal": (0x92, 0x75, 0xAE), "chemical": (0x80, 0xA6, 0x6E)}
 # pipes that only exist with another mod installed
 OPTIONAL = {"chemical": "mekanism"}
 
@@ -67,21 +67,12 @@ def mix(a, b, t):
 
 def window(x, y):
     """The glass slit of a pipe wall: arms show it along their axis, the core as a cross."""
-    return (x in (7, 8) and y <= 10) or (y in (7, 8) and x <= 10)
+    return (x == 7 and y <= 10) or (y == 7 and x <= 10)
 
 
 def metal(base, x, y, seed):
-    """Brushed metal in the pipe colour: soft vertical gradient, fine noise, bevelled tube edges at 5 and 10."""
-    steel = (0x9A, 0xA1, 0xAC)
-    c = mix(steel, base, 0.72)
-    f = 0.9 + 0.12 * noise(x, y, seed) + 0.06 * (1 - abs(7.5 - y) / 7.5)
-    if x in (5, 10) or y in (5, 10):
-        f *= 0.7                          # tube edges
-    elif x in (6, 11) or y in (6, 11):
-        f *= 1.18                         # highlight next to the edge
-    if x in (0, 15) or y in (0, 15):
-        f *= 0.8
-    return shade(c, f)
+    """Flat matte material: only a subtle edge, with no grain, shine or bright bevels."""
+    return shade(base, 0.84 if x in (5, 10) or y in (5, 10) else 0.94)
 
 
 def pipe_wall(name, base, seed, solid):
@@ -91,7 +82,7 @@ def pipe_wall(name, base, seed, solid):
         for y in range(16):
             for x in range(16):
                 if window(x, y):
-                    rows[y][x] = shade(mix(base, (0xFF, 0xFF, 0xFF), 0.18), 0.95 + 0.1 * noise(x, y, seed + 5))
+                    rows[y][x] = shade(base, 0.86)
     else:
         # pipe wall with a window; the window is cut out so travelling items can be seen inside
         rows = [[CLEAR if window(x, y) else metal(base, x, y, seed) for x in range(16)] for y in range(16)]
@@ -100,11 +91,7 @@ def pipe_wall(name, base, seed, solid):
             for x in range(16):
                 if rows[y][x] is not CLEAR and any(0 <= x + dx < 16 and 0 <= y + dy < 16 and window(x + dx, y + dy)
                                                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
-                    rows[y][x] = shade(mix(base, (0xFF, 0xFF, 0xFF), 0.35), 1.0)
-    if name == "universal":
-        # three kind markers in the corners of the core faces
-        for (px, py), kind in (((5, 5), "item"), ((10, 5), "fluid"), ((5, 10), "energy")):
-            rows[py][px] = shade(TYPES[kind], 1.15)
+                    rows[y][x] = shade(base, 0.8)
     return rows
 
 
@@ -129,7 +116,7 @@ for idx, (name, base) in enumerate(TYPES.items()):
     write_png(f"assets/{MODID}/textures/block/{name}_pipe_inner.png", inner)
 
     # extract collar: a bright green ring (same "extract" colour on every pipe) around the pipe's own colour
-    green = (0x5A, 0xE0, 0x7A)
+    green = (0x6D, 0x92, 0x74)
     ring_rows = []
     for y in range(16):
         ring_row = []
@@ -137,12 +124,16 @@ for idx, (name, base) in enumerate(TYPES.items()):
             inside = 3 <= x <= 12 and 3 <= y <= 12
             edge = inside and (x in (3, 4, 11, 12) or y in (3, 4, 11, 12))
             if edge:
-                f = 1.25 if (x == 3 or y == 3) else 0.8 if (x == 12 or y == 12) else 1.0
+                f = 0.9
                 ring_row.append(shade(green, f))
             else:
                 ring_row.append(collar[y][x])
         ring_rows.append(ring_row)
     write_png(f"assets/{MODID}/textures/block/{name}_pipe_extract.png", ring_rows)
+
+# Atlas material for the generated curve mesh; vertex tint carries the transport colour.
+write_png(f"assets/{MODID}/textures/block/curve_surface.png", [[(255, 255, 255, 255)] * 16 for _ in range(16)])
+write_json("assets/minecraft/atlases/blocks.json", {"sources": [{"type": "minecraft:single", "resource": "flowline:block/curve_surface"}]})
 
 # dye band around the core: a light frame tinted with the pipe's colour (grey when undyed)
 band = [[CLEAR] * 16 for _ in range(16)]
@@ -1119,6 +1110,89 @@ tr.update({
     "flowline.configuration.building": "Benim için döşe",
     "flowline.configuration.buildRange": "Döşeme mesafesi",
     "flowline.configuration.buildRange.tooltip": "Bakılan blok en fazla bu kadar uzakta olabilir. Yol bunun en fazla üç katı uzunlukta olabilir.",
+})
+en.update({
+    "gui.flowline.network.pipes": "Pipes",
+    "gui.flowline.network.sources": "Sources",
+    "gui.flowline.network.targets": "Targets (brighter = higher priority)",
+    "gui.flowline.network.overflow": "Overflow targets",
+    "gui.flowline.network.truncated": "Network view limit reached",
+    "flowline.configuration.allowNetworkView": "Allow network view",
+    "flowline.configuration.networkViewRange": "Network view range",
+    "flowline.configuration.renderNetworkView": "Show network view",
+    "flowline.configuration.sendFluidAnimations": "Send fluid animations",
+    "flowline.configuration.renderFluidInPipes": "Show fluid inside pipes",
+    "flowline.configuration.maxFluidPipes": "Max animated fluid pipes",
+    "flowline.configuration.fluidRenderRange": "Fluid animation range",
+})
+tr.update({
+    "gui.flowline.network.pipes": "Borular",
+    "gui.flowline.network.sources": "Kaynaklar",
+    "gui.flowline.network.targets": "Hedefler (parlaklık = yüksek öncelik)",
+    "gui.flowline.network.overflow": "Taşma hedefleri",
+    "gui.flowline.network.truncated": "Ağ görünümü sınırına ulaşıldı",
+    "flowline.configuration.allowNetworkView": "Ağ görünümüne izin ver",
+    "flowline.configuration.allowNetworkView.tooltip": "Anahtar kullanan oyuncular boru ağını duvar arkasından görebilir. Uçları gizlemek için kapatın.",
+    "flowline.configuration.networkViewRange": "Ağ görünümü mesafesi",
+    "flowline.configuration.networkViewRange.tooltip": "Ağ görünümündeki boru ve uçların oyuncuya olan en fazla uzaklığı (blok).",
+    "flowline.configuration.renderNetworkView": "Ağ görünümünü göster",
+    "flowline.configuration.renderNetworkView.tooltip": "Anahtar eldeyken Shift basılı tutup bir boruya bakınca ağını gösterir. Sunucunun izin vermesi gerekir.",
+    "flowline.configuration.sendFluidAnimations": "Sıvı animasyonlarını gönder",
+    "flowline.configuration.sendFluidAnimations.tooltip": "Sıvı borularındaki akışı yakındaki oyunculara bildirir. Gerçek aktarımı değiştirmez.",
+    "flowline.configuration.renderFluidInPipes": "Borulardaki sıvıyı göster",
+    "flowline.configuration.renderFluidInPipes.tooltip": "Sıvı borularında akan sıvıyı çizer. Sunucuda sıvı animasyonları açık olmalıdır. Universal borular bu çizimi kullanmaz.",
+    "flowline.configuration.maxFluidPipes": "Animasyonlu sıvı borusu sınırı",
+    "flowline.configuration.maxFluidPipes.tooltip": "Aynı anda sıvı animasyonu tutulan boru sayısı. Eski akışlar önce kaldırılır; sıfır kapatır.",
+    "flowline.configuration.fluidRenderRange": "Sıvı animasyonu mesafesi",
+    "flowline.configuration.fluidRenderRange.tooltip": "Boruların içindeki sıvının çizileceği en fazla uzaklık (blok).",
+})
+en.update({
+    "key.flowline.curve_finish": "Finish curved pipe",
+    "key.flowline.curve_cancel": "Cancel curved pipe editing",
+    "hud.flowline.build.ready": "[%s] Build for Me — lay pipes from that block to you",
+    "hud.flowline.build.offhand": "Build for Me: put a pipe in your off hand, then press [%s]",
+    "hud.flowline.curve.start": "[%s] Start a curved pipe · Shift: place a block pipe",
+    "hud.flowline.curve.continue": "[%s] Add a point · aim at a block or node to connect",
+    "hud.flowline.curve.move": "[%s] Confirm the node's new position",
+    "hud.flowline.curve.tools": "Scroll: distance · middle click: grid %3$s · Ctrl+click: edit · [%1$s] finish · [%2$s] cancel",
+    "hud.flowline.curve.limited": "Local curve view limit reached",
+    "gui.flowline.curve.title": "Edit curved pipe",
+    "gui.flowline.curve.branch": "Extend / branch",
+    "gui.flowline.curve.move": "Move node / reattach",
+    "gui.flowline.curve.joint": "Toggle sharp joint",
+    "gui.flowline.curve.config": "Filters and upgrades",
+    "gui.flowline.curve.mode": "Cycle insert / extract / off",
+    "gui.flowline.curve.insert": "Insert a node here",
+    "gui.flowline.curve.remove": "Remove and return materials",
+    "gui.flowline.curve.close": "Close",
+    "message.flowline.curve.blocked": "Cannot place this curve: collision, distance, angle or protection",
+    "message.flowline.curve.limit": "Curved pipe limit reached",
+    "message.flowline.curve.materials": "Not enough pipes: curves use one pipe per block of length",
+    "message.flowline.curve.detach": "Reattach this end to a block to preserve its settings",
+})
+tr.update({
+    "key.flowline.curve_finish": "Kıvrımlı boruyu bitir",
+    "key.flowline.curve_cancel": "Kıvrımlı boru düzenlemeyi iptal et",
+    "hud.flowline.build.ready": "[%s] Build for Me — o bloktan sana kadar boru döşe",
+    "hud.flowline.build.offhand": "Build for Me: boruyu sol eline al, sonra [%s] tuşuna bas",
+    "hud.flowline.curve.start": "[%s] Kıvrımlı boruya başla · Shift: blok boru yerleştir",
+    "hud.flowline.curve.continue": "[%s] Nokta ekle · bağlamak için bloğa veya düğüme bak",
+    "hud.flowline.curve.move": "[%s] Düğümün yeni konumunu onayla",
+    "hud.flowline.curve.tools": "Tekerlek: mesafe · orta tık: ızgara %3$s · Ctrl+tık: düzenle · [%1$s] bitir · [%2$s] iptal",
+    "hud.flowline.curve.limited": "Yerel kıvrımlı boru görünümü sınırına ulaşıldı",
+    "gui.flowline.curve.title": "Kıvrımlı boruyu düzenle",
+    "gui.flowline.curve.branch": "Uzat / dal oluştur",
+    "gui.flowline.curve.move": "Düğümü taşı / yeniden bağla",
+    "gui.flowline.curve.joint": "Keskin eklemi aç / kapat",
+    "gui.flowline.curve.config": "Filtreler ve yükseltmeler",
+    "gui.flowline.curve.mode": "Ekle / çıkar / kapalı arasında geç",
+    "gui.flowline.curve.insert": "Buraya düğüm ekle",
+    "gui.flowline.curve.remove": "Kaldır ve malzemeleri geri al",
+    "gui.flowline.curve.close": "Kapat",
+    "message.flowline.curve.blocked": "Bu kıvrım yerleştirilemedi: çakışma, mesafe, açı veya koruma",
+    "message.flowline.curve.limit": "Kıvrımlı boru sınırına ulaşıldı",
+    "message.flowline.curve.materials": "Yeterli boru yok: her blok uzunluk için bir boru gerekir",
+    "message.flowline.curve.detach": "Ayarlarını korumak için bu ucu bir bloğa yeniden bağla",
 })
 lang("en_us", en)
 lang("tr_tr", tr)

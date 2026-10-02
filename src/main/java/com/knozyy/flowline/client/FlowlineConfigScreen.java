@@ -37,7 +37,9 @@ public class FlowlineConfigScreen extends Screen {
     /** Sections and values in file order, client settings first. */
     private static final List<Section> SECTIONS = List.of(
             new Section("client", FlowlineConfig.Client.SPEC, true, List.of(FlowlineConfig.Client.RENDER_ITEMS,
-                    FlowlineConfig.Client.MAX_TRAVELLING, FlowlineConfig.Client.TICKS_PER_PIPE)),
+                    FlowlineConfig.Client.MAX_TRAVELLING, FlowlineConfig.Client.TICKS_PER_PIPE,
+                    FlowlineConfig.Client.RENDER_NETWORK_VIEW, FlowlineConfig.Client.RENDER_FLUIDS,
+                    FlowlineConfig.Client.MAX_FLUID_PIPES, FlowlineConfig.Client.FLUID_RENDER_RANGE)),
             new Section("amounts", FlowlineConfig.SPEC, false, List.of(FlowlineConfig.ITEMS_PER_OPERATION,
                     FlowlineConfig.FLUID_PER_OPERATION, FlowlineConfig.ENERGY_PER_TICK,
                     FlowlineConfig.CHEMICAL_PER_OPERATION, FlowlineConfig.STACK_MULTIPLIERS,
@@ -48,9 +50,11 @@ public class FlowlineConfigScreen extends Screen {
                     FlowlineConfig.ACCELERATION_STEP, FlowlineConfig.IDLE_BACKOFF_FACTOR)),
             new Section("filter", FlowlineConfig.SPEC, false, List.of(FlowlineConfig.BASE_FILTER_SLOTS,
                     FlowlineConfig.FILTER_SLOTS_PER_UPGRADE)),
-            new Section("network", FlowlineConfig.SPEC, false, List.of(FlowlineConfig.MAX_NETWORK_SIZE)),
+            new Section("network", FlowlineConfig.SPEC, false, List.of(FlowlineConfig.MAX_NETWORK_SIZE,
+                    FlowlineConfig.ALLOW_NETWORK_VIEW, FlowlineConfig.NETWORK_VIEW_RANGE)),
             new Section("building", FlowlineConfig.SPEC, false, List.of(FlowlineConfig.BUILD_RANGE)),
-            new Section("animations", FlowlineConfig.SPEC, false, List.of(FlowlineConfig.SEND_ANIMATIONS)));
+            new Section("animations", FlowlineConfig.SPEC, false, List.of(FlowlineConfig.SEND_ANIMATIONS,
+                    FlowlineConfig.SEND_FLUID_ANIMATIONS)));
 
     public static void register() {
         ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,

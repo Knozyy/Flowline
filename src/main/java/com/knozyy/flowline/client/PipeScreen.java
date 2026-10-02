@@ -106,7 +106,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         overflowButton.visible = !extract;
         signalButton = addRenderableWidget(new IconButton(x + 22, y + 22, 20,
                 () -> "signal_" + key(menu.signal()), accent, b -> press(PipeMenu.BTN_SIGNAL)));
-        signalButton.visible = extract;
+        signalButton.visible = extract && !menu.curved;
         prevPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 24, topPos + PANEL_TOP + 2, 10,
                 () -> "page_prev", accent, b -> press(PipeMenu.BTN_PREV_PAGE)));
         nextPageButton = addRenderableWidget(new IconButton(leftPos + FILTER_R - 13, topPos + PANEL_TOP + 2, 10,

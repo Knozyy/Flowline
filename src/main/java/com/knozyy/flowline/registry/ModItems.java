@@ -46,7 +46,7 @@ public final class ModItems {
             ITEMS.register("facade", () -> new FacadeItem(new Item.Properties()));
 
     private static RegistryObject<BlockItem> blockItem(RegistryObject<PipeBlock> block) {
-        return ITEMS.register(block.getId().getPath(), () -> new BlockItem(block.get(), new Item.Properties()));
+        return ITEMS.register(block.getId().getPath(), () -> new com.knozyy.flowline.item.CurvePipeItem(block.get(), new Item.Properties()));
     }
 
     private static RegistryObject<UpgradeItem> upgrade(String name, UpgradeType type) {

@@ -111,6 +111,14 @@ public final class FlowlineConfig {
             .comment("Maximum number of pipes in one cached network graph.")
             .defineInRange("maxNetworkSize", 512, 16, 8192);
 
+    public static final ForgeConfigSpec.BooleanValue ALLOW_NETWORK_VIEW = BUILDER
+            .comment("Allow wrench users to see their pipe network through walls. Disable to hide endpoints.")
+            .define("allowNetworkView", true);
+
+    public static final ForgeConfigSpec.IntValue NETWORK_VIEW_RANGE = BUILDER
+            .comment("Maximum distance from the player to pipes and endpoints in the network view.")
+            .defineInRange("networkViewRange", 32, 4, 128);
+
     static {
         BUILDER.pop();
         BUILDER.comment("\"Build for me\": with a pipe in the off hand, a key (B by default) lays pipes from the block",
@@ -130,6 +138,10 @@ public final class FlowlineConfig {
             .comment("Tell nearby players about moved items so they can draw them travelling through the pipes.",
                     "Each player can still turn the drawing off in the client config.")
             .define("sendItemAnimations", true);
+
+    public static final ForgeConfigSpec.BooleanValue SEND_FLUID_ANIMATIONS = BUILDER
+            .comment("Tell nearby players about fluid moving through fluid pipes. Purely visual.")
+            .define("sendFluidAnimations", true);
 
     static {
         BUILDER.pop();
@@ -157,6 +169,22 @@ public final class FlowlineConfig {
         public static final ForgeConfigSpec.IntValue TICKS_PER_PIPE = CLIENT
                 .comment("Ticks a travelling item needs to pass one pipe.")
                 .defineInRange("ticksPerPipe", 4, 1, 40);
+
+        public static final ForgeConfigSpec.BooleanValue RENDER_NETWORK_VIEW = CLIENT
+                .comment("Show the pipe network while sneaking with a wrench and looking at a pipe.")
+                .define("renderNetworkView", true);
+
+        public static final ForgeConfigSpec.BooleanValue RENDER_FLUIDS = CLIENT
+                .comment("Draw moving fluid inside fluid pipes (needs sendFluidAnimations on the server).")
+                .define("renderFluidInPipes", true);
+
+        public static final ForgeConfigSpec.IntValue MAX_FLUID_PIPES = CLIENT
+                .comment("Maximum number of pipes with fluid animations at once; older flows are dropped first.")
+                .defineInRange("maxFluidPipes", 128, 0, 512);
+
+        public static final ForgeConfigSpec.IntValue FLUID_RENDER_RANGE = CLIENT
+                .comment("Maximum distance in blocks at which fluid inside pipes is drawn.")
+                .defineInRange("fluidRenderRange", 32, 4, 64);
 
         public static final ForgeConfigSpec SPEC = CLIENT.build();
 

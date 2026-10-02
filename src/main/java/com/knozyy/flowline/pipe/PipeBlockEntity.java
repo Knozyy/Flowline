@@ -6,6 +6,8 @@ import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.network.ModNetwork;
 import com.knozyy.flowline.network.TravelPayload;
+import com.knozyy.flowline.network.FluidFlowPayload;
+import net.minecraftforge.fluids.FluidStack;
 import com.knozyy.flowline.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -85,6 +87,10 @@ public class PipeBlockEntity extends BlockEntity {
 
     public PipeType type() {
         return type;
+    }
+
+    public boolean menuValid(net.minecraft.world.entity.player.Player player) {
+        return !isRemoved() && player.distanceToSqr(worldPosition.getX()+0.5, worldPosition.getY()+0.5, worldPosition.getZ()+0.5) <= 64;
     }
 
     // ---- upgrades -----------------------------------------------------------------------------------------
@@ -350,7 +356,28 @@ public class PipeBlockEntity extends BlockEntity {
         }
         BlockPos source = worldPosition.relative(dir);
         if (cfg.sourceCaps == null) cfg.sourceCaps = Caps.create(type, level, source, dir.getOpposite());
-        return type.transfer(level, source, cfg.sourceCaps, cfg, targets, elapsed, animation(level, source));
+        return type.transfer(level, source, cfg.sourceCaps, cfg, targets, elapsed, animation(level, source),
+                fluidAnimation(level, source));
+    }
+
+    @Nullable
+    private BiConsumer<PipeNetwork.Target, FluidStack> fluidAnimation(ServerLevel level, BlockPos source) {
+        if (type != PipeType.FLUID || !FlowlineConfig.SEND_FLUID_ANIMATIONS.get()) return null;
+        double x = worldPosition.getX() + 0.5, y = worldPosition.getY() + 0.5, z = worldPosition.getZ() + 0.5;
+        if (level.getNearestPlayer(x, y, z, TravelPayload.RANGE, false) == null) return null;
+        int[] sent = {0};
+        return (target, fluid) -> {
+            if (sent[0] >= 16 || target.path().isEmpty() || !target.path().get(0).equals(worldPosition)
+                    || target.path().size() + 2 > FluidFlowPayload.MAX_PATH) return;
+            List<BlockPos> path = new ArrayList<>(target.path().size() + 2);
+            path.add(source);
+            path.addAll(target.path());
+            path.add(target.endpointPos());
+            sent[0]++;
+            ModNetwork.CHANNEL.send(PacketDistributor.NEAR.with(() -> new PacketDistributor.TargetPoint(x, y, z,
+                            TravelPayload.RANGE, level.dimension())),
+                    new FluidFlowPayload(level.dimension().location(), fluid.getFluid(), path));
+        };
     }
 
     /** Sends moved items to nearby players for the travel animation, or null when nobody would see it. */

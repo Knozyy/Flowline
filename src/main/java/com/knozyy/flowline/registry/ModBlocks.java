@@ -19,9 +19,9 @@ import java.util.List;
 public final class ModBlocks {
     public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, Flowline.MODID);
 
-    public static final RegistryObject<PipeBlock> ITEM_PIPE = pipe("item_pipe", PipeType.ITEM, MapColor.COLOR_ORANGE);
+    public static final RegistryObject<PipeBlock> ITEM_PIPE = pipe("item_pipe", PipeType.ITEM, MapColor.COLOR_YELLOW);
     public static final RegistryObject<PipeBlock> FLUID_PIPE = pipe("fluid_pipe", PipeType.FLUID, MapColor.COLOR_BLUE);
-    public static final RegistryObject<PipeBlock> ENERGY_PIPE = pipe("energy_pipe", PipeType.ENERGY, MapColor.COLOR_RED);
+    public static final RegistryObject<PipeBlock> ENERGY_PIPE = pipe("energy_pipe", PipeType.ENERGY, MapColor.COLOR_ORANGE);
     public static final RegistryObject<PipeBlock> UNIVERSAL_PIPE =
             pipe("universal_pipe", PipeType.UNIVERSAL, MapColor.COLOR_PURPLE);
     /** Only registered when Mekanism is installed. */

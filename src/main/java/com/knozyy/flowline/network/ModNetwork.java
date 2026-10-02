@@ -3,6 +3,7 @@ package com.knozyy.flowline.network;
 import com.knozyy.flowline.Flowline;
 import com.knozyy.flowline.item.WrenchItem;
 import com.knozyy.flowline.menu.PipeMenu;
+import com.knozyy.flowline.pipe.NetworkView;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -11,12 +12,16 @@ import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
 
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
 public final class ModNetwork {
-    private static final String PROTOCOL = "3";
+    private static final String PROTOCOL = "5";
+    private static final Map<ServerPlayer, Integer> NETWORK_QUERIES = new WeakHashMap<>();
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Flowline.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
 
@@ -42,6 +47,34 @@ public final class ModNetwork {
         CHANNEL.messageBuilder(BuildPayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(BuildPayload::encode).decoder(BuildPayload::decode)
                 .consumerMainThread(ModNetwork::onBuild).add();
+        CHANNEL.messageBuilder(NetworkQueryPayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(NetworkQueryPayload::encode).decoder(NetworkQueryPayload::decode)
+                .consumerMainThread(ModNetwork::onNetworkQuery).add();
+        CHANNEL.messageBuilder(NetworkViewPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(NetworkViewPayload::encode).decoder(NetworkViewPayload::decode)
+                .consumerMainThread(ModNetwork::onNetworkView).add();
+        CHANNEL.messageBuilder(FluidFlowPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(FluidFlowPayload::encode).decoder(FluidFlowPayload::decode)
+                .consumerMainThread(ModNetwork::onFluidFlow).add();
+        CHANNEL.messageBuilder(CurveActionPayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(CurveActionPayload::encode).decoder(CurveActionPayload::decode)
+                .consumerMainThread((payload, context) -> {
+                    var player=context.get().getSender();
+                    if(player!=null)com.knozyy.flowline.curve.CurveServer.handle(player,payload);
+                    context.get().setPacketHandled(true);
+                }).add();
+        CHANNEL.messageBuilder(CurveViewPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(CurveViewPayload::encode).decoder(CurveViewPayload::decode)
+                .consumerMainThread((payload, context) -> {
+                    DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandlers.curveView(payload));
+                    context.get().setPacketHandled(true);
+                }).add();
+        CHANNEL.messageBuilder(CurveFlowPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(CurveFlowPayload::encode).decoder(CurveFlowPayload::decode)
+                .consumerMainThread((payload, context) -> {
+                    DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandlers.curveFlow(payload));
+                    context.get().setPacketHandled(true);
+                }).add();
     }
 
     public static void sendToServer(Object message) {
@@ -79,6 +112,27 @@ public final class ModNetwork {
         context.get().setPacketHandled(true);
     }
 
+    private static void onNetworkQuery(NetworkQueryPayload payload, Supplier<NetworkEvent.Context> context) {
+        ServerPlayer player = context.get().getSender();
+        context.get().setPacketHandled(true);
+        if (player == null) return;
+        Integer last = NETWORK_QUERIES.get(player);
+        if (last != null && player.tickCount - last < 20) return;
+        NETWORK_QUERIES.put(player, player.tickCount);
+        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
+                new NetworkViewPayload(player.level().dimension().location(), payload.pos(), NetworkView.query(player, payload.pos())));
+    }
+
+    private static void onNetworkView(NetworkViewPayload payload, Supplier<NetworkEvent.Context> context) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandlers.networkView(payload));
+        context.get().setPacketHandled(true);
+    }
+
+    private static void onFluidFlow(FluidFlowPayload payload, Supplier<NetworkEvent.Context> context) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandlers.fluidFlow(payload));
+        context.get().setPacketHandled(true);
+    }
+
     private static void onFilterPage(FilterPagePayload payload, Supplier<NetworkEvent.Context> context) {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandlers.filterPage(payload));
         context.get().setPacketHandled(true);
@@ -91,6 +145,8 @@ public final class ModNetwork {
 
     /** Only loaded on the client. */
     private static final class ClientHandlers {
+        static void curveView(CurveViewPayload payload) { com.knozyy.flowline.client.CurveClient.receive(payload); }
+        static void curveFlow(CurveFlowPayload payload) { com.knozyy.flowline.client.CurveClient.flow(payload); }
         static void filterPage(FilterPagePayload payload) {
             Player player = net.minecraft.client.Minecraft.getInstance().player;
             if (player != null && player.containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()) {
@@ -100,6 +156,14 @@ public final class ModNetwork {
 
         static void travel(TravelPayload payload) {
             com.knozyy.flowline.client.TravellingItems.add(payload);
+        }
+
+        static void networkView(NetworkViewPayload payload) {
+            com.knozyy.flowline.client.NetworkOverlay.receive(payload);
+        }
+
+        static void fluidFlow(FluidFlowPayload payload) {
+            com.knozyy.flowline.client.FlowingFluids.add(payload);
         }
     }
 }

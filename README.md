@@ -3,6 +3,12 @@
 Pipez-style transport mod for **Forge 1.20.1** (Java 17): item, fluid and energy pipes with per-side
 modes, filters, distribution modes and speed upgrades.
 
+Main-hand pipes now open a free curve editor: right-click adds nodes, aiming at a block finishes an endpoint,
+and Ctrl+right-click opens node/edge editing. Sneak keeps ordinary block placement; off-hand pipes retain
+Build for Me. Distant looked-at blocks show the current build key and a short explanation.
+Pipes use matte yellow/blue/orange/purple materials with narrow windows. See
+[curved-pipe controls and limits](docs/CURVED_PIPES_TR.md) and [Curvy's ID regex research](docs/CURVY_REGEX_TR.md).
+
 > This branch is the 1.20.1 Forge backport of the NeoForge 1.21.1 version. Differences: rule "data" matches the
 > stack's NBT tag (1.20.1 has no data components), and the Chemical Pipe moves Mekanism 10.4's gases, infuse types,
 > pigments and slurries.
@@ -12,6 +18,7 @@ modes, filters, distribution modes and speed upgrades.
 | Item | Use |
 | --- | --- |
 | Item / Fluid / Energy Pipe | Connects to pipes of the same type and to any block exposing the matching capability. |
+| Pipe in the main hand | Opens the curved-pipe editor. Right-click starts/adds a node; click a node to extend or connect; Ctrl+right-click edits. Scroll sets point distance, middle click cycles alignment grids, Enter finishes, X cancels. Sneak places normal block pipes. |
 | Universal Pipe | Moves items, fluids and energy at once. Each side can switch its **channels** (items / fluids / energy) on and off; rules are item rules unless marked as fluid rules. 3 from one of each pipe + a diamond. |
 | Chemical Pipe | Only with **Mekanism** installed: moves Mekanism chemicals (gases, infuse types, pigments, slurries). |
 | Flowline Wrench | **Sneak + right-click** a side to cycle: normal (Insert) → **Extract** → **disconnected** → normal. Right-click a side: open its screen. **Sneak + scroll** on a side: Extract sides cycle their distribution (with Ctrl: their redstone mode), Insert sides change their priority (Ctrl: ±10). Wrenches from other mods (tagged `forge:tools/wrench`: Create, Mekanism, Thermal...) do the same on pipes. |
@@ -25,6 +32,21 @@ modes, filters, distribution modes and speed upgrades.
 
 Pipes can be **waterlogged**. Pipe walls have a window, and items moved by a pipe are drawn **travelling through
 it** (server: `sendItemAnimations`, client: `renderTravellingItems`, both can be turned off).
+
+### See the network and fluid flow
+
+Hold a wrench, hold **Shift**, and look at a pipe to see its connected network through walls. Sources are green,
+targets orange, overflow targets purple, and pipes pale. Higher-priority targets are brighter; a small legend
+explains the colours. The view refreshes once per second and disappears when you release Shift or look away.
+The server can disable it with `network.allowNetworkView` or limit its distance with `network.networkViewRange`
+(32 blocks by default). Each player can turn it off with `renderNetworkView`.
+
+Moving fluid is drawn **inside fluid pipes**, using the fluid's own texture and tint. Its texture scrolls in the
+transfer direction, including bends and vertical runs, and fades about a second after the last transfer. This
+block-pipe renderer covers fluid pipes; normal universal, energy and chemical pipes do not use it. Curved fluid and
+universal lines show their fluid through the narrow windows too. Facades
+hide the drawing. The server switch is `animations.sendFluidAnimations`; the client switch is `renderFluidInPipes`.
+Client limits default to **128 animated pipes** (`maxFluidPipes`) and **32 blocks** (`fluidRenderRange`).
 
 ### Sides
 
@@ -114,10 +136,13 @@ the number of Stack upgrades: items 16 × `[1, 2, 4 ... 64]` (16 to 1024 items),
 `[1, 2, 4 ... 64]` (1 to 64 buckets), energy 8000 FE/t × `[1, 4, 16, 64, 128, 256, 1024]` (8000 to 8192000 FE/t,
 a bit above Mekanism's basic to ultimate cables; energy pipes work every tick while they have something to move;
 amounts are capped at 2147483647 per operation), filter entries (`baseFilterSlots` = 9, `filterSlotsPerUpgrade` = 9), every pacing value
-above (`idleBackoffFactor` = 2), the max network size (`[network]`) and `sendItemAnimations` (`[animations]`).
+above (`idleBackoffFactor` = 2), the max network size and network view permission/range (`[network]`),
+and `sendItemAnimations` / `sendFluidAnimations` (`[animations]`).
 
 `config/flowline-client.toml` (per player, editable from the same screen at any time): `renderTravellingItems`,
-`maxTravellingItems`, `ticksPerPipe`.
+`maxTravellingItems`, `ticksPerPipe`, `renderNetworkView`, `renderFluidInPipes`, `maxFluidPipes`, `fluidRenderRange`.
+
+The network protocol is version 4: clients and servers need the same Flowline version for these visual packets.
 
 Pipes are see-through by default. Players who prefer solid pipes can enable the built-in **Flowline: Solid Pipes**
 resource pack (Options > Resource Packs).
@@ -143,5 +168,6 @@ standard library).
 
 ## Status / TODO
 
-- Fluid and energy pipes have no in-world tests (vanilla has no tank or energy block to test against).
+- Fluid transfer notifications are tested with test-only fluid handlers, alongside network endpoint roles and
+  packet limits. Rendering needs a manual client check; energy pipes still have no in-world tests.
 - No pipe tiers/materials yet.

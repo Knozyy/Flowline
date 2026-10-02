@@ -14,6 +14,25 @@ import com.knozyy.flowline.pipe.SideConfig;
 import com.knozyy.flowline.pipe.SideMode;
 import com.knozyy.flowline.registry.ModBlocks;
 import com.knozyy.flowline.registry.ModItems;
+import com.knozyy.flowline.pipe.NetworkView;
+import com.knozyy.flowline.pipe.Caps;
+import com.knozyy.flowline.pipe.PipeNetwork;
+import com.knozyy.flowline.pipe.PipeType;
+import com.knozyy.flowline.pipe.transfer.FluidTransfer;
+import com.knozyy.flowline.network.FluidFlowPayload;
+import com.knozyy.flowline.network.NetworkViewPayload;
+import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.DecoderException;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -497,6 +516,164 @@ public class PipeGameTests {
 
     private static int stored(GameTestHelper helper, BlockPos pos, Item item) {
         return ((net.minecraft.world.Container) be(helper, pos)).countItem(item);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40)
+    public static void networkViewShowsSourcesTargetsAndOverflow(GameTestHelper helper) {
+        PipeBlockEntity first = twoTargets(helper);
+        nearSide(helper).priority = 7;
+        farSide(helper).priority = -3;
+        farSide(helper).overflow = true;
+        helper.startSequence().thenIdle(2).thenExecute(() -> {
+            BlockPos origin = helper.absolutePos(FIRST_PIPE);
+            NetworkView.Snapshot view = NetworkView.collect(helper.getLevel(), origin,
+                    net.minecraft.world.phys.Vec3.atCenterOf(origin), 32);
+            helper.assertTrue(!view.truncated() && view.entries().size() == 5, "two pipes and three endpoints");
+            checkView(helper, view, SOURCE, NetworkView.SOURCE, 0);
+            checkView(helper, view, NEAR, NetworkView.TARGET, 7);
+            checkView(helper, view, FAR, NetworkView.OVERFLOW, -3);
+            checkView(helper, view, FIRST_PIPE, NetworkView.PIPE, 0);
+            first.setDisconnected(Direction.NORTH, true);
+            PipeBlock.updateConnections(helper.getLevel(), origin);
+            NetworkView.Snapshot cut = NetworkView.collect(helper.getLevel(), origin,
+                    net.minecraft.world.phys.Vec3.atCenterOf(origin), 32);
+            helper.assertTrue(cut.entries().stream().noneMatch(e -> e.pos().equals(helper.absolutePos(NEAR))),
+                    "a disconnected endpoint must not be shown");
+            NetworkView.Snapshot distant = NetworkView.collect(helper.getLevel(), origin,
+                    net.minecraft.world.phys.Vec3.atCenterOf(origin).add(100, 0, 0), 4);
+            helper.assertTrue(distant.entries().isEmpty(), "out-of-range network positions must be hidden");
+        }).thenSucceed();
+    }
+
+    private static void checkView(GameTestHelper helper, NetworkView.Snapshot view, BlockPos relative, int role, int priority) {
+        helper.assertTrue(view.entries().stream().anyMatch(e -> e.pos().equals(helper.absolutePos(relative))
+                        && e.has(role) && e.priority() == priority), "network role/priority missing at " + relative);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40)
+    public static void networkViewRequiresServerPermissionAndRealLook(GameTestHelper helper) {
+        line(helper, 1);
+        helper.startSequence().thenIdle(2).thenExecute(() -> {
+            var player = new net.minecraft.server.level.ServerPlayer(helper.getLevel().getServer(), helper.getLevel(),
+                    new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "flowline-view-test"));
+            boolean allowed = FlowlineConfig.ALLOW_NETWORK_VIEW.get();
+            try {
+                BlockPos origin = helper.absolutePos(FIRST_PIPE);
+                player.moveTo(origin.getX() + 0.5, origin.getY() + 0.5, origin.getZ() + 2.5, 180, 0);
+                player.setShiftKeyDown(true);
+                var delta = net.minecraft.world.phys.Vec3.atCenterOf(origin).subtract(player.getEyePosition(1));
+                player.setYRot((float) Math.toDegrees(Math.atan2(-delta.x, delta.z)));
+                player.setYHeadRot(player.getYRot());
+                player.setXRot((float) -Math.toDegrees(Math.atan2(delta.y, Math.sqrt(delta.x * delta.x + delta.z * delta.z))));
+                FlowlineConfig.ALLOW_NETWORK_VIEW.set(true);
+                helper.assertTrue(NetworkView.query(player, origin).entries().isEmpty(), "no wrench: no network view");
+                player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(ModItems.WRENCH.get()));
+                var hit = (net.minecraft.world.phys.BlockHitResult) player.pick(FlowlineConfig.NETWORK_VIEW_RANGE.get(), 1, false);
+                helper.assertTrue(!NetworkView.query(player, origin).entries().isEmpty(), "a wrench and a real look allow the view; "
+                        + "origin=" + origin + ", hit=" + hit.getBlockPos() + ", type=" + hit.getType() + ", eye=" + player.getEyePosition());
+                player.setShiftKeyDown(false);
+                helper.assertTrue(NetworkView.query(player, origin).entries().isEmpty(), "not sneaking: no network view");
+                player.setShiftKeyDown(true);
+                FlowlineConfig.ALLOW_NETWORK_VIEW.set(false);
+                helper.assertTrue(NetworkView.query(player, origin).entries().isEmpty(), "server disabled: no endpoint disclosure");
+                FlowlineConfig.ALLOW_NETWORK_VIEW.set(true);
+                player.setYRot(0);
+                player.setYHeadRot(0);
+                helper.assertTrue(NetworkView.query(player, origin).entries().isEmpty(), "forged looked-at position is rejected");
+                player.setPos(player.getX() + FlowlineConfig.NETWORK_VIEW_RANGE.get() + 10, player.getY(), player.getZ());
+                helper.assertTrue(NetworkView.query(player, origin).entries().isEmpty(), "out-of-range query is rejected");
+            } finally {
+                FlowlineConfig.ALLOW_NETWORK_VIEW.set(allowed);
+            }
+        }).thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void visualPacketsRoundTripAndRejectOversizedLists(GameTestHelper helper) {
+        ResourceLocation dimension = helper.getLevel().dimension().location();
+        FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            NetworkView.Snapshot view = new NetworkView.Snapshot(List.of(new NetworkView.Entry(FIRST_PIPE,
+                    NetworkView.TARGET | NetworkView.OVERFLOW, -7)), true);
+            NetworkViewPayload network = new NetworkViewPayload(dimension, FIRST_PIPE, view);
+            network.encode(buffer);
+            helper.assertTrue(NetworkViewPayload.decode(buffer).equals(network), "network packet preserves roles and priority");
+            buffer.clear();
+            FluidFlowPayload fluid = new FluidFlowPayload(dimension, Fluids.WATER, List.of(SOURCE, FIRST_PIPE, target(1)));
+            fluid.encode(buffer);
+            helper.assertTrue(FluidFlowPayload.decode(buffer).equals(fluid), "fluid packet preserves the connected path");
+            buffer.clear();
+            buffer.writeResourceLocation(dimension);
+            buffer.writeBlockPos(FIRST_PIPE);
+            buffer.writeBoolean(false);
+            buffer.writeVarInt(NetworkView.MAX_ENTRIES + 1);
+            boolean rejected = false;
+            try { NetworkViewPayload.decode(buffer); } catch (DecoderException expected) { rejected = true; }
+            helper.assertTrue(rejected, "oversized network lists must be rejected before allocation");
+            buffer.clear();
+            buffer.writeResourceLocation(dimension).writeResourceLocation(new ResourceLocation("minecraft", "water"))
+                    .writeVarInt(-1);
+            rejected = false;
+            try { FluidFlowPayload.decode(buffer); } catch (DecoderException expected) { rejected = true; }
+            helper.assertTrue(rejected, "negative fluid path lengths must be rejected");
+            buffer.clear();
+            new FluidFlowPayload(dimension, Fluids.WATER, List.of(SOURCE, FIRST_PIPE, new BlockPos(5, 1, 1))).encode(buffer);
+            rejected = false;
+            try { FluidFlowPayload.decode(buffer); } catch (DecoderException expected) { rejected = true; }
+            helper.assertTrue(rejected, "disconnected fluid paths must be rejected");
+        } finally { buffer.release(); }
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void fluidAnimationOnlyReportsCompletedTransfers(GameTestHelper helper) {
+        helper.setBlock(SOURCE, Blocks.CHEST);
+        helper.setBlock(target(1), Blocks.CHEST);
+        helper.setBlock(FIRST_PIPE, ModBlocks.FLUID_PIPE.get());
+        TestFluidChest source = new TestFluidChest(helper.absolutePos(SOURCE));
+        TestFluidChest destination = new TestFluidChest(helper.absolutePos(target(1)));
+        helper.getLevel().removeBlockEntity(source.getBlockPos());
+        helper.getLevel().removeBlockEntity(destination.getBlockPos());
+        helper.getLevel().setBlockEntity(source);
+        helper.getLevel().setBlockEntity(destination);
+        source.tank.fill(new FluidStack(Fluids.WATER, 1000), IFluidHandler.FluidAction.EXECUTE);
+        PipeBlockEntity pipe = be(helper, FIRST_PIPE);
+        Caps sourceCaps = Caps.create(PipeType.FLUID, helper.getLevel(), source.getBlockPos(), Direction.EAST);
+        PipeNetwork.Target target = new PipeNetwork.Target(pipe.getBlockPos(), Direction.EAST, 0,
+                Caps.create(PipeType.FLUID, helper.getLevel(), destination.getBlockPos(), Direction.WEST), pipe,
+                List.of(pipe.getBlockPos()));
+        SideConfig cfg = new SideConfig(PipeType.FLUID);
+        int[] notifications = {0};
+        int moved = FluidTransfer.run(helper.getLevel(), sourceCaps, cfg, List.of(target), 1000, false, PipeType.FLUID,
+                (endpoint, fluid) -> {
+                    helper.assertTrue(endpoint == target && fluid.getFluid() == Fluids.WATER && fluid.getAmount() == 1000,
+                            "callback must describe the real target and fluid moved");
+                    helper.assertTrue(source.tank.isEmpty() && destination.tank.getFluidAmount() == 1000,
+                            "callback must run after the real transfer");
+                    notifications[0]++;
+                });
+        helper.assertTrue(moved == 1000 && notifications[0] == 1, "one successful transfer produces one notification");
+        source.tank.fill(new FluidStack(Fluids.WATER, 1000), IFluidHandler.FluidAction.EXECUTE);
+        moved = FluidTransfer.run(helper.getLevel(), sourceCaps, cfg, List.of(target), 1000, false, PipeType.FLUID,
+                (endpoint, fluid) -> notifications[0]++);
+        helper.assertTrue(moved == 0 && notifications[0] == 1 && source.tank.getFluidAmount() == 1000,
+                "a full target must not drain fluid or produce an animation");
+        helper.succeed();
+    }
+
+    private static final class TestFluidChest extends ChestBlockEntity {
+        private final FluidTank tank = new FluidTank(1000);
+        private final LazyOptional<IFluidHandler> fluids = LazyOptional.of(() -> tank);
+
+        private TestFluidChest(BlockPos pos) { super(pos, Blocks.CHEST.defaultBlockState()); }
+
+        @Override
+        public <T> LazyOptional<T> getCapability(Capability<T> capability, @Nullable Direction side) {
+            return capability == ForgeCapabilities.FLUID_HANDLER ? fluids.cast() : super.getCapability(capability, side);
+        }
+
+        @Override
+        public void invalidateCaps() { super.invalidateCaps(); fluids.invalidate(); }
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 300)

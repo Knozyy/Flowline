@@ -19,6 +19,7 @@ minecraft {
 
     runs {
         configureEach {
+            args '--mixin', 'flowline.mixins.json'
             workingDirectory project.file('run')
             property 'forge.logging.console.level', 'info'
             property 'forge.enabledGameTestNamespaces', mod_id
@@ -94,7 +95,8 @@ tasks.named('jar', Jar).configure {
                 'Specification-Version' : '1',
                 'Implementation-Title'  : project.name,
                 'Implementation-Version': project.jar.archiveVersion,
-                'Implementation-Vendor' : mod_authors
+                'Implementation-Vendor' : mod_authors,
+                'MixinConfigs'         : 'flowline.mixins.json'
         ])
     }
     finalizedBy 'reobfJar'
