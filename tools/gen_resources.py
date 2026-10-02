@@ -131,9 +131,9 @@ for idx, (name, base) in enumerate(TYPES.items()):
         ring_rows.append(ring_row)
     write_png(f"assets/{MODID}/textures/block/{name}_pipe_extract.png", ring_rows)
 
-# Atlas material for the generated curve mesh; vertex tint carries the transport colour.
-write_png(f"assets/{MODID}/textures/block/curve_surface.png", [[(255, 255, 255, 255)] * 16 for _ in range(16)])
-write_json("assets/minecraft/atlases/blocks.json", {"sources": [{"type": "minecraft:single", "resource": "flowline:block/curve_surface"}]})
+# Curvy uses its own native mesh and transparency toggle with Flowline materials.
+for name in ("item", "fluid", "energy"):
+    write_png(f"assets/{MODID}/textures/block/curvy_{name}_pipe.png", pipe_wall(name, TYPES[name], 0, True))
 
 # dye band around the core: a light frame tinted with the pipe's colour (grey when undyed)
 band = [[CLEAR] * 16 for _ in range(16)]
@@ -1147,52 +1147,16 @@ tr.update({
     "flowline.configuration.fluidRenderRange.tooltip": "Boruların içindeki sıvının çizileceği en fazla uzaklık (blok).",
 })
 en.update({
-    "key.flowline.curve_finish": "Finish curved pipe",
-    "key.flowline.curve_cancel": "Cancel curved pipe editing",
+    "message.flowline.curvy.legacy": "This world contains old Flowline curved pipes. Their data is preserved, but they do not render or transfer in this version. Recover the pipes/upgrades with the previous Flowline version, then rebuild using Curvy pipes.",
     "hud.flowline.build.ready": "[%s] Build for Me — lay pipes from that block to you",
     "hud.flowline.build.offhand": "Build for Me: put a pipe in your off hand, then press [%s]",
-    "hud.flowline.curve.start": "[%s] Start a curved pipe · Shift: place a block pipe",
-    "hud.flowline.curve.continue": "[%s] Add a point · aim at a block or node to connect",
-    "hud.flowline.curve.move": "[%s] Confirm the node's new position",
-    "hud.flowline.curve.tools": "Scroll: distance · middle click: grid %3$s · Ctrl+click: edit · [%1$s] finish · [%2$s] cancel",
-    "hud.flowline.curve.limited": "Local curve view limit reached",
-    "gui.flowline.curve.title": "Edit curved pipe",
-    "gui.flowline.curve.branch": "Extend / branch",
-    "gui.flowline.curve.move": "Move node / reattach",
-    "gui.flowline.curve.joint": "Toggle sharp joint",
-    "gui.flowline.curve.config": "Filters and upgrades",
-    "gui.flowline.curve.mode": "Cycle insert / extract / off",
-    "gui.flowline.curve.insert": "Insert a node here",
-    "gui.flowline.curve.remove": "Remove and return materials",
-    "gui.flowline.curve.close": "Close",
-    "message.flowline.curve.blocked": "Cannot place this curve: collision, distance, angle or protection",
-    "message.flowline.curve.limit": "Curved pipe limit reached",
-    "message.flowline.curve.materials": "Not enough pipes: curves use one pipe per block of length",
-    "message.flowline.curve.detach": "Reattach this end to a block to preserve its settings",
+    "tooltip.flowline.curvy.hands": "Main hand: Curvy placement | Off hand: normal block placement",
 })
 tr.update({
-    "key.flowline.curve_finish": "Kıvrımlı boruyu bitir",
-    "key.flowline.curve_cancel": "Kıvrımlı boru düzenlemeyi iptal et",
+    "message.flowline.curvy.legacy": "Bu dünyada eski Flowline kıvrımlı boruları var. Kayıtları korunuyor fakat bu sürümde görünmezler ve aktarım yapmazlar. Önceki Flowline sürümüyle boruları/upgrade’leri geri alıp Curvy borularıyla yeniden kur.",
     "hud.flowline.build.ready": "[%s] Build for Me — o bloktan sana kadar boru döşe",
     "hud.flowline.build.offhand": "Build for Me: boruyu sol eline al, sonra [%s] tuşuna bas",
-    "hud.flowline.curve.start": "[%s] Kıvrımlı boruya başla · Shift: blok boru yerleştir",
-    "hud.flowline.curve.continue": "[%s] Nokta ekle · bağlamak için bloğa veya düğüme bak",
-    "hud.flowline.curve.move": "[%s] Düğümün yeni konumunu onayla",
-    "hud.flowline.curve.tools": "Tekerlek: mesafe · orta tık: ızgara %3$s · Ctrl+tık: düzenle · [%1$s] bitir · [%2$s] iptal",
-    "hud.flowline.curve.limited": "Yerel kıvrımlı boru görünümü sınırına ulaşıldı",
-    "gui.flowline.curve.title": "Kıvrımlı boruyu düzenle",
-    "gui.flowline.curve.branch": "Uzat / dal oluştur",
-    "gui.flowline.curve.move": "Düğümü taşı / yeniden bağla",
-    "gui.flowline.curve.joint": "Keskin eklemi aç / kapat",
-    "gui.flowline.curve.config": "Filtreler ve yükseltmeler",
-    "gui.flowline.curve.mode": "Ekle / çıkar / kapalı arasında geç",
-    "gui.flowline.curve.insert": "Buraya düğüm ekle",
-    "gui.flowline.curve.remove": "Kaldır ve malzemeleri geri al",
-    "gui.flowline.curve.close": "Kapat",
-    "message.flowline.curve.blocked": "Bu kıvrım yerleştirilemedi: çakışma, mesafe, açı veya koruma",
-    "message.flowline.curve.limit": "Kıvrımlı boru sınırına ulaşıldı",
-    "message.flowline.curve.materials": "Yeterli boru yok: her blok uzunluk için bir boru gerekir",
-    "message.flowline.curve.detach": "Ayarlarını korumak için bu ucu bir bloğa yeniden bağla",
+    "tooltip.flowline.curvy.hands": "Sağ el: Curvy yerleşimi | Sol el: normal blok yerleşimi",
 })
 lang("en_us", en)
 lang("tr_tr", tr)

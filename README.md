@@ -3,11 +3,14 @@
 Pipez-style transport mod for **Forge 1.20.1** (Java 17): item, fluid and energy pipes with per-side
 modes, filters, distribution modes and speed upgrades.
 
-Main-hand pipes now open a free curve editor: right-click adds nodes, aiming at a block finishes an endpoint,
-and Ctrl+right-click opens node/edge editing. Sneak keeps ordinary block placement; off-hand pipes retain
-Build for Me. Distant looked-at blocks show the current build key and a short explanation.
-Pipes use matte yellow/blue/orange/purple materials with narrow windows. See
-[curved-pipe controls and limits](docs/CURVED_PIPES_TR.md) and [Curvy's ID regex research](docs/CURVY_REGEX_TR.md).
+Curved item, fluid and FE pipes use the **actual Curvy Pipes 1.15.8 native engine**: its renderer,
+placement preview, picking, collision, alignment grid, radial editor, endpoint menus, transport and world data.
+Curvy Pipes is optional. When 1.15.8 is installed on client and server, the **same Flowline item/fluid/energy
+pipe items** can place Curvy lines from the main hand or ordinary block pipes from the off hand. Without Curvy,
+both hands place ordinary block pipes. There are no separate curved items or conversion recipes. Build for Me
+still uses the off-hand stack. Its introduction appears once for eight seconds and stays dismissed across restarts.
+The independent Flowline curve implementation has been removed.
+See [curved-pipe controls and migration](docs/CURVED_PIPES_TR.md) and [Curvy's ID regex research](docs/CURVY_REGEX_TR.md).
 
 > This branch is the 1.20.1 Forge backport of the NeoForge 1.21.1 version. Differences: rule "data" matches the
 > stack's NBT tag (1.20.1 has no data components), and the Chemical Pipe moves Mekanism 10.4's gases, infuse types,
@@ -18,7 +21,6 @@ Pipes use matte yellow/blue/orange/purple materials with narrow windows. See
 | Item | Use |
 | --- | --- |
 | Item / Fluid / Energy Pipe | Connects to pipes of the same type and to any block exposing the matching capability. |
-| Pipe in the main hand | Opens the curved-pipe editor. Right-click starts/adds a node; click a node to extend or connect; Ctrl+right-click edits. Scroll sets point distance, middle click cycles alignment grids, Enter finishes, X cancels. Sneak places normal block pipes. |
 | Universal Pipe | Moves items, fluids and energy at once. Each side can switch its **channels** (items / fluids / energy) on and off; rules are item rules unless marked as fluid rules. 3 from one of each pipe + a diamond. |
 | Chemical Pipe | Only with **Mekanism** installed: moves Mekanism chemicals (gases, infuse types, pigments, slurries). |
 | Flowline Wrench | **Sneak + right-click** a side to cycle: normal (Insert) → **Extract** → **disconnected** → normal. Right-click a side: open its screen. **Sneak + scroll** on a side: Extract sides cycle their distribution (with Ctrl: their redstone mode), Insert sides change their priority (Ctrl: ±10). Wrenches from other mods (tagged `forge:tools/wrench`: Create, Mekanism, Thermal...) do the same on pipes. |
@@ -43,8 +45,7 @@ The server can disable it with `network.allowNetworkView` or limit its distance 
 
 Moving fluid is drawn **inside fluid pipes**, using the fluid's own texture and tint. Its texture scrolls in the
 transfer direction, including bends and vertical runs, and fades about a second after the last transfer. This
-block-pipe renderer covers fluid pipes; normal universal, energy and chemical pipes do not use it. Curved fluid and
-universal lines show their fluid through the narrow windows too. Facades
+block-pipe renderer covers fluid pipes; normal universal, energy and chemical pipes do not use it. Curved lines use Curvy's own rendering. Facades
 hide the drawing. The server switch is `animations.sendFluidAnimations`; the client switch is `renderFluidInPipes`.
 Client limits default to **128 animated pipes** (`maxFluidPipes`) and **32 blocks** (`fluidRenderRange`).
 
@@ -140,9 +141,9 @@ above (`idleBackoffFactor` = 2), the max network size and network view permissio
 and `sendItemAnimations` / `sendFluidAnimations` (`[animations]`).
 
 `config/flowline-client.toml` (per player, editable from the same screen at any time): `renderTravellingItems`,
-`maxTravellingItems`, `ticksPerPipe`, `renderNetworkView`, `renderFluidInPipes`, `maxFluidPipes`, `fluidRenderRange`.
+`maxTravellingItems`, `ticksPerPipe`, `renderNetworkView`, `renderFluidInPipes`, `maxFluidPipes`, `fluidRenderRange`. The internal `buildForMeHintSeen` flag saves whether the one-time introduction was shown.
 
-The network protocol is version 4: clients and servers need the same Flowline version for these visual packets.
+The network protocol is version 6: clients and servers need the same Flowline version for these visual packets.
 
 Pipes are see-through by default. Players who prefer solid pipes can enable the built-in **Flowline: Solid Pipes**
 resource pack (Options > Resource Packs).
@@ -150,12 +151,17 @@ resource pack (Options > Resource Packs).
 ## Building
 
 ```
-./gradlew build        # jar in build/libs
+./gradlew build        # deploy build/libs/flowline-<version>.jar (not the -slim.jar)
 ./gradlew runClient    # dev client
 ./gradlew runGameTestServer   # headless in-world tests (src/main/java/.../test)
 ```
 
-CI (`.github/workflows/build.yml`) builds the jar, uploads it as the `flowline-jar` artifact and runs the in-world tests.
+CI (`.github/workflows/build.yml`) builds the jar, uploads it as the `flowline-jar` artifact and runs the in-world tests
+both without Curvy and with `-PwithCurvy`.
+
+Curvy Pipes 1.15.8 can be installed separately to enable curved pipes. The YAML parser is embedded in the
+distribution jar. Dev runs omit Curvy by default; add `-PwithCurvy` to test its native integration through the
+[official CurseMaven coordinate](https://www.curseforge.com/minecraft/mc-mods/curvy-pipes/files/8822563).
 
 Requires access to `maven.minecraftforge.net`, Mojang's asset/library hosts and, for the optional integration APIs,
 `maven.blamejared.com` (JEI), `maven.terraformersmc.com` (EMI), `www.cursemaven.com` (Jade) and `modmaven.dev`

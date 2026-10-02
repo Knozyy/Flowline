@@ -3,6 +3,7 @@
   "minVersion": "0.8.5",
   "package": "com.knozyy.flowline.mixin",
   "compatibilityLevel": "JAVA_17",
-  "mixins": ["BlockCollisionsMixin"],
+  "mixins": ["CurvyConfigMixin", "CurvyPipeItemMixin"],
+  "client": ["CurvyClientMixin"],
   "injectors": {"defaultRequire": 1}
 }

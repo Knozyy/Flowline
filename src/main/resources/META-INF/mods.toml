@@ -17,6 +17,13 @@ ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.${mod_id}]]
+modId = "curvy_pipes"
+mandatory = false
+versionRange = "[1.15.8]"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.${mod_id}]]
 modId = "mekanism"
 mandatory = false
 versionRange = "[10.4,)"

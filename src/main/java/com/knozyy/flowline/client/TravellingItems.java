@@ -51,16 +51,6 @@ public final class TravellingItems {
         ENTRIES.add(new Entry(payload.stack(), points, mc.level.getGameTime(), duration, 0.35f));
     }
 
-    public static void addCurve(ItemStack stack, List<Vec3> points) {
-        Minecraft mc=Minecraft.getInstance();
-        if(mc.level==null||points.size()<2||!FlowlineConfig.Client.RENDER_ITEMS.get())return;
-        tick(mc.level);
-        int max=FlowlineConfig.Client.MAX_TRAVELLING.get();if(max<=0)return;
-        double length=0;for(int i=1;i<points.size();i++)length+=points.get(i-1).distanceTo(points.get(i));
-        while(ENTRIES.size()>=max)ENTRIES.pollFirst();
-        ENTRIES.add(new Entry(stack.copy(),List.copyOf(points),mc.level.getGameTime(),Math.max(1,(int)(length*FlowlineConfig.Client.TICKS_PER_PIPE.get())),0.14f));
-    }
-
     public static void tick(ClientLevel level) {
         if (currentLevel != level) { clear(); currentLevel = level; }
         if (!FlowlineConfig.Client.RENDER_ITEMS.get()) { ENTRIES.clear(); return; }

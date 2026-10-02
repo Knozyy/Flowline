@@ -20,7 +20,7 @@ import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
 public final class ModNetwork {
-    private static final String PROTOCOL = "5";
+    private static final String PROTOCOL = "6";
     private static final Map<ServerPlayer, Integer> NETWORK_QUERIES = new WeakHashMap<>();
     private static final Map<ServerPlayer, Integer> BUILD_REQUESTS = new WeakHashMap<>();
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
@@ -57,25 +57,7 @@ public final class ModNetwork {
         CHANNEL.messageBuilder(FluidFlowPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(FluidFlowPayload::encode).decoder(FluidFlowPayload::decode)
                 .consumerMainThread(ModNetwork::onFluidFlow).add();
-        CHANNEL.messageBuilder(CurveActionPayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
-                .encoder(CurveActionPayload::encode).decoder(CurveActionPayload::decode)
-                .consumerMainThread((payload, context) -> {
-                    var player=context.get().getSender();
-                    if(player!=null)com.knozyy.flowline.curve.CurveServer.handle(player,payload);
-                    context.get().setPacketHandled(true);
-                }).add();
-        CHANNEL.messageBuilder(CurveViewPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
-                .encoder(CurveViewPayload::encode).decoder(CurveViewPayload::decode)
-                .consumerMainThread((payload, context) -> {
-                    DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandlers.curveView(payload));
-                    context.get().setPacketHandled(true);
-                }).add();
-        CHANNEL.messageBuilder(CurveFlowPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
-                .encoder(CurveFlowPayload::encode).decoder(CurveFlowPayload::decode)
-                .consumerMainThread((payload, context) -> {
-                    DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientHandlers.curveFlow(payload));
-                    context.get().setPacketHandled(true);
-                }).add();
+
     }
 
     public static void sendToServer(Object message) {
@@ -152,8 +134,6 @@ public final class ModNetwork {
 
     /** Only loaded on the client. */
     private static final class ClientHandlers {
-        static void curveView(CurveViewPayload payload) { com.knozyy.flowline.client.CurveClient.receive(payload); }
-        static void curveFlow(CurveFlowPayload payload) { com.knozyy.flowline.client.CurveClient.flow(payload); }
         static void filterPage(FilterPagePayload payload) {
             Player player = net.minecraft.client.Minecraft.getInstance().player;
             if (player != null && player.containerMenu instanceof PipeMenu menu && menu.containerId == payload.containerId()) {

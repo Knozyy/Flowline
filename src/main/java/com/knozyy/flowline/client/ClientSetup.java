@@ -87,8 +87,6 @@ public final class ClientSetup {
 
     @SubscribeEvent
     public static void registerKeys(RegisterKeyMappingsEvent event) {
-        event.register(Keys.CURVE_FINISH);
-        event.register(Keys.CURVE_CANCEL);
         event.register(Keys.BUILD);
     }
 

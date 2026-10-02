@@ -12,8 +12,4 @@ public final class Keys {
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, "key.categories.flowline");
 
     private Keys() {}
-    public static final KeyMapping CURVE_FINISH = new KeyMapping("key.flowline.curve_finish", KeyConflictContext.IN_GAME,
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_ENTER, "key.categories.flowline");
-    public static final KeyMapping CURVE_CANCEL = new KeyMapping("key.flowline.curve_cancel", KeyConflictContext.IN_GAME,
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_X, "key.categories.flowline");
 }

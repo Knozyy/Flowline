@@ -80,7 +80,6 @@ public class PipeMenu extends AbstractContainerMenu {
     public final BlockPos pos;
     public final Direction side;
     public final PipeType type;
-    public boolean curved;
 
     /** Null on the client. */
     private final PipeBlockEntity pipe;
@@ -128,7 +127,6 @@ public class PipeMenu extends AbstractContainerMenu {
     public PipeMenu(int id, Inventory inventory, FriendlyByteBuf buf) {
         this(id, inventory, buf.readBlockPos(), buf.readEnum(Direction.class), buf.readEnum(PipeType.class),
                 buf.readEnum(SideMode.class), null);
-        curved = buf.readBoolean();
     }
 
     /** Server constructor. */
@@ -143,7 +141,6 @@ public class PipeMenu extends AbstractContainerMenu {
         this.side = side;
         this.type = type;
         this.pipe = pipe;
-        this.curved = pipe instanceof com.knozyy.flowline.curve.CurveNode.Endpoint;
         this.cfg = pipe == null ? null : pipe.side(side);
         this.player = inventory.player instanceof ServerPlayer serverPlayer ? serverPlayer : null;
         this.registries = inventory.player.level().registryAccess();
@@ -345,7 +342,6 @@ public class PipeMenu extends AbstractContainerMenu {
                 cfg.wake();
             }
             case BTN_SIGNAL, BTN_SIGNAL_BACK -> {
-                if (curved) return false;
                 if (cfg.mode != SideMode.EXTRACT) return false;
                 cfg.signal = id == BTN_SIGNAL ? cfg.signal.next() : cfg.signal.previous();
                 // redstone dust next to the pipe reconsiders whether it points at it

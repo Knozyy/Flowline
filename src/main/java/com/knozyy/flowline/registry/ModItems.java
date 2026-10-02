@@ -1,13 +1,13 @@
 package com.knozyy.flowline.registry;
 
 import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.compat.CurvyPipesCompat;
 import com.knozyy.flowline.item.ConfigCardItem;
 import com.knozyy.flowline.item.FacadeItem;
 import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.item.WrenchItem;
 import com.knozyy.flowline.pipe.PipeBlock;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -19,12 +19,12 @@ import java.util.List;
 public final class ModItems {
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, Flowline.MODID);
 
-    public static final RegistryObject<BlockItem> ITEM_PIPE = blockItem(ModBlocks.ITEM_PIPE);
-    public static final RegistryObject<BlockItem> FLUID_PIPE = blockItem(ModBlocks.FLUID_PIPE);
-    public static final RegistryObject<BlockItem> ENERGY_PIPE = blockItem(ModBlocks.ENERGY_PIPE);
-    public static final RegistryObject<BlockItem> UNIVERSAL_PIPE = blockItem(ModBlocks.UNIVERSAL_PIPE);
+    public static final RegistryObject<Item> ITEM_PIPE = blockItem(ModBlocks.ITEM_PIPE);
+    public static final RegistryObject<Item> FLUID_PIPE = blockItem(ModBlocks.FLUID_PIPE);
+    public static final RegistryObject<Item> ENERGY_PIPE = blockItem(ModBlocks.ENERGY_PIPE);
+    public static final RegistryObject<Item> UNIVERSAL_PIPE = blockItem(ModBlocks.UNIVERSAL_PIPE);
     @Nullable
-    public static final RegistryObject<BlockItem> CHEMICAL_PIPE =
+    public static final RegistryObject<Item> CHEMICAL_PIPE =
             ModBlocks.CHEMICAL_PIPE == null ? null : blockItem(ModBlocks.CHEMICAL_PIPE);
 
     public static final RegistryObject<WrenchItem> WRENCH =
@@ -45,8 +45,8 @@ public final class ModItems {
     public static final RegistryObject<FacadeItem> FACADE =
             ITEMS.register("facade", () -> new FacadeItem(new Item.Properties()));
 
-    private static RegistryObject<BlockItem> blockItem(RegistryObject<PipeBlock> block) {
-        return ITEMS.register(block.getId().getPath(), () -> new com.knozyy.flowline.item.CurvePipeItem(block.get(), new Item.Properties()));
+    private static RegistryObject<Item> blockItem(RegistryObject<PipeBlock> block) {
+        return ITEMS.register(block.getId().getPath(), () -> CurvyPipesCompat.pipeItem(block.get(), block.getId().getPath()));
     }
 
     private static RegistryObject<UpgradeItem> upgrade(String name, UpgradeType type) {

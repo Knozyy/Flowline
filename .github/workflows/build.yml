@@ -26,7 +26,12 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: flowline-jar
-          path: build/libs/*.jar
+          path: |
+            build/libs/*.jar
+            !build/libs/*-slim.jar
 
-      - name: In-world tests
+      - name: In-world tests without Curvy
         run: ./gradlew runGameTestServer --stacktrace
+
+      - name: In-world tests with Curvy
+        run: ./gradlew runGameTestServer -PwithCurvy --stacktrace

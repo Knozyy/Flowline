@@ -1,6 +1,10 @@
 package com.knozyy.flowline.client;
 
 import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.compat.CurvyPipesCompat;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import com.knozyy.flowline.item.WrenchItem;
 import com.knozyy.flowline.network.BuildPayload;
 import com.knozyy.flowline.network.WrenchScrollPayload;
@@ -26,6 +30,13 @@ import net.minecraftforge.fml.common.Mod;
 public final class ClientEvents {
     private ClientEvents() {}
 
+    @SubscribeEvent
+    public static void onTooltip(ItemTooltipEvent event) {
+        if (CurvyPipesCompat.supported(event.getItemStack())) {
+            event.getToolTip().add(Component.translatable("tooltip.flowline.curvy.hands").withStyle(ChatFormatting.GRAY));
+        }
+    }
+
     /** Sneak + scroll with the wrench on a pipe side: quick settings instead of switching hotbar slots. */
     @SubscribeEvent
     public static void onScroll(InputEvent.MouseScrollingEvent event) {
@@ -49,13 +60,11 @@ public final class ClientEvents {
         TravellingItems.render(event.getPoseStack(), event.getCamera().getPosition(),
                 event.getPartialTick());
         NetworkOverlay.render(event.getPoseStack(), event.getCamera().getPosition());
-        CurveRenderer.render(event.getPoseStack(), event.getCamera().getPosition(), event.getPartialTick());
     }
 
     @SubscribeEvent
     public static void onHud(RenderGuiEvent.Post event) {
         NetworkOverlay.legend(event.getGuiGraphics());
-        CurveClient.hud(event.getGuiGraphics());
         BuildHint.render(event.getGuiGraphics());
     }
 
@@ -66,7 +75,6 @@ public final class ClientEvents {
         if (mc.level != null) TravellingItems.tick(mc.level);
         NetworkOverlay.tick();
         FlowingFluids.tick();
-        CurveClient.tick();
         while (Keys.BUILD.consumeClick()) {
             // the server checks the off hand and looks where the player looks itself
             if (mc.player != null && mc.screen == null) ModNetwork.sendToServer(new BuildPayload());
@@ -78,6 +86,5 @@ public final class ClientEvents {
         TravellingItems.clear();
         NetworkOverlay.clear();
         FlowingFluids.clear();
-        CurveClient.clear();
     }
 }

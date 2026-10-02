@@ -158,6 +158,10 @@ public final class FlowlineConfig {
     public static final class Client {
         private static final ForgeConfigSpec.Builder CLIENT = new ForgeConfigSpec.Builder();
 
+        public static final ForgeConfigSpec.BooleanValue BUILD_HINT_SEEN = CLIENT
+                .comment("Whether the one-time Build for Me introduction has already been shown.")
+                .define("buildForMeHintSeen", false);
+
         public static final ForgeConfigSpec.BooleanValue RENDER_ITEMS = CLIENT
                 .comment("Draw items travelling through pipes (needs sendItemAnimations on the server).")
                 .define("renderTravellingItems", true);
