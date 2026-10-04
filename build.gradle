@@ -39,7 +39,8 @@ minecraft {
         // Headless in-world tests: ./gradlew runGameTestServer (exits non-zero if a test fails)
         gameTestServer {
             // Optional-mod tests need independent registry snapshots and saved worlds.
-            workingDirectory project.file(project.hasProperty('withCurvy') ? 'run/gametest-curvy' : 'run/gametest-normal')
+            workingDirectory project.file(project.hasProperty('withCurvy') ? 'run/gametest-curvy'
+                    : project.hasProperty('withMekanism') ? 'run/gametest-mekanism' : 'run/gametest-normal')
         }
     }
 }
@@ -81,6 +82,10 @@ dependencies {
     // Curvy is optional in production and in dev runs. Enable native integration runs with -PwithCurvy.
     if (project.hasProperty('withCurvy')) {
         runtimeOnly fg.deobf("curse.maven:curvy-pipes-1151126:8822563")
+    }
+    // Same for Mekanism: -PwithMekanism puts the full mod on the runtime classpath (chemical pipe tests).
+    if (project.hasProperty('withMekanism')) {
+        runtimeOnly fg.deobf("mekanism:Mekanism:${minecraft_version}-${mekanism_version}")
     }
     minecraftLibrary 'org.snakeyaml:snakeyaml-engine:2.7'
     jarJar(group: 'org.snakeyaml', name: 'snakeyaml-engine', version: '[2.7,2.8)')

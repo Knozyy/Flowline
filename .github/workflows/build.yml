@@ -35,3 +35,6 @@ jobs:
 
       - name: In-world tests with Curvy
         run: ./gradlew runGameTestServer -PwithCurvy --stacktrace
+
+      - name: In-world tests with Mekanism
+        run: ./gradlew runGameTestServer -PwithMekanism --stacktrace
