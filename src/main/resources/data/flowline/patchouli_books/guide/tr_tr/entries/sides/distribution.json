@@ -1,0 +1,16 @@
+{
+  "name": "Dağıtım ve Redstone",
+  "category": "flowline:sides",
+  "icon": "minecraft:comparator",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Dağıtım: $(thing)En yakın$(), $(thing)En uzak$(), $(thing)Sırayla$(), $(thing)Rastgele$(), $(thing)Dengeli$() (bir işlemi eşit böler) ve $(thing)Öncelik$() (en yüksek öncelik önce)."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Redstone: yok say, sinyal ister, sinyal istemez ya da $(thing)Darbe$() (yükselen kenar başına bir işlem).$(br2)Dağıtımı değiştirmek için anahtarla eğilip tekerleği çevirin; Ctrl ile redstone modunu."
+    }
+  ]
+}

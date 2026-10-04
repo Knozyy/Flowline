@@ -1,0 +1,20 @@
+{
+  "name": "Filtre Kuralları",
+  "category": "flowline:filters",
+  "icon": "flowline:filter_upgrade",
+  "sortnum": 0,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Her tarafta 9 kural vardır, her Filtre yükseltmesi 9 tane daha ekler. Herhangi bir $(thing)Engel$() kuralına uyan yığın asla geçmez. $(thing)İzin$() kuralları varsa bunlardan birine uymalıdır. Yalnızca Engel kuralları varsa geri kalan her şey geçer.$(br2)Değiştirmek için kuraldaki İzin/Engel çipine tıklayın."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Envanterinizdeki bir eşyaya shift ile tıklayarak, elinizde eşyayla listeye tıklayarak ya da $(thing)+ Add filter$() ile kural ekleyin. Kuralı silmek için sağ tıklayın, düzenleyiciyi açmak için tıklayın."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:filter_upgrade"
+    }
+  ]
+}

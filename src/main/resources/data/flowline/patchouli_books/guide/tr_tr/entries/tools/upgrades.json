@@ -1,0 +1,28 @@
+{
+  "name": "Yükseltmeler",
+  "category": "flowline:tools",
+  "icon": "flowline:knozy_upgrade",
+  "sortnum": 0,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Her tarafta altı yükseltme yuvası. $(item)Hız$() başlangıç aralığını azaltır, $(item)Yığın$() işlem başına miktarı çarpar, $(item)Filtre$() kural ekler, $(item)Knozy$() üçü yerine sayılır.$(br2)Insert tarafları yalnızca Filtre yükseltmesi alır. Boru kırılınca her şey düşer."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:speed_upgrade"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:stack_upgrade"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:filter_upgrade"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:knozy_upgrade"
+    }
+  ]
+}

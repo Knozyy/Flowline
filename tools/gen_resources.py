@@ -476,7 +476,9 @@ for name in TYPES:
         multipart.append({"when": {side: "extract"}, "apply": {"model": f"{MODID}:block/{name}_pipe_extract", **r}})
     write_json(f"assets/{MODID}/blockstates/{name}_pipe.json", {"multipart": multipart})
 
-    # loot table; optional pipes only load it when their mod is present (their item does not exist otherwise)
+    # Loot table. Forge 1.20.1 has no load conditions for loot tables, so an optional pipe's table (naming an item
+    # that only exists with its mod) lives in a data pack that is only added when the mod is loaded
+    # (see OptionalPacks): resources/optional/<mod>/.
     table = {
         "type": "minecraft:block",
         "pools": [{
@@ -487,8 +489,11 @@ for name in TYPES:
         }],
     }
     if name in OPTIONAL:
-        table = {"forge:conditions": [{"type": "forge:mod_loaded", "modid": OPTIONAL[name]}], **table}
-    write_json(f"data/{MODID}/loot_tables/blocks/{name}_pipe.json", table)
+        write_json(f"optional/{OPTIONAL[name]}/data/{MODID}/loot_tables/blocks/{name}_pipe.json", table)
+        write_json(f"optional/{OPTIONAL[name]}/pack.mcmeta", {"pack": {
+            "pack_format": 15, "description": f"{MODID} data for {OPTIONAL[name]}"}})
+    else:
+        write_json(f"data/{MODID}/loot_tables/blocks/{name}_pipe.json", table)
 
 for name in ("wrench", "speed_upgrade", "stack_upgrade", "filter_upgrade", "knozy_upgrade", "config_card",
              "filter_card", "facade"):

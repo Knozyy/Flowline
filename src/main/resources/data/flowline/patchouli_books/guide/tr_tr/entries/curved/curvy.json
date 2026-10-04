@@ -1,0 +1,12 @@
+{
+  "name": "Curvy Pipes",
+  "category": "flowline:curved",
+  "icon": "flowline:fluid_pipe",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Curvy Pipes kuruluysa aynı Flowline boruları sol elden eğri hatlar da yerleştirir. Ucu bir Flowline borusunun üzerinde olan Curvy hattı o borunun ağına bağlanır.$(br2)Bir ucun yine de Curvy'nin uç menüsünde Extract'e ayarlanması gerekir."
+    }
+  ]
+}

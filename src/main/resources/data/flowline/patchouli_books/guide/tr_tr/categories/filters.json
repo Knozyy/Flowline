@@ -1,0 +1,6 @@
+{
+  "name": "Filtreler",
+  "description": "Eşya, sıvı ve kimyasallar için İzin ve Engel kuralları.",
+  "icon": "flowline:filter_upgrade",
+  "sortnum": 2
+}

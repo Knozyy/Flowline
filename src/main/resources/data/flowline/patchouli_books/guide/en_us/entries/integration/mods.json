@@ -1,0 +1,12 @@
+{
+  "name": "Other Mods",
+  "category": "flowline:integration",
+  "icon": "minecraft:book",
+  "sortnum": 0,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "$(thing)Mekanism$() 10.4 adds the Chemical Pipe.$(br)$(thing)JEI$() and $(thing)EMI$(): drag an item or fluid onto a filter slot or into the rule editor.$(br)$(thing)Jade$(), $(thing)The One Probe$() and $(thing)WTHIT$() show the looked-at side's mode, pacing, priority and regulator.$(br2)Wrenches tagged $(thing)forge:tools/wrench$() work on pipes."
+    }
+  ]
+}

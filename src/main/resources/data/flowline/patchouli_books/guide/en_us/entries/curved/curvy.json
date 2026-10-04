@@ -1,0 +1,12 @@
+{
+  "name": "Curvy Pipes",
+  "category": "flowline:curved",
+  "icon": "flowline:fluid_pipe",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "With Curvy Pipes installed, the same Flowline pipes also place curved lines from the off hand. A Curvy line whose end sits on a Flowline pipe connects to that pipe's network.$(br2)One end still has to be set to Extract in Curvy's endpoint menu."
+    }
+  ]
+}

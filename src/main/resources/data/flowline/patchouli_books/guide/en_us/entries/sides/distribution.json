@@ -1,0 +1,16 @@
+{
+  "name": "Distribution and Redstone",
+  "category": "flowline:sides",
+  "icon": "minecraft:comparator",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Distribution: $(thing)Nearest$(), $(thing)Farthest$(), $(thing)Round robin$(), $(thing)Random$(), $(thing)Balanced$() (splits an operation evenly) and $(thing)Priority$() (highest insert priority first)."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Redstone: ignored, needs signal, needs no signal, or $(thing)Pulse$() (one operation per rising edge).$(br2)Sneak and scroll with the wrench on a side to change its distribution, or its redstone mode with Ctrl."
+    }
+  ]
+}

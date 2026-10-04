@@ -1,0 +1,29 @@
+{
+  "name": "Pipe Types",
+  "category": "flowline:basics",
+  "icon": "flowline:item_pipe",
+  "sortnum": 0,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "$(item)Item$(), $(item)Fluid$() and $(item)Energy$() pipes connect to pipes of the same type and to any block that exposes the matching capability.$(br2)The $(item)Universal Pipe$() moves items, fluids and energy at once; each side can switch its channels on and off."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:item_pipe",
+      "text": "Four pipes per craft: iron and gold around redstone and what the pipe carries."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:universal_pipe"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "The $(item)Chemical Pipe$() needs Mekanism and moves gases, infuse types, pigments and slurries.$(br2)Pipes can be waterlogged, and items they move are drawn travelling through the pipe walls."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:chemical_pipe"
+    }
+  ]
+}

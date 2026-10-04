@@ -1,0 +1,6 @@
+{
+  "name": "Flowline Guide",
+  "landing_text": "Item, fluid, energy and chemical pipes with per-side control, filters and upgrades. Start with $(l:basics/first_network)your first network$().",
+  "version": 1,
+  "show_progress": false
+}

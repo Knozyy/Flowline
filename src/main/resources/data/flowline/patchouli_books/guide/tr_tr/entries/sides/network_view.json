@@ -1,0 +1,12 @@
+{
+  "name": "Ağ Görünümü",
+  "category": "flowline:sides",
+  "icon": "minecraft:spyglass",
+  "sortnum": 3,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Elinizde anahtar varken $(thing)Shift$() tuşuna basıp bir boruya bakın: ağı duvarların arkasından görürsünüz. Kaynaklar yeşil, hedefler turuncu, taşma hedefleri mor, borular soluk.$(br2)Sunucular bunu kapatabilir ya da menzilini sınırlayabilir."
+    }
+  ]
+}

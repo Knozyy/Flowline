@@ -1,0 +1,20 @@
+{
+  "name": "Cards",
+  "category": "flowline:tools",
+  "icon": "flowline:config_card",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "The $(item)Configuration Card$() copies a side's mode, settings and filter: sneak and right-click to copy, right-click another side to paste, sneak and use in the air to clear.$(br2)The $(item)Filter Card$() does the same for the filter rules only."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:config_card"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:filter_card"
+    }
+  ]
+}

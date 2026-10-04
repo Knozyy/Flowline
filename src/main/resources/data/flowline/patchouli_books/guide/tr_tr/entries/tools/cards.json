@@ -1,0 +1,20 @@
+{
+  "name": "Kartlar",
+  "category": "flowline:tools",
+  "icon": "flowline:config_card",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "$(item)Yapılandırma Kartı$() bir tarafın modunu, ayarlarını ve filtresini kopyalar: kopyalamak için eğilip sağ tıklayın, yapıştırmak için başka bir tarafa sağ tıklayın, temizlemek için eğilip havada kullanın.$(br2)$(item)Filtre Kartı$() aynı şeyi yalnızca filtre kuralları için yapar."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:config_card"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:filter_card"
+    }
+  ]
+}

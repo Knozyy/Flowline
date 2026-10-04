@@ -1,0 +1,16 @@
+{
+  "name": "Veri Paketleri ve KubeJS",
+  "category": "flowline:integration",
+  "icon": "minecraft:command_block",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Varsayılan olarak boş iki blok etiketi:$(br)$(thing)flowline:no_connect$(): borular bu bloklara asla bağlanmaz.$(br)$(thing)flowline:no_facade$(): bu bloklar cepheye dönüşemez.$(br2)Tarifler sıradan veri paketi tarifleridir."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "KubeJS özel destek gerektirmez. Örneğin:$(br2)ServerEvents.tags('block', e => {$(br)  e.add('flowline:no_connect', 'minecraft:chest')$(br)})"
+    }
+  ]
+}

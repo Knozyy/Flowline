@@ -1,0 +1,12 @@
+{
+  "name": "Configuration",
+  "category": "flowline:integration",
+  "icon": "minecraft:redstone_torch",
+  "sortnum": 2,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "The config is per world: <world>/serverconfig/flowline-server.toml. It holds the amounts per operation, Stack multipliers, filter slots, pacing, network size and animations.$(br2)In a single-player world it can be edited in game from Mods > Flowline > Config."
+    }
+  ]
+}

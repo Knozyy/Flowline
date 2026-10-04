@@ -1,0 +1,6 @@
+{
+  "name": "Sides and Modes",
+  "description": "Every side of a pipe is configured on its own.",
+  "icon": "flowline:wrench",
+  "sortnum": 1
+}

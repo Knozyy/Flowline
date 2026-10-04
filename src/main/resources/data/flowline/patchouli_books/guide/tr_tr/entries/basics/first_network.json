@@ -1,0 +1,20 @@
+{
+  "name": "İlk Ağınız",
+  "category": "flowline:basics",
+  "icon": "flowline:wrench",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Borunun her tarafı $(thing)Insert$() (Alıcı) olarak başlar: yalnızca yanındakine verir.$(br2)$(item)Flowline Anahtarı$() ile kaynak sandığınıza, tankınıza ya da jeneratörünüze bakan tarafa eğilerek sağ tıklayın. Taraf $(thing)Extract$() (Çekici) olur ve o bloktan çeker."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:wrench"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Anahtar bir tarafı sırayla değiştirir: Insert, Extract, bağlantı kesik.$(br2)Birbirine değen aynı tür borular bir ağ oluşturur. Extract tarafları çeker, Insert taraflar alır, aradaki her şey sadece borudur."
+    }
+  ]
+}

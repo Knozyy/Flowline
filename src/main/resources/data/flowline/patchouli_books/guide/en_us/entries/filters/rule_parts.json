@@ -1,0 +1,16 @@
+{
+  "name": "What a Rule Can Match",
+  "category": "flowline:filters",
+  "icon": "minecraft:name_tag",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "One rule can combine, and every part you set must match:$(br)- an item or fluid id$(br)- tags (any or all)$(br)- data (NBT): contains or exact$(br)- a mod, like $(thing)@create$()"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "- a name pattern (case-insensitive regular expression)$(br)- a durability range in percent$(br)- an amount: a regulator just for matching stacks$(br2)The rule editor shows what the rule does and whether your sample item matches it."
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "Data Packs and KubeJS",
+  "category": "flowline:integration",
+  "icon": "minecraft:command_block",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Two block tags, empty by default:$(br)$(thing)flowline:no_connect$(): pipes never connect to these blocks.$(br)$(thing)flowline:no_facade$(): these blocks cannot become facades.$(br2)Recipes are ordinary data pack recipes."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "KubeJS needs no special support. For example:$(br2)ServerEvents.tags('block', e => {$(br)  e.add('flowline:no_connect', 'minecraft:chest')$(br)})"
+    }
+  ]
+}
