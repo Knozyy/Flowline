@@ -4,6 +4,7 @@ import com.knozyy.flowline.pipe.Conn;
 import com.knozyy.flowline.pipe.PipeBlock;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
 import com.knozyy.flowline.registry.ModItems;
+import com.knozyy.flowline.registry.ModTags;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -60,6 +61,7 @@ public class FacadeItem extends Item implements PipeInteractable {
     public static boolean isValid(BlockState state) {
         Block block = state.getBlock();
         return !state.isAir() && !state.hasBlockEntity() && !(block instanceof PipeBlock)
+                && !state.is(ModTags.NO_FACADE)
                 && state.getRenderShape() == RenderShape.MODEL
                 && Block.isShapeFullBlock(state.getShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO));
     }

@@ -3,6 +3,7 @@ package com.knozyy.flowline.pipe;
 import com.knozyy.flowline.FlowlineConfig;
 import com.knozyy.flowline.compat.ChemicalCompat;
 import com.knozyy.flowline.pipe.transfer.EnergyTransfer;
+import com.knozyy.flowline.registry.ModTags;
 import com.knozyy.flowline.pipe.transfer.FluidTransfer;
 import com.knozyy.flowline.pipe.transfer.ItemTransfer;
 import net.minecraft.core.BlockPos;
@@ -84,7 +85,7 @@ public enum PipeType implements StringRepresentable {
     /** Whether the block at {@code pos} exposes any capability this pipe moves on {@code access}. */
     public boolean hasEndpoint(Level level, BlockPos pos, Direction access) {
         BlockEntity be = level.getBlockEntity(pos);
-        if (be == null) return false;
+        if (be == null || be.getBlockState().is(ModTags.NO_CONNECT)) return false;
         return items && be.getCapability(ForgeCapabilities.ITEM_HANDLER, access).isPresent()
                 || fluids && be.getCapability(ForgeCapabilities.FLUID_HANDLER, access).isPresent()
                 || energy && be.getCapability(ForgeCapabilities.ENERGY, access).isPresent()
