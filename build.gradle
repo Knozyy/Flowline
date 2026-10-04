@@ -65,6 +65,14 @@ repositories {
         url = 'https://modmaven.dev/'
         content { includeGroup 'mekanism' }
     }
+    maven {
+        url = 'https://maven.k-4u.nl/'
+        content { includeGroup 'mcjty.theoneprobe' }
+    }
+    maven {
+        url = 'https://maven.bai.lol'
+        content { includeGroup 'mcp.mobius.waila' }
+    }
 }
 
 dependencies {
@@ -82,6 +90,9 @@ dependencies {
     compileOnly fg.deobf("dev.emi:emi-forge:${emi_version}+${minecraft_version}:api")
     compileOnly fg.deobf("curse.maven:jade-api-324717:${jade_api_id}")
     compileOnly fg.deobf("mekanism:Mekanism:${minecraft_version}-${mekanism_version}:api")
+    // TOP is compiled against without remapping: its API only uses class names, and its pom pulls in an old Forge
+    compileOnly("mcjty.theoneprobe:theoneprobe:${top_version}") { transitive = false }
+    compileOnly(fg.deobf("mcp.mobius.waila:wthit-api:${wthit_version}")) { transitive = false }
 }
 
 tasks.named('processResources', ProcessResources).configure {
