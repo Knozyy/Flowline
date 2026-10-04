@@ -476,17 +476,19 @@ for name in TYPES:
         multipart.append({"when": {side: "extract"}, "apply": {"model": f"{MODID}:block/{name}_pipe_extract", **r}})
     write_json(f"assets/{MODID}/blockstates/{name}_pipe.json", {"multipart": multipart})
 
-    # loot table; optional pipes have none, their block drops itself (see PipeBlock#getDrops)
-    if name not in OPTIONAL:
-        write_json(f"data/{MODID}/loot_tables/blocks/{name}_pipe.json", {
-            "type": "minecraft:block",
-            "pools": [{
-                "rolls": 1.0,
-                "bonus_rolls": 0.0,
-                "conditions": [{"condition": "minecraft:survives_explosion"}],
-                "entries": [{"type": "minecraft:item", "name": f"{MODID}:{name}_pipe"}],
-            }],
-        })
+    # loot table; optional pipes only load it when their mod is present (their item does not exist otherwise)
+    table = {
+        "type": "minecraft:block",
+        "pools": [{
+            "rolls": 1.0,
+            "bonus_rolls": 0.0,
+            "conditions": [{"condition": "minecraft:survives_explosion"}],
+            "entries": [{"type": "minecraft:item", "name": f"{MODID}:{name}_pipe"}],
+        }],
+    }
+    if name in OPTIONAL:
+        table = {"forge:conditions": [{"type": "forge:mod_loaded", "modid": OPTIONAL[name]}], **table}
+    write_json(f"data/{MODID}/loot_tables/blocks/{name}_pipe.json", table)
 
 for name in ("wrench", "speed_upgrade", "stack_upgrade", "filter_upgrade", "knozy_upgrade", "config_card",
              "filter_card", "facade"):
