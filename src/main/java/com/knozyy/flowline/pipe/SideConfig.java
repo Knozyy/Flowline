@@ -178,6 +178,11 @@ public class SideConfig {
         return compiled().allowsFluid(fluid);
     }
 
+    public boolean allowsChemical(net.minecraft.resources.ResourceLocation id,
+                                  java.util.function.Supplier<String> displayName) {
+        return compiled().allowsChemical(id, displayName);
+    }
+
     /** Regulator for {@code stack}: the amount of a matching rule if one has it, else {@link #limit}; 0 = off. */
     public int limitFor(ItemStack stack) {
         int rule = compiled().itemAmount(stack);

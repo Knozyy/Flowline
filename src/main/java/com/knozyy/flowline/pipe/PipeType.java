@@ -61,9 +61,9 @@ public enum PipeType implements StringRepresentable {
         return chemicals;
     }
 
-    /** Whether rule filters exist on this pipe (energy and chemicals have nothing to filter). */
+    /** Whether rule filters exist on this pipe (energy has nothing to filter). */
     public boolean hasFilter() {
-        return items || fluids;
+        return items || fluids || chemicals;
     }
 
     /** Whether filter rules name fluids (fluid pipes) rather than items. */
@@ -136,7 +136,7 @@ public enum PipeType implements StringRepresentable {
         }
         if (chemicals) {
             moved += inTwoPasses(main, overflow, Pacing.chemicalPerOperation(cfg.stackCount), (list, budget, first) ->
-                    ChemicalCompat.transfer(source, list, budget, first && balanced));
+                    ChemicalCompat.transfer(source, cfg, list, budget, first && balanced));
         }
         return moved;
     }
@@ -148,7 +148,8 @@ public enum PipeType implements StringRepresentable {
         IFluidHandler fluids = this.fluids && cfg.channel(CH_FLUIDS, this) ? source.fluidHandler() : null;
         if (fluids != null && FluidTransfer.hasWork(fluids, cfg)) return true;
         IEnergyStorage energy = this.energy && cfg.channel(CH_ENERGY, this) ? source.energyStorage() : null;
-        return energy != null && energy.getEnergyStored() > cfg.limit && energy.extractEnergy(1, true) > 0;
+        if (energy != null && energy.getEnergyStored() > cfg.limit && energy.extractEnergy(1, true) > 0) return true;
+        return chemicals && ChemicalCompat.hasWork(source, cfg);
     }
 
     @FunctionalInterface

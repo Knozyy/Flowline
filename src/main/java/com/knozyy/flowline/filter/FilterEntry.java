@@ -1,5 +1,6 @@
 package com.knozyy.flowline.filter;
 
+import com.knozyy.flowline.compat.ChemicalCompat;
 import com.knozyy.flowline.pipe.PipeType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.serialization.Codec;
@@ -149,9 +150,17 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
         return pipe == PipeType.FLUID || pipe == PipeType.UNIVERSAL && fluid;
     }
 
-    /** The type whose registries this rule uses: {@link PipeType#FLUID} for fluid rules, else {@link PipeType#ITEM}. */
+    /** Whether this rule is about Mekanism chemicals: every rule on a chemical pipe. */
+    public boolean isChemicalRule(PipeType pipe) {
+        return pipe == PipeType.CHEMICAL;
+    }
+
+    /**
+     * The type whose registries this rule uses: {@link PipeType#CHEMICAL} for chemical rules, {@link PipeType#FLUID}
+     * for fluid rules, else {@link PipeType#ITEM}.
+     */
     public PipeType ruleType(PipeType pipe) {
-        return isFluidRule(pipe) ? PipeType.FLUID : PipeType.ITEM;
+        return isChemicalRule(pipe) ? PipeType.CHEMICAL : isFluidRule(pipe) ? PipeType.FLUID : PipeType.ITEM;
     }
 
     public static FilterEntry ofItem(String id) {
@@ -205,6 +214,16 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
         }
         if (minDurability > maxDurability) return "gui.flowline.editor.error.durability";
         if (tags.size() > MAX_TAGS) return "gui.flowline.editor.error.too_many_tags";
+        if (type == PipeType.CHEMICAL) {
+            // chemical rules know an id, a mod and a name only
+            if (!tags.isEmpty() || nbt.isPresent() || hasDurability()) return "gui.flowline.editor.error.chemical_parts";
+            if (item.isPresent()) {
+                ResourceLocation id = ResourceLocation.tryParse(item.get());
+                if (id == null) return "gui.flowline.editor.error.syntax";
+                if (!ChemicalCompat.exists(id)) return "gui.flowline.editor.error.unknown_chemical";
+            }
+            return null;
+        }
         if (item.isPresent()) {
             ResourceLocation id = ResourceLocation.tryParse(item.get());
             if (id == null) return "gui.flowline.editor.error.syntax";
@@ -236,6 +255,10 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
     @Nullable
     public static FilterEntry fromStack(PipeType type, ItemStack stack, HolderLookup.Provider registries) {
         if (stack.isEmpty()) return null;
+        if (type == PipeType.CHEMICAL) {
+            ResourceLocation chemical = ChemicalCompat.idIn(stack);
+            return chemical == null ? null : ofItem(chemical.toString());
+        }
         if (type == PipeType.FLUID) {
             FluidStack fluid = fluidIn(stack);
             if (fluid.isEmpty()) return null;
@@ -271,6 +294,10 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
     @Nullable
     public static String idOf(PipeType type, ItemStack sample) {
         if (sample.isEmpty()) return null;
+        if (type == PipeType.CHEMICAL) {
+            ResourceLocation chemical = ChemicalCompat.idIn(sample);
+            return chemical == null ? null : chemical.toString();
+        }
         if (type == PipeType.FLUID) {
             FluidStack fluid = fluidIn(sample);
             return fluid.isEmpty() ? null : BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
@@ -281,6 +308,7 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
     /** Tags the sample (or the fluid inside it) belongs to, sorted. */
     public static List<ResourceLocation> tagsOf(PipeType type, ItemStack sample) {
         Stream<ResourceLocation> tags;
+        if (type == PipeType.CHEMICAL) return List.of();
         if (type == PipeType.FLUID) {
             FluidStack fluid = fluidIn(sample);
             if (fluid.isEmpty()) return List.of();
@@ -293,18 +321,20 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
 
     /** Data components of the sample (or the fluid inside it) as NBT; empty compound if it has none. */
     public static CompoundTag componentsOf(PipeType type, ItemStack sample, HolderLookup.Provider registries) {
-        if (sample.isEmpty()) return new CompoundTag();
+        if (sample.isEmpty() || type == PipeType.CHEMICAL) return new CompoundTag();
         CompoundTag tag = type == PipeType.FLUID ? fluidIn(sample).getTag() : sample.getTag();
         return encode(tag).orElseGet(CompoundTag::new);
     }
 
     /** Every tag known to the item (or fluid) registry. */
     public static Stream<ResourceLocation> allTags(PipeType type) {
+        if (type == PipeType.CHEMICAL) return Stream.empty();
         return type == PipeType.FLUID ? BuiltInRegistries.FLUID.getTagNames().map(TagKey::location)
                 : BuiltInRegistries.ITEM.getTagNames().map(TagKey::location);
     }
 
     public static boolean tagExists(PipeType type, ResourceLocation id) {
+        if (type == PipeType.CHEMICAL) return false;
         return type == PipeType.FLUID ? BuiltInRegistries.FLUID.getTag(TagKey.create(Registries.FLUID, id)).isPresent()
                 : BuiltInRegistries.ITEM.getTag(TagKey.create(Registries.ITEM, id)).isPresent();
     }
@@ -312,6 +342,7 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
     /** Up to {@code limit} display stacks of a tag's members; fluids show as their buckets. */
     public static List<ItemStack> tagMembers(PipeType type, ResourceLocation id, int limit) {
         List<ItemStack> members = new ArrayList<>();
+        if (type == PipeType.CHEMICAL) return members;
         if (type == PipeType.FLUID) {
             BuiltInRegistries.FLUID.getTag(TagKey.create(Registries.FLUID, id)).ifPresent(set -> set.stream()
                     .map(Holder::value).map(Fluid::getBucket).filter(bucket -> bucket != Items.AIR).distinct()
@@ -324,6 +355,7 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
     }
 
     public static int tagSize(PipeType type, ResourceLocation id) {
+        if (type == PipeType.CHEMICAL) return 0;
         return type == PipeType.FLUID
                 ? BuiltInRegistries.FLUID.getTag(TagKey.create(Registries.FLUID, id)).map(set -> set.size()).orElse(0)
                 : BuiltInRegistries.ITEM.getTag(TagKey.create(Registries.ITEM, id)).map(set -> set.size()).orElse(0);
@@ -359,6 +391,11 @@ public record FilterEntry(Optional<String> item, List<String> tags, boolean allT
         PipeType type = ruleType(pipe);
         ResourceLocation itemId = item.map(ResourceLocation::tryParse).orElse(null);
         ResourceLocation firstTag = tags.isEmpty() ? null : ResourceLocation.tryParse(tags.get(0));
+        if (type == PipeType.CHEMICAL) {
+            if (itemId == null) return new ItemStack(Items.NAME_TAG);
+            Item tank = BuiltInRegistries.ITEM.get(new ResourceLocation(ChemicalCompat.MEKANISM, "basic_chemical_tank"));
+            return new ItemStack(tank == Items.AIR ? Items.PAPER : tank);
+        }
         if (type == PipeType.FLUID) {
             Fluid fluid = Fluids.EMPTY;
             if (itemId != null) {

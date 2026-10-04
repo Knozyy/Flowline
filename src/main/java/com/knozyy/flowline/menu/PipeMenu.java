@@ -220,7 +220,7 @@ public class PipeMenu extends AbstractContainerMenu {
         return registries;
     }
 
-    /** Energy and chemical pipes have no filter. */
+    /** Energy pipes have no filter. */
     public boolean hasFilter() {
         return type.hasFilter();
     }

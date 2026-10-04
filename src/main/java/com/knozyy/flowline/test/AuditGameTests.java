@@ -351,4 +351,26 @@ public class AuditGameTests {
         player.setShiftKeyDown(true);WrenchItem.scroll(player, pipe.getBlockPos(), Direction.EAST, true, false);
         h.assertTrue(pipe.side(Direction.EAST).priority == 1, "authorized shortcut still changes priority");h.succeed();
     }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void chemicalFiltersMatchIdModAndName(GameTestHelper h) {
+        var hydrogen = new net.minecraft.resources.ResourceLocation("mekanism", "hydrogen");
+        var water = new net.minecraft.resources.ResourceLocation("mekanism", "water_vapor");
+        var other = new net.minecraft.resources.ResourceLocation("other", "hydrogen");
+        var allowId = com.knozyy.flowline.filter.CompiledFilter.compile(
+                List.of(FilterEntry.ofItem("mekanism:hydrogen")), PipeType.CHEMICAL);
+        h.assertTrue(allowId.allowsChemical(hydrogen, () -> "Hydrogen"), "an Allow rule passes its chemical");
+        h.assertTrue(!allowId.allowsChemical(water, () -> "Water Vapor"), "an Allow rule blocks other chemicals");
+        var blockMod = com.knozyy.flowline.filter.CompiledFilter.compile(
+                List.of(FilterEntry.ofMod("mekanism").withInvert(true)), PipeType.CHEMICAL);
+        h.assertTrue(!blockMod.allowsChemical(hydrogen, () -> "Hydrogen"), "a Block mod rule blocks that mod");
+        h.assertTrue(blockMod.allowsChemical(other, () -> "Hydrogen"), "a Block mod rule lets other mods through");
+        var name = com.knozyy.flowline.filter.CompiledFilter.compile(
+                List.of(FilterEntry.ofName("^hydro")), PipeType.CHEMICAL);
+        h.assertTrue(name.allowsChemical(other, () -> "Hydrogen"), "name patterns are case-insensitive regexes");
+        h.assertTrue(!name.allowsChemical(water, () -> "Water Vapor"), "name patterns must match");
+        h.assertTrue(com.knozyy.flowline.filter.CompiledFilter.ALLOW_ALL.allowsChemical(water, () -> ""),
+                "no rules: everything passes");
+        h.succeed();
+    }
 }
