@@ -1,0 +1,16 @@
+{
+  "name": "Pacing",
+  "category": "flowline:sides",
+  "icon": "minecraft:clock",
+  "sortnum": 2,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "An Extract side starts at 30 ticks between operations. Every operation that moves something makes it 2 ticks faster (down to 5); every one that moves nothing doubles the wait (up to 100).$(br2)A side with no target sleeps and costs nothing until its network changes."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "All numbers are in the server config. The side screen's header shows what the side is doing: Working, Asleep, Waiting, Stuck or Idle."
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 package com.knozyy.flowline.client.ui;
 
+import com.knozyy.flowline.compat.ChemicalCompat;
 import com.knozyy.flowline.filter.FilterEntry;
 import com.knozyy.flowline.pipe.PipeType;
 import net.minecraft.core.HolderLookup;
@@ -16,6 +17,10 @@ public final class RuleText {
 
     /** The rule's main line: its item or fluid, else its first tag, mod, name pattern or durability range. */
     public static Component title(FilterEntry rule, PipeType pipe, HolderLookup.Provider registries) {
+        if (rule.item().isPresent() && rule.isChemicalRule(pipe)) {
+            ResourceLocation id = ResourceLocation.tryParse(rule.item().get());
+            return id == null ? Component.literal(rule.item().get()) : ChemicalCompat.name(id);
+        }
         if (rule.item().isPresent()) {
             return rule.isFluidRule(pipe) ? rule.displayFluid().getFluidType().getDescription()
                     : rule.displayStack(pipe, registries).getHoverName();
@@ -40,8 +45,8 @@ public final class RuleText {
         boolean titleIsName = rule.item().isEmpty() && rule.tags().isEmpty() && rule.mod().isEmpty()
                 && rule.name().isPresent();
         if (rule.item().isPresent()) {
-            parts.add(Component.translatable(rule.isFluidRule(pipe) ? "gui.flowline.text.kind_fluid"
-                    : "gui.flowline.text.kind_item"));
+            parts.add(Component.translatable(rule.isChemicalRule(pipe) ? "gui.flowline.text.kind_chemical"
+                    : rule.isFluidRule(pipe) ? "gui.flowline.text.kind_fluid" : "gui.flowline.text.kind_item"));
         } else if (titleIsTag) {
             parts.add(Component.translatable(rule.allTags() ? "gui.flowline.text.tags_all" : "gui.flowline.text.tags_any"));
         } else if (titleIsMod) {

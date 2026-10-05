@@ -1,0 +1,20 @@
+{
+  "name": "Colours and Facades",
+  "category": "flowline:basics",
+  "icon": "flowline:facade",
+  "sortnum": 2,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Right-click a pipe with a dye. Pipes of $(thing)two different colours never connect$(); undyed pipes connect to every colour. Using the pipe's own colour again washes it off."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Craft eight blank facades, then combine a blank facade with any full block to get a facade of that block. Right-click a pipe with it to hide the pipe; it keeps working.$(br2)A data pack can forbid blocks with the $(thing)flowline:no_facade$() block tag."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:facade_blank"
+    }
+  ]
+}

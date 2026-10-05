@@ -4,6 +4,8 @@ import com.knozyy.flowline.client.ui.FlatButton;
 import com.knozyy.flowline.client.ui.RuleText;
 import com.knozyy.flowline.client.ui.Theme;
 import com.knozyy.flowline.client.ui.Ui;
+import com.knozyy.flowline.compat.ChemicalCompat;
+import net.minecraft.resources.ResourceLocation;
 import com.knozyy.flowline.filter.FilterEntry;
 import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.item.UpgradeType;
@@ -651,6 +653,11 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             FluidIcon.draw(g, rule.displayFluid(), l + 3, y + 2, 16);
         } else {
             g.renderItem(rule.displayStack(menu.type, menu.registries()), l + 3, y + 2);
+            if (rule.isChemicalRule(menu.type) && rule.item().isPresent()) {
+                ResourceLocation chemical = ResourceLocation.tryParse(rule.item().get());
+                int tint = chemical == null ? -1 : ChemicalCompat.tint(chemical);
+                if (tint >= 0) g.fill(l + 12, y + 13, l + 19, y + 18, 0xFF000000 | tint);
+            }
         }
         int[] chip = chipRect(rule, r, y);
         if (chipHover) g.fill(chip[0] - 1, chip[1] - 1, chip[2] + 1, chip[3] + 1, accent);
@@ -761,6 +768,10 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         List<Component> lines = new ArrayList<>();
         if (entry.item().isPresent() && entry.isFluidRule(menu.type)) {
             lines.add(entry.displayFluid().getFluidType().getDescription().copy());
+            lines.add(Component.literal(entry.item().get()).withStyle(ChatFormatting.DARK_GRAY));
+        } else if (entry.item().isPresent() && entry.isChemicalRule(menu.type)) {
+            ResourceLocation chemical = ResourceLocation.tryParse(entry.item().get());
+            lines.add((chemical == null ? Component.literal(entry.item().get()) : ChemicalCompat.name(chemical)).copy());
             lines.add(Component.literal(entry.item().get()).withStyle(ChatFormatting.DARK_GRAY));
         } else if (entry.item().isPresent()) {
             lines.add(entry.displayStack(menu.type, menu.registries()).getHoverName().copy());

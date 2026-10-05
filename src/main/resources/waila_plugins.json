@@ -1,0 +1,7 @@
+{
+  "flowline:wthit": {
+    "initializer": "com.knozyy.flowline.compat.wthit.FlowlineWthitPlugin",
+    "side": "both",
+    "required": ["wthit"]
+  }
+}

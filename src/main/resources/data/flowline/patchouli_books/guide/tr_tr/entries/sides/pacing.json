@@ -1,0 +1,16 @@
+{
+  "name": "Tempo",
+  "category": "flowline:sides",
+  "icon": "minecraft:clock",
+  "sortnum": 2,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Extract tarafı işlemler arasında 30 tick ile başlar. Bir şey taşıyan her işlem 2 tick hızlandırır (5'e kadar); hiçbir şey taşımayan her işlem bekleyişi ikiye katlar (100'e kadar).$(br2)Hedefi olmayan taraf uyur ve ağı değişene kadar hiçbir maliyeti olmaz."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Tüm sayılar sunucu ayarlarındadır. Taraf ekranının başlığı tarafnın ne yaptığını gösterir: Çalışıyor, Uyuyor, Bekliyor, Takıldı ya da Boşta."
+    }
+  ]
+}

@@ -476,17 +476,24 @@ for name in TYPES:
         multipart.append({"when": {side: "extract"}, "apply": {"model": f"{MODID}:block/{name}_pipe_extract", **r}})
     write_json(f"assets/{MODID}/blockstates/{name}_pipe.json", {"multipart": multipart})
 
-    # loot table; optional pipes have none, their block drops itself (see PipeBlock#getDrops)
-    if name not in OPTIONAL:
-        write_json(f"data/{MODID}/loot_tables/blocks/{name}_pipe.json", {
-            "type": "minecraft:block",
-            "pools": [{
-                "rolls": 1.0,
-                "bonus_rolls": 0.0,
-                "conditions": [{"condition": "minecraft:survives_explosion"}],
-                "entries": [{"type": "minecraft:item", "name": f"{MODID}:{name}_pipe"}],
-            }],
-        })
+    # Loot table. Forge 1.20.1 has no load conditions for loot tables, so an optional pipe's table (naming an item
+    # that only exists with its mod) lives in a data pack that is only added when the mod is loaded
+    # (see OptionalPacks): resources/optional/<mod>/.
+    table = {
+        "type": "minecraft:block",
+        "pools": [{
+            "rolls": 1.0,
+            "bonus_rolls": 0.0,
+            "conditions": [{"condition": "minecraft:survives_explosion"}],
+            "entries": [{"type": "minecraft:item", "name": f"{MODID}:{name}_pipe"}],
+        }],
+    }
+    if name in OPTIONAL:
+        write_json(f"optional/{OPTIONAL[name]}/data/{MODID}/loot_tables/blocks/{name}_pipe.json", table)
+        write_json(f"optional/{OPTIONAL[name]}/pack.mcmeta", {"pack": {
+            "pack_format": 15, "description": f"{MODID} data for {OPTIONAL[name]}"}})
+    else:
+        write_json(f"data/{MODID}/loot_tables/blocks/{name}_pipe.json", table)
 
 for name in ("wrench", "speed_upgrade", "stack_upgrade", "filter_upgrade", "knozy_upgrade", "config_card",
              "filter_card", "facade"):
@@ -668,6 +675,9 @@ en = {
     "gui.flowline.editor.error.syntax": "Invalid id",
     "gui.flowline.editor.error.unknown_item": "Unknown item",
     "gui.flowline.editor.error.unknown_fluid": "Unknown fluid",
+    "gui.flowline.editor.error.unknown_chemical": "Unknown chemical",
+    "gui.flowline.editor.error.chemical_parts": "Chemical rules only use an id, a mod and a name",
+    "gui.flowline.editor.chemical_hint": "Chemical rules match a chemical by its id (click a Mekanism tank in your inventory to fill it in), by mod, or by a name pattern. Tags, data and durability do not apply.",
     "gui.flowline.editor.error.unknown_tag": "Unknown tag",
     "gui.flowline.editor.error.nbt": "Invalid NBT",
     "gui.flowline.rule.empty": "Empty rule",
@@ -880,6 +890,9 @@ tr = {
     "gui.flowline.editor.error.syntax": "Geçersiz kimlik",
     "gui.flowline.editor.error.unknown_item": "Bilinmeyen eşya",
     "gui.flowline.editor.error.unknown_fluid": "Bilinmeyen sıvı",
+    "gui.flowline.editor.error.unknown_chemical": "Bilinmeyen kimyasal",
+    "gui.flowline.editor.error.chemical_parts": "Kimyasal kuralları yalnızca id, mod ve isim kullanır",
+    "gui.flowline.editor.chemical_hint": "Kimyasal kuralları bir kimyasalı id'siyle (envanterindeki bir Mekanism tankına tıklayıp doldurabilirsin), modla ya da isim desenine göre eşler. Etiket, veri ve dayanıklılık geçerli değil.",
     "gui.flowline.editor.error.unknown_tag": "Bilinmeyen etiket",
     "gui.flowline.editor.error.nbt": "Geçersiz NBT",
     "gui.flowline.rule.empty": "Boş kural",
@@ -1272,6 +1285,7 @@ en.update({
     "gui.flowline.upgrades.rules": "%s rules",
     "gui.flowline.text.kind_item": "Item",
     "gui.flowline.text.kind_fluid": "Fluid",
+    "gui.flowline.text.kind_chemical": "Chemical",
     "gui.flowline.text.tags_any": "Tag, any of them",
     "gui.flowline.text.tags_all": "Tags, all of them",
     "gui.flowline.text.mod_all": "Everything from the mod",
@@ -1394,6 +1408,7 @@ tr.update({
     "gui.flowline.upgrades.rules": "Kural %s",
     "gui.flowline.text.kind_item": "Eşya",
     "gui.flowline.text.kind_fluid": "Sıvı",
+    "gui.flowline.text.kind_chemical": "Kimyasal",
     "gui.flowline.text.tags_any": "Etiket, herhangi biri",
     "gui.flowline.text.tags_all": "Etiket, hepsi",
     "gui.flowline.text.mod_all": "Modun tüm eşyaları",

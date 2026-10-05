@@ -33,7 +33,7 @@ public final class PipeNetwork {
     private PipeNetwork() {}
 
     /**
-     * An INSERT side of some pipe: transfer into the block at {@code pipePos.relative(side)}. Holds a NeoForge
+     * An INSERT side of some pipe: transfer into the block at {@code pipePos.relative(side)}. Holds a Forge
      * capability cache for that block, so transfers do not look the block entity up again on every operation.
      *
      * @param pipe the pipe owning the side; its {@link SideConfig} carries the insert filter, priority and limit

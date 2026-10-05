@@ -26,14 +26,19 @@ import java.util.regex.PatternSyntaxException;
  * Item rules and fluid rules are kept apart, so on universal pipes each only affects its own kind.
  */
 public final class CompiledFilter {
-    public static final CompiledFilter ALLOW_ALL = new CompiledFilter(List.of(), List.of(), List.of(), List.of());
+    public static final CompiledFilter ALLOW_ALL = new CompiledFilter(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
 
     private final List<Rule> itemAllow;
     private final List<Rule> itemDeny;
     private final List<Rule> fluidAllow;
     private final List<Rule> fluidDeny;
+    private final List<Rule> chemicalAllow;
+    private final List<Rule> chemicalDeny;
 
-    private CompiledFilter(List<Rule> itemAllow, List<Rule> itemDeny, List<Rule> fluidAllow, List<Rule> fluidDeny) {
+    private CompiledFilter(List<Rule> itemAllow, List<Rule> itemDeny, List<Rule> fluidAllow, List<Rule> fluidDeny,
+                           List<Rule> chemicalAllow, List<Rule> chemicalDeny) {
+        this.chemicalAllow = chemicalAllow;
+        this.chemicalDeny = chemicalDeny;
         this.itemAllow = itemAllow;
         this.itemDeny = itemDeny;
         this.fluidAllow = fluidAllow;
@@ -45,10 +50,16 @@ public final class CompiledFilter {
         List<Rule> itemDeny = new ArrayList<>();
         List<Rule> fluidAllow = new ArrayList<>();
         List<Rule> fluidDeny = new ArrayList<>();
+        List<Rule> chemicalAllow = new ArrayList<>();
+        List<Rule> chemicalDeny = new ArrayList<>();
         for (FilterEntry entry : entries) {
             if (entry == null || entry.isEmpty()) continue;
             Rule rule = Rule.of(entry);
             if (rule == null) continue;   // malformed id or pattern: ignore the rule
+            if (entry.isChemicalRule(pipe)) {
+                (entry.invert() ? chemicalDeny : chemicalAllow).add(rule);
+                continue;
+            }
             boolean fluid = entry.isFluidRule(pipe);
             if (entry.invert()) {
                 (fluid ? fluidDeny : itemDeny).add(rule);
@@ -57,11 +68,25 @@ public final class CompiledFilter {
             }
         }
         return entries.stream().allMatch(e -> e == null || e.isEmpty()) ? ALLOW_ALL
-                : new CompiledFilter(itemAllow, itemDeny, fluidAllow, fluidDeny);
+                : new CompiledFilter(itemAllow, itemDeny, fluidAllow, fluidDeny, chemicalAllow, chemicalDeny);
     }
 
     public boolean isEmpty() {
-        return itemAllow.isEmpty() && itemDeny.isEmpty() && fluidAllow.isEmpty() && fluidDeny.isEmpty();
+        return itemAllow.isEmpty() && itemDeny.isEmpty() && fluidAllow.isEmpty() && fluidDeny.isEmpty()
+                && chemicalAllow.isEmpty() && chemicalDeny.isEmpty();
+    }
+
+    /** Chemical rules look at the chemical's registry id, its mod and its display name only. */
+    public boolean allowsChemical(ResourceLocation id, java.util.function.Supplier<String> displayName) {
+        if (chemicalAllow.isEmpty() && chemicalDeny.isEmpty()) return true;
+        for (Rule rule : chemicalDeny) {
+            if (rule.matchesChemical(id, displayName)) return false;
+        }
+        if (chemicalAllow.isEmpty()) return true;
+        for (Rule rule : chemicalAllow) {
+            if (rule.matchesChemical(id, displayName)) return true;
+        }
+        return false;
     }
 
     public boolean allowsItem(ItemStack stack) {
@@ -205,6 +230,12 @@ public final class CompiledFilter {
             }
             if (name != null && !name.matcher(stack.getHoverName().getString()).find()) return false;
             return matchesNbt(data);
+        }
+
+        boolean matchesChemical(ResourceLocation key, java.util.function.Supplier<String> displayName) {
+            if (id != null && !id.equals(key)) return false;
+            if (mod != null && !mod.equals(key.getNamespace())) return false;
+            return name == null || name.matcher(displayName.get()).find();
         }
 
         boolean matchesFluid(FluidStack fluid, Lazy data) {

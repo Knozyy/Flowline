@@ -1,0 +1,20 @@
+{
+  "name": "Filter Rules",
+  "category": "flowline:filters",
+  "icon": "flowline:filter_upgrade",
+  "sortnum": 0,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Each side has 9 rules, plus 9 per Filter upgrade. A stack matching any $(thing)Block$() rule never passes. If there are $(thing)Allow$() rules it must match one of them. With only Block rules, everything else passes.$(br2)Click the Allow/Block chip on a rule to switch it."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Add a rule by shift-clicking an item in your inventory, by clicking the list with an item in hand, or with $(thing)+ Add filter$(). Right-click a rule to remove it, click it to open the rule editor."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:filter_upgrade"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "Boru Türleri",
+  "category": "flowline:basics",
+  "icon": "flowline:item_pipe",
+  "sortnum": 0,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "$(item)Eşya$(), $(item)Sıvı$() ve $(item)Enerji$() boruları aynı türdeki borulara ve uygun yeteneği sunan her bloka bağlanır.$(br2)$(item)Evrensel Boru$() eşya, sıvı ve enerjiyi birlikte taşır; her taraf kanallarını açıp kapatabilir."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:item_pipe",
+      "text": "Her üretimde dört boru: kırmızıtaşın ve borunun taşıdığı şeyin etrafında demir ve altın."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:universal_pipe"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(item)Kimyasal Boru$() Mekanism ister; gazları, infuse türlerini, pigmentleri ve çamurları taşır.$(br2)Borular suyla dolabilir; taşınan eşyalar boru duvarlarından geçerken görünür."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:chemical_pipe"
+    }
+  ]
+}

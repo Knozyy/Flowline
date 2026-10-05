@@ -1,0 +1,16 @@
+{
+  "name": "Bir Kural Neyi Eşleyebilir",
+  "category": "flowline:filters",
+  "icon": "minecraft:name_tag",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Bir kural şunları birleştirebilir; belirlediğiniz her parça uymalıdır:$(br)- bir eşya ya da sıvı id'si$(br)- etiketler (herhangi biri ya da hepsi)$(br)- veri (NBT): içerir ya da tam eşit$(br)- bir mod, örneğin $(thing)@create$()"
+    },
+    {
+      "type": "patchouli:text",
+      "text": "- bir isim deseni (büyük/küçük harfe duyarsız düzenli ifade)$(br)- yüzde olarak dayanıklılık aralığı$(br)- bir miktar: yalnızca eşleşen yığınlar için regülatör$(br2)Kural düzenleyici kuralın ne yaptığını ve örnek eşyanızın uyup uymadığını gösterir."
+    }
+  ]
+}

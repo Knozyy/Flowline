@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Chemical Pipes have filters: Allow/Block rules by chemical id, mod or name pattern, on Extract and Insert sides.
+- The Chemical Pipe's loot table is now a real data file, loaded only when Mekanism is present.
+- The One Probe and WTHIT show the looked-at side's settings, like Jade.
+- `flowline:no_connect` and `flowline:no_facade` block tags for data packs and KubeJS.
+- An in-game Patchouli guide (English and Turkish), crafted with a book and an item pipe.
+- Added an MIT `LICENSE` file.
+
 ## 0.1.9
 
 - Redesigned pipe screens: side tabs, a status header (Working / Asleep / Waiting / Stuck / Idle) and a new rule editor with tag and data previews.

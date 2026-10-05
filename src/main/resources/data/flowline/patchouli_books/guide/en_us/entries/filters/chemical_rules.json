@@ -1,0 +1,12 @@
+{
+  "name": "Chemical Filters",
+  "category": "flowline:filters",
+  "icon": "flowline:chemical_pipe",
+  "sortnum": 2,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Chemical Pipes filter too. A chemical rule matches a chemical by its $(thing)id$() (click a Mekanism tank in your inventory to fill it in), its $(thing)mod$() or a $(thing)name pattern$(). Tags, data and durability do not apply.$(br2)Allow and Block work as everywhere else, on Extract and Insert sides."
+    }
+  ]
+}

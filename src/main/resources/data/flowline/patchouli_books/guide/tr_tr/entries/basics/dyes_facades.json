@@ -1,0 +1,20 @@
+{
+  "name": "Renkler ve Cepheler",
+  "category": "flowline:basics",
+  "icon": "flowline:facade",
+  "sortnum": 2,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Bir boruya boyayla sağ tıklayın. $(thing)İki farklı renkteki borular asla bağlanmaz$(); boyasız borular her renge bağlanır. Borunun kendi rengini tekrar kullanmak boyayı siler."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Sekiz boş cephe üretin, sonra bir boş cepheyi herhangi bir tam blokla birleştirip o bloktan bir cephe yapın. Boruyu gizlemek için cepheyle sağ tıklayın; boru çalışmaya devam eder.$(br2)Bir veri paketi $(thing)flowline:no_facade$() blok etiketiyle bazı blokları yasaklayabilir."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:facade_blank"
+    }
+  ]
+}

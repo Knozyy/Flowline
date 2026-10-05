@@ -1,0 +1,6 @@
+{
+  "name": "Yükseltmeler ve Aletler",
+  "description": "Hız, Yığın, Filtre ve Knozy yükseltmeleri, anahtar ve kartlar.",
+  "icon": "flowline:knozy_upgrade",
+  "sortnum": 3
+}

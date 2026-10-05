@@ -4,6 +4,7 @@ import com.knozyy.flowline.client.ui.FlatButton;
 import com.knozyy.flowline.client.ui.RuleText;
 import com.knozyy.flowline.client.ui.Theme;
 import com.knozyy.flowline.client.ui.Ui;
+import com.knozyy.flowline.compat.ChemicalCompat;
 import com.knozyy.flowline.filter.CompiledFilter;
 import com.knozyy.flowline.filter.FilterEntry;
 import com.knozyy.flowline.menu.PipeMenu;
@@ -89,6 +90,9 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     private boolean exact;
     private boolean invert;
     private boolean fluidRule;
+    /** Chemical pipes: rules know an id, a mod and a name only, so tags, data and durability are hidden. */
+    private final boolean chemicalRule;
+    private FlatButton textToggle;
     private String mod = "";
     private String name = "";
     /** Per-rule regulator, 0 = off (see {@link FilterEntry#amount}). */
@@ -173,7 +177,8 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
         this.exact = rule.exactNbt();
         this.invert = rule.invert();
         this.fluidRule = rule.isFluidRule(menu.type);
-        this.type = fluidRule ? PipeType.FLUID : PipeType.ITEM;
+        this.chemicalRule = menu.type == PipeType.CHEMICAL;
+        this.type = chemicalRule ? PipeType.CHEMICAL : fluidRule ? PipeType.FLUID : PipeType.ITEM;
         this.mod = rule.mod().orElse("");
         this.name = rule.name().orElse("");
         this.amount = rule.amount();
@@ -262,7 +267,7 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
                 Component.translatable(exact ? "gui.flowline.editor.exact" : "gui.flowline.editor.contains"),
                 Component.translatable(exact ? "gui.flowline.editor.exact.desc" : "gui.flowline.editor.contains.desc")
                         .withStyle(ChatFormatting.GRAY))));
-        FlatButton textToggle = addRenderableWidget(new FlatButton(left + RIGHT_L + 3, top + NBT_LIST_B + 2,
+        textToggle = addRenderableWidget(new FlatButton(left + RIGHT_L + 3, top + NBT_LIST_B + 2,
                 RIGHT_R - RIGHT_L - 6, 11, () -> Component.translatable(textMode ? "gui.flowline.library.list_short"
                 : "gui.flowline.library.text_short"), accent, b -> setTextMode(!textMode)));
         tips.add(new Tip(textToggle, () -> List.of(Component.translatable(
@@ -345,7 +350,7 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     }
 
     private void updateItemHint() {
-        itemBox.setHint(hint(fluidRule ? "minecraft:water" : "minecraft:stone"));
+        itemBox.setHint(hint(chemicalRule ? "mekanism:hydrogen" : fluidRule ? "minecraft:water" : "minecraft:stone"));
     }
 
     /** Universal pipes: switch the rule between items and fluids. The sample and item-specific parts are reset. */
@@ -377,8 +382,16 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     }
 
     private void updateKindWidgets() {
-        minBox.visible = !fluidRule;
-        maxBox.visible = !fluidRule;
+        minBox.visible = !fluidRule && !chemicalRule;
+        maxBox.visible = !fluidRule && !chemicalRule;
+        if (chemicalRule) {
+            amountBox.visible = false;
+            searchBox.visible = false;
+            anyAllButton.visible = false;
+            exactButton.visible = false;
+            textToggle.visible = false;
+            nbtText.visible = false;
+        }
     }
 
     private void setTextMode(boolean on) {
@@ -445,7 +458,8 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
                 setSample(stack, false);
             }));
         }
-        ResourceLocation id = fluidRule ? (dragged.isEmpty() ? null : BuiltInRegistries.FLUID.getKey(dragged.getFluid()))
+        ResourceLocation id = chemicalRule ? ChemicalCompat.idIn(item)
+                : fluidRule ? (dragged.isEmpty() ? null : BuiltInRegistries.FLUID.getKey(dragged.getFluid()))
                 : item.isEmpty() ? null : BuiltInRegistries.ITEM.getKey(item.getItem());
         if (id != null) {
             targets.add(new GhostTargets.Slot(left + MOD_L, top + EXTRA_T, MOD_R - MOD_L, EXTRA_B - EXTRA_T,
@@ -537,7 +551,7 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
         String problem = problem();
         saveButton.active = problem == null;
         boolean itemBad = matchItem && problem != null && (problem.endsWith("unknown_item")
-                || problem.endsWith("unknown_fluid") || problem.endsWith("syntax"));
+                || problem.endsWith("unknown_fluid") || problem.endsWith("unknown_chemical") || problem.endsWith("syntax"));
         itemBox.setTextColor(itemBad ? 0xFF6B6B : Theme.TEXT);
         if (modBox != null) {
             modBox.setTextColor(problem != null && problem.endsWith("unknown_mod") ? 0xFF6B6B : Theme.TEXT);
@@ -574,6 +588,11 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     /** Whether the sample passes {@code rule} on its own, as an Allow rule. */
     private boolean matches(FilterEntry rule) {
         CompiledFilter filter = CompiledFilter.compile(List.of(rule.withInvert(false)), menu.type);
+        if (chemicalRule) {
+            ResourceLocation chemical = ChemicalCompat.idIn(sample);
+            return chemical != null
+                    && filter.allowsChemical(chemical, () -> ChemicalCompat.name(chemical).getString());
+        }
         if (rule.isFluidRule(menu.type)) {
             FluidStack fluid = FluidUtil.getFluidContained(sample).orElse(FluidStack.EMPTY);
             return !fluid.isEmpty() && filter.allowsFluid(fluid);
@@ -813,6 +832,11 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
         renderTooltips(g, mouseX, mouseY, mx, my);
     }
 
+    private static Component chemicalName(ItemStack stack) {
+        ResourceLocation id = ChemicalCompat.idIn(stack);
+        return id == null ? stack.getHoverName() : ChemicalCompat.name(id);
+    }
+
     private void renderSampleSection(GuiGraphics g) {
         Ui.text(g, font, Component.translatable("gui.flowline.library.sample"), LEFT_L + 4, BODY_T + 4, Theme.MUTED);
         int sx = (LEFT_L + LEFT_R) / 2 - 16, sy = 36;
@@ -830,6 +854,7 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
             Ui.textCentered(g, font, Component.literal("?"), sx + 16, sy + 12, Theme.MUTED);
         }
         Component under = sample.isEmpty() ? Component.translatable("gui.flowline.library.pick")
+                : chemicalRule ? chemicalName(sample)
                 : type.filtersFluids() ? FilterEntry.fluidOf(sample).getFluidType().getDescription()
                 : sample.getHoverName();
         String shown = Ui.fit(font, under.getString(), LEFT_R - LEFT_L - 6);
@@ -841,6 +866,14 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
 
     private void renderTagSection(GuiGraphics g, int mx, int my) {
         Ui.text(g, font, Component.translatable("gui.flowline.library.tags"), MID_L + 4, BODY_T + 4, Theme.MUTED);
+        if (chemicalRule) {
+            List<net.minecraft.util.FormattedCharSequence> lines = font.split(
+                    Component.translatable("gui.flowline.editor.chemical_hint"), MID_R - MID_L - 10);
+            for (int i = 0; i < Math.min(8, lines.size()); i++) {
+                g.drawString(font, lines.get(i), MID_L + 5, TAG_LIST_T + 1 + i * 10, Theme.MUTED, false);
+            }
+            return;
+        }
         int visible = visibleRows(TAG_LIST_T, TAG_LIST_B);
         if (tagRows.isEmpty()) {
             List<net.minecraft.util.FormattedCharSequence> lines = font.split(Component.translatable(
@@ -892,7 +925,7 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
 
     private void renderNbtSection(GuiGraphics g, int mx, int my) {
         Ui.text(g, font, Component.translatable("gui.flowline.library.data_short"), RIGHT_L + 4, BODY_T + 4, Theme.MUTED);
-        if (textMode) return;
+        if (textMode || chemicalRule) return;
         int visible = visibleRows(NBT_LIST_T, NBT_LIST_B);
         if (nbtRows.isEmpty()) {
             List<net.minecraft.util.FormattedCharSequence> lines = font.split(Component.translatable(
@@ -914,7 +947,7 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
     }
 
     private void renderExtraRow(GuiGraphics g) {
-        if (!fluidRule) {
+        if (!fluidRule && !chemicalRule) {
             Ui.text(g, font, "–", DUR_L + 26, EXTRA_T + 2, Theme.MUTED);
             Ui.text(g, font, "%", DUR_L + 58, EXTRA_T + 2, Theme.MUTED);
         }

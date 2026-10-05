@@ -1,0 +1,12 @@
+{
+  "name": "Diğer Modlar",
+  "category": "flowline:integration",
+  "icon": "minecraft:book",
+  "sortnum": 0,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "$(thing)Mekanism$() 10.4 Kimyasal Boruyu ekler.$(br)$(thing)JEI$() ve $(thing)EMI$(): bir eşyayı ya da sıvıyı filtre yuvasına ya da kural düzenleyiciye sürükleyin.$(br)$(thing)Jade$(), $(thing)The One Probe$() ve $(thing)WTHIT$() bakılan tarafın modunu, temposunu, önceliğini ve regülatörünü gösterir.$(br2)$(thing)forge:tools/wrench$() etiketli anahtarlar borularda çalışır."
+    }
+  ]
+}

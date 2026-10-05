@@ -78,7 +78,7 @@ public class SideConfig {
     public PipeNetwork.Graph graph = null;
     /** Insert sides reachable from this side, in base order; taken from {@link #graph}. */
     public List<PipeNetwork.Target> cachedTargets = null;
-    /** Capability cache of the block this side extracts from; NeoForge invalidates it when that block changes. */
+    /** Capability cache of the block this side extracts from; it is dropped when that block changes. */
     public Caps sourceCaps = null;
     /** What the last operation moved: -1 asleep, {@link #NOT_RUN} before the first one. Shown as {@link SideStatus}. */
     public long lastMoved = NOT_RUN;
@@ -176,6 +176,11 @@ public class SideConfig {
 
     public boolean allowsFluid(FluidStack fluid) {
         return compiled().allowsFluid(fluid);
+    }
+
+    public boolean allowsChemical(net.minecraft.resources.ResourceLocation id,
+                                  java.util.function.Supplier<String> displayName) {
+        return compiled().allowsChemical(id, displayName);
     }
 
     /** Regulator for {@code stack}: the amount of a matching rule if one has it, else {@link #limit}; 0 = off. */

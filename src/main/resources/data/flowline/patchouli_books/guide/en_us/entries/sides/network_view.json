@@ -1,0 +1,12 @@
+{
+  "name": "Network View",
+  "category": "flowline:sides",
+  "icon": "minecraft:spyglass",
+  "sortnum": 3,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Hold a wrench, hold $(thing)Shift$() and look at a pipe to see its network through walls: sources green, targets orange, overflow targets purple, pipes pale.$(br2)Servers can disable it or limit its range in the config."
+    }
+  ]
+}

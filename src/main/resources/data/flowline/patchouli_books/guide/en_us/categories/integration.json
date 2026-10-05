@@ -1,0 +1,6 @@
+{
+  "name": "Integrations",
+  "description": "Other mods, data packs, KubeJS and the config.",
+  "icon": "flowline:config_card",
+  "sortnum": 5
+}

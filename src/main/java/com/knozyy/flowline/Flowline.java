@@ -10,10 +10,13 @@ import com.knozyy.flowline.registry.ModMenus;
 import com.knozyy.flowline.registry.ModRecipes;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.InterModComms;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 
@@ -30,6 +33,13 @@ public class Flowline {
         ModMenus.MENUS.register(modBus);
         ModRecipes.SERIALIZERS.register(modBus);
         modBus.addListener((FMLCommonSetupEvent event) -> event.enqueueWork(ModNetwork::register));
+        modBus.addListener(com.knozyy.flowline.compat.OptionalPacks::add);
+        modBus.addListener((InterModEnqueueEvent event) -> {
+            if (ModList.get().isLoaded("theoneprobe")) {
+                InterModComms.sendTo("theoneprobe", "getTheOneProbe",
+                        com.knozyy.flowline.compat.top.FlowlineTopPlugin::new);
+            }
+        });
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, FlowlineConfig.SPEC);
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, FlowlineConfig.Client.SPEC);
         if (FMLEnvironment.dist == Dist.CLIENT) FlowlineConfigScreen.register();
