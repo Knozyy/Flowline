@@ -1,0 +1,16 @@
+{
+  "name": "Benim İçin İnşa Et",
+  "category": "flowline:curved",
+  "icon": "flowline:item_pipe",
+  "sortnum": 0,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "$(thing)Sol elinizde$() bir boru tutun. Bir bloka bakın: size geri dönen yol, gereken sayıyla birlikte hayalet borular olarak, engellerin etrafından ve en az dönüşle görünür. Döşemek için sağ tıklayın.$(br2)Mod tuşu (varsayılan B) Benim için inşa et ile Curvy arasında geçiş yapar."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Her boru normal yerleştirilir: koruma modları geçerlidir, hayatta kalma modunda sol eldeki yığın tüketilir. Ana eldeki boru her zaman blok boru yerleştirir."
+    }
+  ]
+}

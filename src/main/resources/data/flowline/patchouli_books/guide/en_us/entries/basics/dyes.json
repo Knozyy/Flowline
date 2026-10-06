@@ -1,0 +1,12 @@
+{
+  "name": "Colours",
+  "category": "flowline:basics",
+  "icon": "minecraft:red_dye",
+  "sortnum": 2,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Right-click a pipe with a dye: its rails and cages take the colour, the glass keeps the pipe's own. Pipes of $(thing)two different colours never connect$(); undyed pipes connect to every colour. Using the pipe's own colour again washes it off."
+    }
+  ]
+}

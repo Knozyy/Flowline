@@ -1,0 +1,16 @@
+{
+  "name": "Curvy Pipes",
+  "category": "flowline:curved",
+  "icon": "flowline:fluid_pipe",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Curvy Pipes kuruluysa aynı Flowline boruları sol elden eğri hatlar da yerleştirir. Ucu bir Flowline borusunun üzerinde olan Curvy hattı o borunun ağına bağlanır.$(br2)Bir ucun yine de Curvy'nin uç menüsünde Extract'e ayarlanması gerekir."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Eğri hat tek bir şey taşır; bu yüzden sol elde $(item)Evrensel Boru$() varken mod tuşu Benim için inşa et, Curvy: Eşya, Curvy: Sıvı ve Curvy: Enerji arasında döner. Hat seçilen kanalda döşenir ve evrensel boruyla ödenir."
+    }
+  ]
+}

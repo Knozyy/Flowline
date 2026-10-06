@@ -40,12 +40,10 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraftforge.network.NetworkHooks;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
-import java.util.List;
 import java.util.Map;
 
 public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBlock {
@@ -250,13 +248,6 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
         }
         updateConnections(level, pos);
         return !cutNow;
-    }
-
-    /** The chemical pipe has no loot table (a table naming an unregistered item would fail to load). */
-    @Override
-    public List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
-        if (type == PipeType.CHEMICAL) return List.of(new ItemStack(this));
-        return super.getDrops(state, params);
     }
 
     // ---- shape ------------------------------------------------------------------------------------------------

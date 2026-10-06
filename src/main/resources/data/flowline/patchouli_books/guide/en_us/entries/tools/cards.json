@@ -1,0 +1,16 @@
+{
+  "name": "Filter Card",
+  "category": "flowline:tools",
+  "icon": "flowline:filter_card",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "The $(item)Filter Card$() copies a side's filter rules: sneak and right-click to copy, right-click another side to paste, sneak and use in the air to clear.$(br2)Only the rules travel; mode, settings and upgrades stay where they are."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:filter_card"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "Curvy Pipes",
+  "category": "flowline:curved",
+  "icon": "flowline:fluid_pipe",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "With Curvy Pipes installed, the same Flowline pipes also place curved lines from the off hand. A Curvy line whose end sits on a Flowline pipe connects to that pipe's network.$(br2)One end still has to be set to Extract in Curvy's endpoint menu."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "A curved line carries one thing, so with a $(item)Universal Pipe$() in the off hand the mode key cycles Build for me, Curvy: Items, Curvy: Fluids and Curvy: Energy. The line is laid in the chosen channel and paid for with universal pipes."
+    }
+  ]
+}

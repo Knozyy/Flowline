@@ -1,5 +1,8 @@
 # Flowline 1.20.1: planned work
 
+> Historical. Since 0.3 the network view (A), fluid inside pipes (B), travelling items, facades and the
+> Configuration Card are removed and the pipes are glass ducts; see CHANGELOG.md.
+
 Base version: 0.1.1+1.20.1. Earlier completed work includes build for me, other mods' wrenches,
 overflow targets, per-rule amounts and redstone output. The redstone output still has no in-world test.
 

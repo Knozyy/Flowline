@@ -39,7 +39,8 @@ minecraft {
         // Headless in-world tests: ./gradlew runGameTestServer (exits non-zero if a test fails)
         gameTestServer {
             // Optional-mod tests need independent registry snapshots and saved worlds.
-            workingDirectory project.file(project.hasProperty('withCurvy') ? 'run/gametest-curvy' : 'run/gametest-normal')
+            workingDirectory project.file(project.hasProperty('withCurvy') ? 'run/gametest-curvy'
+                    : project.hasProperty('withMekanism') ? 'run/gametest-mekanism' : 'run/gametest-normal')
         }
     }
 }
@@ -65,6 +66,14 @@ repositories {
         url = 'https://modmaven.dev/'
         content { includeGroup 'mekanism' }
     }
+    maven {
+        url = 'https://maven.k-4u.nl/'
+        content { includeGroup 'mcjty.theoneprobe' }
+    }
+    maven {
+        url = 'https://maven.bai.lol'
+        content { includeGroup 'mcp.mobius.waila' }
+    }
 }
 
 dependencies {
@@ -74,6 +83,10 @@ dependencies {
     if (project.hasProperty('withCurvy')) {
         runtimeOnly fg.deobf("curse.maven:curvy-pipes-1151126:8822563")
     }
+    // Same for Mekanism: -PwithMekanism puts the full mod on the runtime classpath (chemical pipe tests).
+    if (project.hasProperty('withMekanism')) {
+        runtimeOnly fg.deobf("mekanism:Mekanism:${minecraft_version}-${mekanism_version}")
+    }
     minecraftLibrary 'org.snakeyaml:snakeyaml-engine:2.7'
     jarJar(group: 'org.snakeyaml', name: 'snakeyaml-engine', version: '[2.7,2.8)')
 
@@ -82,6 +95,9 @@ dependencies {
     compileOnly fg.deobf("dev.emi:emi-forge:${emi_version}+${minecraft_version}:api")
     compileOnly fg.deobf("curse.maven:jade-api-324717:${jade_api_id}")
     compileOnly fg.deobf("mekanism:Mekanism:${minecraft_version}-${mekanism_version}:api")
+    // TOP is compiled against without remapping: its API only uses class names, and its pom pulls in an old Forge
+    compileOnly("mcjty.theoneprobe:theoneprobe:${top_version}") { transitive = false }
+    compileOnly(fg.deobf("mcp.mobius.waila:wthit-api:${wthit_version}")) { transitive = false }
 }
 
 tasks.named('processResources', ProcessResources).configure {

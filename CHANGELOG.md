@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.1
+## 0.3.2
 
 - New look: every pipe is a glass duct with coloured rails on its corners and a small cage only where it bends or
   branches. Each kind has its own pastel colour; the Solid Pipes resource pack swaps the glass for frosted panels.
@@ -14,6 +14,13 @@
 - Removed: Facades, the Configuration Card (the Filter Card stays) and the network view (wrench + Shift).
   **Existing worlds:** facades on pipes and these items are lost; the pipes underneath keep working.
 - Network protocol 10: server and clients need the same Flowline version.
+- Chemical Pipes have filters: Allow/Block rules by chemical id, mod or name pattern, on Extract and Insert sides.
+- The Chemical Pipe's loot table is now a real data file, loaded only when Mekanism is present.
+- The One Probe and WTHIT show the looked-at side's settings, like Jade.
+- A `flowline:no_connect` block tag for data packs and KubeJS.
+- An in-game Patchouli guide (English and Turkish), crafted with a book and an item pipe.
+- Added an MIT `LICENSE` file.
+
 
 ## 0.1.9
 

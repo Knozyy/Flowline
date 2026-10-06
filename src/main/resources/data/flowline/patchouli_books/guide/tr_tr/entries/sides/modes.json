@@ -1,0 +1,16 @@
+{
+  "name": "Extract ve Insert",
+  "category": "flowline:sides",
+  "icon": "flowline:wrench",
+  "sortnum": 0,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "$(thing)Extract$() taraflarının redstone modu, dağıtım modu, redstone çıktısı, filtresi, yükseltmeleri, $(thing)Keep ≥$() (kaynakta en az bu kadar bırak) ve enerjide FE/t sınırı vardır."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "$(thing)Insert$() taraflarının $(thing)önceliği$(), bir alıcı filtresi, $(thing)Max ≤$() (hedefte en fazla bu kadar tut) ve $(thing)Overflow$() (taşma) vardır: yalnızca diğerlerinin alamadığını alan hedef.$(br2)Ekranını açmak için bir tarafa anahtarla ya da boş elle sağ tıklayın."
+    }
+  ]
+}

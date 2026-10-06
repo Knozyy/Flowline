@@ -220,7 +220,7 @@ public class PipeMenu extends AbstractContainerMenu {
         return registries;
     }
 
-    /** Energy and chemical pipes have no filter. */
+    /** Energy pipes have no filter. */
     public boolean hasFilter() {
         return type.hasFilter();
     }
@@ -550,7 +550,7 @@ public class PipeMenu extends AbstractContainerMenu {
         return packets;
     }
 
-    /** Sends the rules that changed since the last sync, e.g. after an edit, a Configuration Card or another player. */
+    /** Sends the rules that changed since the last sync, e.g. after an edit, a Filter Card or another player. */
     private void syncFilter() {
         if (cfg == null || player == null || !hasFilter() || sentVersion == cfg.filterVersion()) return;
         boolean reset = sentVersion == Integer.MIN_VALUE;

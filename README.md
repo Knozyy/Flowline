@@ -1,7 +1,7 @@
 # Flowline
 
-Pipez-style transport mod for **Forge 1.20.1** (Java 17): item, fluid and energy pipes with per-side
-modes, filters, distribution modes and speed upgrades.
+Pipez-style transport mod for **Forge 1.20.1** (Java 17): item, fluid, energy and (with Mekanism) chemical pipes,
+plus a universal pipe, with per-side modes, filters, distribution modes and speed upgrades. MIT licensed.
 
 Curved item, fluid and FE pipes use the **actual Curvy Pipes 1.15.8 native engine**: its renderer,
 placement preview, picking, collision, alignment grid, radial editor, endpoint menus, transport and world data.
@@ -20,11 +20,12 @@ network's Extract sides (under their filters and "keep" amounts), Curvy giving t
 Insert sides. A line between two Flowline pipes is therefore a bridge between two networks, configured in Flowline's
 screens. One end still has to be set to **Extract** in Curvy's endpoint menu, since Curvy only moves from active
 ends ([requested upstream](https://github.com/cyb0124/CurvyPipes-Issues/issues/27)).
-See [curved-pipe controls and migration](docs/CURVED_PIPES_TR.md) and [Curvy's ID regex research](docs/CURVY_REGEX_TR.md).
+See [curved-pipe controls and migration](docs/CURVED_PIPES_TR.md) and [Curvy's ID regex research](docs/CURVY_REGEX_TR.md)
+(both in Turkish).
 
 > This branch is the 1.20.1 Forge backport of the NeoForge 1.21.1 version. Differences: rule "data" matches the
 > stack's NBT tag (1.20.1 has no data components), and the Chemical Pipe moves Mekanism 10.4's gases, infuse types,
-> pigments and slurries.
+> pigments and slurries. Mekanism's heat is not supported.
 
 ## Gameplay
 
@@ -32,7 +33,7 @@ See [curved-pipe controls and migration](docs/CURVED_PIPES_TR.md) and [Curvy's I
 | --- | --- |
 | Item / Fluid / Energy Pipe | Connects to pipes of the same type and to any block exposing the matching capability. |
 | Universal Pipe | Moves items, fluids and energy at once. Each side can switch its **channels** (items / fluids / energy) on and off; rules are item rules unless marked as fluid rules. 3 from one of each pipe + a diamond. |
-| Chemical Pipe | Only with **Mekanism** installed: moves Mekanism chemicals (gases, infuse types, pigments, slurries). |
+| Chemical Pipe | Only with **Mekanism** installed: moves Mekanism chemicals (gases, infuse types, pigments, slurries), with filters. |
 | Flowline Wrench | **Sneak + right-click** a side to cycle: normal (Insert) → **Extract** → **disconnected** → normal. Right-click a side: open its screen. **Sneak + scroll** on a side: Extract sides cycle their distribution (with Ctrl: their redstone mode), Insert sides change their priority (Ctrl: ±10). Wrenches from other mods (tagged `forge:tools/wrench`: Create, Mekanism, Thermal...) do the same on pipes. |
 | Empty hand | Right-click a side: opens its config screen. |
 | Pipe in the off hand, Build for me mode | Look at a block (up to `buildRange` = 32 blocks away): the route back to you is shown as **ghost pipes** with the number of pipes needed, around obstacles and with as few turns as possible. **Right-click** lays it. Each pipe is placed normally (protection mods apply, survival uses up the off-hand stack; ghosts past what you carry are drawn faint). The mode key (**B**, changeable in Controls) switches to Curvy. |
@@ -67,7 +68,7 @@ needs no signal, **Pulse** (one operation per rising edge).
 Pipes of one type that touch form a **cached network graph**, shared by every Extract side in it. Only changes at or
 next to a pipe (placing, breaking, loading, dyeing, cutting, switching modes) invalidate the graphs there;
 unrelated networks keep their caches. Target lists are computed from the cached graph, and every source/target keeps
-a NeoForge `BlockCapabilityCache`, so an operation does not look block entities up again.
+a capability cache, so an operation does not look block entities up again.
 
 Each Extract side runs on an adaptive interval, similar to AE2's tick rate modulation:
 
@@ -84,12 +85,12 @@ for the pipe's six faces: click an attached face to open its screen without clos
 
 ### Filter and rule library
 
-Each side (not on energy or chemical pipes) has **9 rules** by default and **9 more per Filter upgrade** (Knozy
+Each side (not on energy pipes) has **9 rules** by default and **9 more per Filter upgrade** (Knozy
 counts). A rule can combine:
 
 - an **item** (or fluid) id,
 - any number of **tags**, matched as **OR** (any of them) or **AND** (all of them),
-- **data components** (NBT), matched as **Contains** (default) or **Exact**,
+- **data** (the stack's NBT), matched as **Contains** (default) or **Exact**,
 - a **mod** (`@create`: everything from that mod),
 - a **name pattern** (case-insensitive regular expression searched in the display name, renames included),
 - a **durability range** in percent (e.g. 0–10 for nearly broken tools),
@@ -100,6 +101,10 @@ counts). A rule can combine:
 
 A stack matching any Block rule never passes; if there are Allow rules it must match one of them; with only Block
 rules everything else passes.
+
+**Chemical pipes** filter too, but chemical rules only know a chemical's **id** (click a Mekanism tank in your
+inventory to fill it in, or type it), its **mod** and a **name pattern**; tags, data, durability and amounts do not
+apply. A chemical pipe holds gases, infuse types, pigments and slurries in one list of rules.
 
 The side screen lists the rules as a scrollable list, each with a plain-words line ("Tag, any of them", "Everything
 from the mod"...) and an **Allow/Block** chip: click the chip to switch it. Add a rule by **shift-clicking** an item
@@ -116,8 +121,26 @@ not, which condition fails. Older rules load automatically.
 
 - **JEI / EMI**: drag an item or fluid from the list onto a filter slot. In the rule editor, drop it on the sample
   (use it as the rule's item), on the tag list (list its tags to tick) or on the mod box (fill in its mod).
-- **Jade**: looking at a pipe shows the side's mode, distribution, pacing, priority and regulator.
-- **Mekanism** (10.4): the Chemical Pipe (gases, infuse types, pigments, slurries).
+- **Jade**, **The One Probe** and **WTHIT**: looking at a pipe shows the side's mode, distribution, pacing, priority
+  and regulator.
+- **Mekanism** (10.4): the Chemical Pipe (gases, infuse types, pigments, slurries) and its filters.
+- **Patchouli**: an in-game guide, **Flowline Guide** (English and Turkish). Craft it with a book and an item pipe.
+- **KubeJS** and data packs: see below.
+
+### Data packs and KubeJS
+
+One block tag, empty by default, can be filled by a data pack or by KubeJS's tag event:
+
+- `flowline:no_connect`: pipes never connect to these blocks, whatever capabilities they have.
+
+```js
+ServerEvents.tags('block', event => {
+  event.add('flowline:no_connect', 'minecraft:chest')
+})
+```
+
+Recipes are ordinary data pack recipes (KubeJS's recipe events work on them), and every number is in the config below.
+There is no KubeJS-specific binding.
 
 ## Recipes
 
@@ -165,16 +188,16 @@ distribution jar. Dev runs omit Curvy by default; add `-PwithCurvy` to test its 
 [official CurseMaven coordinate](https://www.curseforge.com/minecraft/mc-mods/curvy-pipes/files/8822563).
 
 Requires access to `maven.minecraftforge.net`, Mojang's asset/library hosts and, for the optional integration APIs,
-`maven.blamejared.com` (JEI), `maven.terraformersmc.com` (EMI), `www.cursemaven.com` (Jade) and `modmaven.dev`
-(Mekanism).
+`maven.blamejared.com` (JEI), `maven.terraformersmc.com` (EMI), `www.cursemaven.com` (Jade), `modmaven.dev`
+(Mekanism), `maven.k-4u.nl` (The One Probe) and `maven.bai.lol` (WTHIT).
 
 ## Resources
 
 Textures/models/recipes/lang are generated by `python3 tools/gen_resources.py` (procedural pixel art, pure
-standard library).
+standard library). The Patchouli guide is generated by `python3 tools/gen_patchouli.py`.
 
 ## Status / TODO
 
 - Fluid transfer notifications are tested with test-only fluid handlers, alongside network endpoint roles and
   packet limits. Rendering needs a manual client check; energy pipes still have no in-world tests.
-- No pipe tiers/materials yet.
+- Pipe tiers/materials are not planned.

@@ -1,0 +1,12 @@
+{
+  "name": "Renkler",
+  "category": "flowline:basics",
+  "icon": "minecraft:red_dye",
+  "sortnum": 2,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Bir boruya boyayla sağ tıklayın: rayları ve kafesleri o rengi alır, cam borunun kendi rengini korur. $(thing)İki farklı renkteki borular asla bağlanmaz$(); boyasız borular her renge bağlanır. Borunun kendi rengini tekrar kullanmak boyayı siler."
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "Upgrades",
+  "category": "flowline:tools",
+  "icon": "flowline:knozy_upgrade",
+  "sortnum": 0,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Six upgrade slots per side. $(item)Speed$() lowers the starting interval, $(item)Stack$() multiplies the amount per operation, $(item)Filter$() adds rules, and $(item)Knozy$() counts as all three.$(br2)Insert sides only take Filter upgrades. Everything drops when the pipe is broken."
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:speed_upgrade"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:stack_upgrade"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:filter_upgrade"
+    },
+    {
+      "type": "patchouli:crafting",
+      "recipe": "flowline:knozy_upgrade"
+    }
+  ]
+}

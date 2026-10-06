@@ -1,0 +1,6 @@
+{
+  "name": "Filters",
+  "description": "Allow and Block rules for items, fluids and chemicals.",
+  "icon": "flowline:filter_upgrade",
+  "sortnum": 2
+}

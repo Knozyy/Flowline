@@ -1,0 +1,12 @@
+{
+  "name": "Ayarlar",
+  "category": "flowline:integration",
+  "icon": "minecraft:redstone_torch",
+  "sortnum": 2,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Ayar dünya başınadır: <dünya>/serverconfig/flowline-server.toml. İşlem başına miktarları, Yığın çarpanlarını, filtre yuvalarını, tempoyu, ağ boyutunu ve Benim için inşa et menzilini içerir.$(br2)Tek oyunculu dünyada oyun içinden Mods > Flowline > Config ile düzenlenebilir."
+    }
+  ]
+}

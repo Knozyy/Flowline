@@ -1,0 +1,16 @@
+{
+  "name": "Build for Me",
+  "category": "flowline:curved",
+  "icon": "flowline:item_pipe",
+  "sortnum": 0,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Hold a pipe in your $(thing)off hand$(). Look at a block: the route back to you appears as ghost pipes with the number needed, around obstacles and with as few turns as possible. Right-click to lay it.$(br2)The mode key (B by default) switches between Build for me and Curvy."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Each pipe is placed normally: protection mods apply, and survival uses up the off-hand stack. A pipe in the main hand always places a block pipe."
+    }
+  ]
+}
