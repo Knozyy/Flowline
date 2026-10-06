@@ -19,14 +19,22 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * JEI: drag items (and fluids) from the ingredient list onto filter slots, and onto the rule editor's sample, tag list
- * and mod box. Only loaded by JEI.
+ * JEI: how-to pages on Flowline's items, and dragging items (and fluids) from the ingredient list onto filter slots and
+ * onto the rule editor's sample, tag list and mod box. Only loaded by JEI.
  */
 @JeiPlugin
 public class FlowlineJeiPlugin implements IModPlugin {
     @Override
     public ResourceLocation getPluginUid() {
         return new ResourceLocation(Flowline.MODID, "jei");
+    }
+
+    /** How-to pages on Flowline's items (see {@link com.knozyy.flowline.compat.GuidePages}). */
+    @Override
+    public void registerRecipes(mezz.jei.api.registration.IRecipeRegistration registration) {
+        for (var page : com.knozyy.flowline.compat.GuidePages.pages()) {
+            registration.addItemStackInfo(page.items(), page.lines().toArray(net.minecraft.network.chat.Component[]::new));
+        }
     }
 
     @Override

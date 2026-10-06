@@ -16,13 +16,18 @@ import net.minecraftforge.fluids.FluidStack;
 import java.util.List;
 
 /**
- * EMI: drag items (and fluids) from the index onto filter slots, and onto the rule editor's sample, tag list and mod
- * box. Only loaded by EMI.
+ * EMI: how-to pages on Flowline's items, and dragging items (and fluids) from the index onto filter slots and onto the
+ * rule editor's sample, tag list and mod box. Only loaded by EMI.
  */
 @EmiEntrypoint
 public class FlowlineEmiPlugin implements EmiPlugin {
     @Override
     public void register(EmiRegistry registry) {
+        for (var page : com.knozyy.flowline.compat.GuidePages.pages()) {
+            registry.addRecipe(new dev.emi.emi.api.recipe.EmiInfoRecipe(
+                    page.items().stream().<EmiIngredient>map(EmiStack::of).toList(), page.lines(),
+                    new net.minecraft.resources.ResourceLocation(com.knozyy.flowline.Flowline.MODID, "/info/" + page.id())));
+        }
         registry.addDragDropHandler(PipeScreen.class, (screen, ingredient, x, y) ->
                 drop(GhostTargets.slots(screen, item(ingredient), fluid(ingredient)), x, y));
         registry.addDragDropHandler(RuleEditorScreen.class, (screen, ingredient, x, y) ->

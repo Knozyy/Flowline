@@ -1,6 +1,5 @@
 package com.knozyy.flowline.pipe;
 
-import com.knozyy.flowline.item.FacadeItem;
 import com.knozyy.flowline.item.PipeInteractable;
 import com.knozyy.flowline.menu.PipeMenu;
 import com.knozyy.flowline.registry.ModBlockEntities;
@@ -170,7 +169,6 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
             Containers.dropContents(level, pos, be.upgrades());
-            if (be.facade() != null) popResource(level, pos, FacadeItem.of(be.facade()));
             PipeNetwork.invalidate(level, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
@@ -217,6 +215,7 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
         if (updated != state) {
             level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
             PipeNetwork.invalidate(level, pos);
+            if (!hasEndpoint(updated) && level.getBlockEntity(pos) instanceof PipeBlockEntity be) be.stopTicking();
         }
     }
 
@@ -264,7 +263,6 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext ctx) {
-        if (level.getBlockEntity(pos) instanceof PipeBlockEntity be && be.facade() != null) return Shapes.block();
         VoxelShape shape = CORE;
         for (Direction d : Direction.values()) {
             if (state.getValue(prop(d)) != Conn.NONE) shape = Shapes.or(shape, ARMS[d.ordinal()]);
@@ -275,9 +273,8 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
     // ---- interaction ------------------------------------------------------------------------------------------
 
     /**
-     * Tools configure the clicked side, dyes paint the pipe, an empty hand opens the side's screen (or, sneaking with
-     * both hands empty, takes a facade off). Any other held item keeps its normal behaviour, e.g. placing a block
-     * against the pipe.
+     * Tools configure the clicked side, dyes paint the pipe, an empty hand opens the side's screen. Any other held item
+     * keeps its normal behaviour, e.g. placing a block against the pipe.
      */
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
@@ -320,27 +317,15 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
     public static void useTool(PipeInteractable tool, ItemStack stack, BlockState state, Level level, BlockPos pos,
                                Player player, InteractionHand hand, BlockHitResult hit) {
         if (level.isClientSide || !(level.getBlockEntity(pos) instanceof PipeBlockEntity be)) return;
-        Direction side = sideFromHit(hit, pos, be.facade() != null);
+        Direction side = sideFromHit(hit, pos);
         tool.useOnPipe(be, side, state.getValue(prop(side)), player, hand, stack);
     }
 
-    /**
-     * Empty-handed click on an endpoint side opens that side's configuration screen; sneaking with both hands empty
-     * takes a facade off.
-     */
+    /** Empty-handed click on an endpoint side opens that side's configuration screen. */
     private InteractionResult useEmptyHand(BlockState state, Level level, BlockPos pos, Player player,
                                            BlockHitResult hit) {
         PipeBlockEntity be = level.getBlockEntity(pos) instanceof PipeBlockEntity pipe ? pipe : null;
-        if (be != null && be.facade() != null && player.isShiftKeyDown()) {
-            if (!level.isClientSide) {
-                ItemStack facade = FacadeItem.of(be.facade());
-                be.setFacade(null);
-                if (!player.getAbilities().instabuild) player.getInventory().placeItemBackInInventory(facade);
-                player.displayClientMessage(Component.translatable("message.flowline.facade_removed"), true);
-            }
-            return InteractionResult.sidedSuccess(level.isClientSide);
-        }
-        Direction side = sideFromHit(hit, pos, be != null && be.facade() != null);
+        Direction side = sideFromHit(hit, pos);
         Conn conn = state.getValue(prop(side));
         if (!conn.isEndpoint()) return InteractionResult.PASS;
         if (!level.isClientSide && be != null) openConfig(be, side, conn, player);
@@ -427,10 +412,9 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
 
     /**
      * Resolves which of the six sides was clicked. Hitting an arm selects that arm's side; hitting the central
-     * cube selects the face that was hit. Behind a facade the whole block is one cube, so the hit face counts.
+     * cube selects the face that was hit.
      */
-    public static Direction sideFromHit(BlockHitResult hit, BlockPos pos, boolean facade) {
-        if (facade) return hit.getDirection();
+    public static Direction sideFromHit(BlockHitResult hit, BlockPos pos) {
         Vec3 local = hit.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ());
         double eps = 1.0E-4;
         if (local.x < MIN - eps) return Direction.WEST;
@@ -454,7 +438,17 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                   BlockEntityType<T> beType) {
-        if (level.isClientSide || beType != ModBlockEntities.PIPE.get()) return null;
+        // Only pipes attached to a block have work to do; pipes that just carry never tick. The ticker is asked again
+        // whenever the state changes, so attaching or removing a block switches it on or off.
+        if (level.isClientSide || beType != ModBlockEntities.PIPE.get() || !hasEndpoint(state)) return null;
         return (lvl, p, s, be) -> ((PipeBlockEntity) be).serverTick((ServerLevel) lvl);
+    }
+
+    /** Whether any side of {@code state} is attached to a block (inserting or extracting). */
+    public static boolean hasEndpoint(BlockState state) {
+        for (Direction d : Direction.values()) {
+            if (state.getValue(prop(d)).isEndpoint()) return true;
+        }
+        return false;
     }
 }

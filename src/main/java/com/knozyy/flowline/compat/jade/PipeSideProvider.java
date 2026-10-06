@@ -36,7 +36,7 @@ public enum PipeSideProvider implements IBlockComponentProvider, IServerDataProv
     @Override
     public void appendServerData(CompoundTag data, BlockAccessor accessor) {
         if (!(accessor.getBlockEntity() instanceof PipeBlockEntity pipe)) return;
-        Direction side = PipeBlock.sideFromHit(accessor.getHitResult(), accessor.getPosition(), pipe.facade() != null);
+        Direction side = PipeBlock.sideFromHit(accessor.getHitResult(), accessor.getPosition());
         Conn conn = pipe.getBlockState().getValue(PipeBlock.prop(side));
         CompoundTag tag = new CompoundTag();
         tag.putString("side", side.getName());

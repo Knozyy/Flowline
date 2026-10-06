@@ -11,8 +11,6 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiConsumer;
-import org.jetbrains.annotations.Nullable;
 
 public final class FluidTransfer {
     private FluidTransfer() {}
@@ -22,11 +20,6 @@ public final class FluidTransfer {
     /** @return millibuckets moved */
     public static int run(Level level, Caps sourceCaps, SideConfig cfg, List<Target> targets, int budget,
                           boolean balanced, PipeType pipe) {
-        return run(level, sourceCaps, cfg, targets, budget, balanced, pipe, null);
-    }
-
-    public static int run(Level level, Caps sourceCaps, SideConfig cfg, List<Target> targets, int budget,
-                          boolean balanced, PipeType pipe, @Nullable BiConsumer<Target, FluidStack> onMove) {
         IFluidHandler source = sourceCaps.fluidHandler();
         if (source == null) return 0;
 
@@ -64,7 +57,6 @@ public final class FluidTransfer {
                     if (moved.isEmpty()) break;
                     given[i] += moved.getAmount();
                     remaining -= moved.getAmount();
-                    if (onMove != null) onMove.accept(dest.target(), moved);
                 }
             }
             cap = Integer.MAX_VALUE;

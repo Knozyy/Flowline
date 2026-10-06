@@ -20,13 +20,14 @@ public final class Theme {
 
     private Theme() {}
 
+    /** The pipe's own colour, as its rails and textures show it (TYPES in tools/gen_resources.py). */
     public static int accent(PipeType type) {
         return switch (type) {
-            case ITEM -> 0xFFE0A030;
-            case FLUID -> 0xFF4A9AF0;
-            case ENERGY -> 0xFFE8604A;
-            case UNIVERSAL -> 0xFFB58CF0;
-            case CHEMICAL -> 0xFF5FC46A;
+            case ITEM -> 0xFFF4D58D;
+            case FLUID -> 0xFF7FB7E6;
+            case ENERGY -> 0xFFF2A07B;
+            case UNIVERSAL -> 0xFFB79CE8;
+            case CHEMICAL -> 0xFF8FD1A4;
         };
     }
 }

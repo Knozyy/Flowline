@@ -24,9 +24,7 @@ public final class ModCreativeTabs {
                         if (ModItems.CHEMICAL_PIPE != null) out.accept(ModItems.CHEMICAL_PIPE.get());
                         out.accept(ModItems.WRENCH.get());
                         ModItems.UPGRADES.forEach(u -> out.accept(u.get()));
-                        out.accept(ModItems.CONFIG_CARD.get());
                         out.accept(ModItems.FILTER_CARD.get());
-                        out.accept(ModItems.FACADE.get());
                     })
                     .build());
 

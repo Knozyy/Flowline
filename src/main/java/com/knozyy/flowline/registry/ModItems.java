@@ -2,8 +2,7 @@ package com.knozyy.flowline.registry;
 
 import com.knozyy.flowline.Flowline;
 import com.knozyy.flowline.compat.CurvyPipesCompat;
-import com.knozyy.flowline.item.ConfigCardItem;
-import com.knozyy.flowline.item.FacadeItem;
+import com.knozyy.flowline.item.FilterCardItem;
 import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.item.WrenchItem;
@@ -38,12 +37,8 @@ public final class ModItems {
     public static final List<RegistryObject<UpgradeItem>> UPGRADES =
             List.of(SPEED_UPGRADE, STACK_UPGRADE, FILTER_UPGRADE, KNOZY_UPGRADE);
 
-    public static final RegistryObject<ConfigCardItem> CONFIG_CARD = ITEMS.register("config_card",
-            () -> new ConfigCardItem(new Item.Properties().stacksTo(1), false));
-    public static final RegistryObject<ConfigCardItem> FILTER_CARD = ITEMS.register("filter_card",
-            () -> new ConfigCardItem(new Item.Properties().stacksTo(1), true));
-    public static final RegistryObject<FacadeItem> FACADE =
-            ITEMS.register("facade", () -> new FacadeItem(new Item.Properties()));
+    public static final RegistryObject<FilterCardItem> FILTER_CARD = ITEMS.register("filter_card",
+            () -> new FilterCardItem(new Item.Properties().stacksTo(1)));
 
     private static RegistryObject<Item> blockItem(RegistryObject<PipeBlock> block) {
         return ITEMS.register(block.getId().getPath(), () -> CurvyPipesCompat.pipeItem(block.get(), block.getId().getPath()));

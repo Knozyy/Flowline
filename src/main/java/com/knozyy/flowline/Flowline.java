@@ -7,7 +7,6 @@ import com.knozyy.flowline.registry.ModBlocks;
 import com.knozyy.flowline.registry.ModCreativeTabs;
 import com.knozyy.flowline.registry.ModItems;
 import com.knozyy.flowline.registry.ModMenus;
-import com.knozyy.flowline.registry.ModRecipes;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModLoadingContext;
@@ -28,7 +27,6 @@ public class Flowline {
         ModBlockEntities.BLOCK_ENTITIES.register(modBus);
         ModCreativeTabs.TABS.register(modBus);
         ModMenus.MENUS.register(modBus);
-        ModRecipes.SERIALIZERS.register(modBus);
         modBus.addListener((FMLCommonSetupEvent event) -> event.enqueueWork(ModNetwork::register));
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, FlowlineConfig.SPEC);
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, FlowlineConfig.Client.SPEC);

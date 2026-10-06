@@ -8,18 +8,14 @@ import com.knozyy.flowline.pipe.transfer.ItemTransfer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.StringRepresentable;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.energy.IEnergyStorage;
-import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-import java.util.function.BiConsumer;
 
 public enum PipeType implements StringRepresentable {
     ITEM("item", true, false, false, false),
@@ -95,17 +91,10 @@ public enum PipeType implements StringRepresentable {
      * Runs one operation for every kind this pipe moves.
      *
      * @param elapsed ticks since the previous operation: energy moves this many ticks' worth, and rate limits scale
-     * @param onItem  told about the first item stack moved to each target (for the travel animation); may be null
      * @return how much was moved in total (items + mB + FE); 0 means the operation found no work
      */
     public long transfer(Level level, BlockPos sourcePos, Caps source, SideConfig cfg, List<PipeNetwork.Target> targets,
-                         int elapsed, @Nullable BiConsumer<PipeNetwork.Target, ItemStack> onItem) {
-        return transfer(level, sourcePos, source, cfg, targets, elapsed, onItem, null);
-    }
-
-    public long transfer(Level level, BlockPos sourcePos, Caps source, SideConfig cfg, List<PipeNetwork.Target> targets,
-                         int elapsed, @Nullable BiConsumer<PipeNetwork.Target, ItemStack> onItem,
-                         @Nullable BiConsumer<PipeNetwork.Target, FluidStack> onFluid) {
+                         int elapsed) {
         int multiplier = Pacing.stackMultiplier(cfg.stackCount);
         boolean balanced = cfg.distribution == Distribution.BALANCED;
         // overflow targets only get what the others could not take, in nearest-first order
@@ -119,11 +108,11 @@ public enum PipeType implements StringRepresentable {
         long moved = 0;
         if (items && cfg.channel(CH_ITEMS, this)) {
             moved += inTwoPasses(main, overflow, Pacing.itemsPerOperation(cfg.stackCount), (list, budget, first) ->
-                    ItemTransfer.run(level, sourcePos, source, cfg, list, budget, first && balanced, this, onItem));
+                    ItemTransfer.run(level, sourcePos, source, cfg, list, budget, first && balanced, this));
         }
         if (fluids && cfg.channel(CH_FLUIDS, this)) {
             moved += inTwoPasses(main, overflow, Pacing.fluidPerOperation(cfg.stackCount), (list, budget, first) ->
-                    FluidTransfer.run(level, source, cfg, list, budget, first && balanced, this, onFluid));
+                    FluidTransfer.run(level, source, cfg, list, budget, first && balanced, this));
         }
         if (energy && cfg.channel(CH_ENERGY, this)) {
             long ticks = Math.max(1, elapsed);

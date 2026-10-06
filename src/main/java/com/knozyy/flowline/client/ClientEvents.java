@@ -9,7 +9,6 @@ import com.knozyy.flowline.item.WrenchItem;
 import com.knozyy.flowline.network.BuildPayload;
 import com.knozyy.flowline.network.WrenchScrollPayload;
 import com.knozyy.flowline.pipe.PipeBlock;
-import com.knozyy.flowline.pipe.PipeBlockEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -47,8 +46,7 @@ public final class ClientEvents {
         BlockPos pos = hit.getBlockPos();
         if (!(mc.level.getBlockState(pos).getBlock() instanceof PipeBlock)) return;
         if (event.getScrollDelta() == 0) return;
-        boolean facade = mc.level.getBlockEntity(pos) instanceof PipeBlockEntity be && be.facade() != null;
-        Direction side = PipeBlock.sideFromHit(hit, pos, facade);
+        Direction side = PipeBlock.sideFromHit(hit, pos);
         ModNetwork.sendToServer(new WrenchScrollPayload(pos, side, event.getScrollDelta() > 0,
                 Screen.hasControlDown()));
         event.setCanceled(true);
@@ -57,15 +55,11 @@ public final class ClientEvents {
     @SubscribeEvent
     public static void onRender(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES || event.getPoseStack() == null) return;
-        TravellingItems.render(event.getPoseStack(), event.getCamera().getPosition(),
-                event.getPartialTick());
-        NetworkOverlay.render(event.getPoseStack(), event.getCamera().getPosition());
         OffhandPipe.render(event.getPoseStack(), event.getCamera().getPosition());
     }
 
     @SubscribeEvent
     public static void onHud(RenderGuiEvent.Post event) {
-        NetworkOverlay.legend(event.getGuiGraphics());
         BuildHint.render(event.getGuiGraphics());
         OffhandPipe.hud(event.getGuiGraphics());
     }
@@ -95,19 +89,9 @@ public final class ClientEvents {
     public static void onTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level != null) TravellingItems.tick(mc.level);
-        NetworkOverlay.tick();
-        FlowingFluids.tick();
         while (Keys.BUILD.consumeClick()) {
             if (mc.player != null && mc.screen == null) OffhandPipe.toggle(mc);
         }
         OffhandPipe.tick(mc);
-    }
-
-    @SubscribeEvent
-    public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
-        TravellingItems.clear();
-        NetworkOverlay.clear();
-        FlowingFluids.clear();
     }
 }

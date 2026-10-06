@@ -7,6 +7,7 @@ import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.pipe.Conn;
 import com.knozyy.flowline.pipe.Pacing;
 import com.knozyy.flowline.pipe.PipeBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import com.knozyy.flowline.pipe.PipeBlockEntity;
 import com.knozyy.flowline.pipe.PipeBuilder;
 import com.knozyy.flowline.pipe.RedstoneMode;
@@ -14,17 +15,10 @@ import com.knozyy.flowline.pipe.SideConfig;
 import com.knozyy.flowline.pipe.SideMode;
 import com.knozyy.flowline.registry.ModBlocks;
 import com.knozyy.flowline.registry.ModItems;
-import com.knozyy.flowline.pipe.NetworkView;
 import com.knozyy.flowline.pipe.Caps;
 import com.knozyy.flowline.pipe.PipeNetwork;
 import com.knozyy.flowline.pipe.PipeType;
 import com.knozyy.flowline.pipe.transfer.FluidTransfer;
-import com.knozyy.flowline.network.FluidFlowPayload;
-import com.knozyy.flowline.network.NetworkViewPayload;
-import io.netty.buffer.Unpooled;
-import io.netty.handler.codec.DecoderException;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
@@ -518,115 +512,8 @@ public class PipeGameTests {
         return ((net.minecraft.world.Container) be(helper, pos)).countItem(item);
     }
 
-    @GameTest(template = TEMPLATE, timeoutTicks = 40)
-    public static void networkViewShowsSourcesTargetsAndOverflow(GameTestHelper helper) {
-        PipeBlockEntity first = twoTargets(helper);
-        nearSide(helper).priority = 7;
-        farSide(helper).priority = -3;
-        farSide(helper).overflow = true;
-        helper.startSequence().thenIdle(2).thenExecute(() -> {
-            BlockPos origin = helper.absolutePos(FIRST_PIPE);
-            NetworkView.Snapshot view = NetworkView.collect(helper.getLevel(), origin,
-                    net.minecraft.world.phys.Vec3.atCenterOf(origin), 32);
-            helper.assertTrue(!view.truncated() && view.entries().size() == 5, "two pipes and three endpoints");
-            checkView(helper, view, SOURCE, NetworkView.SOURCE, 0);
-            checkView(helper, view, NEAR, NetworkView.TARGET, 7);
-            checkView(helper, view, FAR, NetworkView.OVERFLOW, -3);
-            checkView(helper, view, FIRST_PIPE, NetworkView.PIPE, 0);
-            first.setDisconnected(Direction.NORTH, true);
-            PipeBlock.updateConnections(helper.getLevel(), origin);
-            NetworkView.Snapshot cut = NetworkView.collect(helper.getLevel(), origin,
-                    net.minecraft.world.phys.Vec3.atCenterOf(origin), 32);
-            helper.assertTrue(cut.entries().stream().noneMatch(e -> e.pos().equals(helper.absolutePos(NEAR))),
-                    "a disconnected endpoint must not be shown");
-            NetworkView.Snapshot distant = NetworkView.collect(helper.getLevel(), origin,
-                    net.minecraft.world.phys.Vec3.atCenterOf(origin).add(100, 0, 0), 4);
-            helper.assertTrue(distant.entries().isEmpty(), "out-of-range network positions must be hidden");
-        }).thenSucceed();
-    }
-
-    private static void checkView(GameTestHelper helper, NetworkView.Snapshot view, BlockPos relative, int role, int priority) {
-        helper.assertTrue(view.entries().stream().anyMatch(e -> e.pos().equals(helper.absolutePos(relative))
-                        && e.has(role) && e.priority() == priority), "network role/priority missing at " + relative);
-    }
-
-    @GameTest(template = TEMPLATE, timeoutTicks = 40)
-    public static void networkViewRequiresServerPermissionAndRealLook(GameTestHelper helper) {
-        line(helper, 1);
-        helper.startSequence().thenIdle(2).thenExecute(() -> {
-            var player = new net.minecraft.server.level.ServerPlayer(helper.getLevel().getServer(), helper.getLevel(),
-                    new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "flowline-view-test"));
-            boolean allowed = FlowlineConfig.ALLOW_NETWORK_VIEW.get();
-            try {
-                BlockPos origin = helper.absolutePos(FIRST_PIPE);
-                player.moveTo(origin.getX() + 0.5, origin.getY() + 0.5, origin.getZ() + 2.5, 180, 0);
-                player.setShiftKeyDown(true);
-                var delta = net.minecraft.world.phys.Vec3.atCenterOf(origin).subtract(player.getEyePosition(1));
-                player.setYRot((float) Math.toDegrees(Math.atan2(-delta.x, delta.z)));
-                player.setYHeadRot(player.getYRot());
-                player.setXRot((float) -Math.toDegrees(Math.atan2(delta.y, Math.sqrt(delta.x * delta.x + delta.z * delta.z))));
-                FlowlineConfig.ALLOW_NETWORK_VIEW.set(true);
-                helper.assertTrue(NetworkView.query(player, origin).entries().isEmpty(), "no wrench: no network view");
-                player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(ModItems.WRENCH.get()));
-                var hit = (net.minecraft.world.phys.BlockHitResult) player.pick(FlowlineConfig.NETWORK_VIEW_RANGE.get(), 1, false);
-                helper.assertTrue(!NetworkView.query(player, origin).entries().isEmpty(), "a wrench and a real look allow the view; "
-                        + "origin=" + origin + ", hit=" + hit.getBlockPos() + ", type=" + hit.getType() + ", eye=" + player.getEyePosition());
-                player.setShiftKeyDown(false);
-                helper.assertTrue(NetworkView.query(player, origin).entries().isEmpty(), "not sneaking: no network view");
-                player.setShiftKeyDown(true);
-                FlowlineConfig.ALLOW_NETWORK_VIEW.set(false);
-                helper.assertTrue(NetworkView.query(player, origin).entries().isEmpty(), "server disabled: no endpoint disclosure");
-                FlowlineConfig.ALLOW_NETWORK_VIEW.set(true);
-                player.setYRot(0);
-                player.setYHeadRot(0);
-                helper.assertTrue(NetworkView.query(player, origin).entries().isEmpty(), "forged looked-at position is rejected");
-                player.setPos(player.getX() + FlowlineConfig.NETWORK_VIEW_RANGE.get() + 10, player.getY(), player.getZ());
-                helper.assertTrue(NetworkView.query(player, origin).entries().isEmpty(), "out-of-range query is rejected");
-            } finally {
-                FlowlineConfig.ALLOW_NETWORK_VIEW.set(allowed);
-            }
-        }).thenSucceed();
-    }
-
     @GameTest(template = TEMPLATE, timeoutTicks = 20)
-    public static void visualPacketsRoundTripAndRejectOversizedLists(GameTestHelper helper) {
-        ResourceLocation dimension = helper.getLevel().dimension().location();
-        FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
-        try {
-            NetworkView.Snapshot view = new NetworkView.Snapshot(List.of(new NetworkView.Entry(FIRST_PIPE,
-                    NetworkView.TARGET | NetworkView.OVERFLOW, -7)), true);
-            NetworkViewPayload network = new NetworkViewPayload(dimension, FIRST_PIPE, view);
-            network.encode(buffer);
-            helper.assertTrue(NetworkViewPayload.decode(buffer).equals(network), "network packet preserves roles and priority");
-            buffer.clear();
-            FluidFlowPayload fluid = new FluidFlowPayload(dimension, Fluids.WATER, List.of(SOURCE, FIRST_PIPE, target(1)));
-            fluid.encode(buffer);
-            helper.assertTrue(FluidFlowPayload.decode(buffer).equals(fluid), "fluid packet preserves the connected path");
-            buffer.clear();
-            buffer.writeResourceLocation(dimension);
-            buffer.writeBlockPos(FIRST_PIPE);
-            buffer.writeBoolean(false);
-            buffer.writeVarInt(NetworkView.MAX_ENTRIES + 1);
-            boolean rejected = false;
-            try { NetworkViewPayload.decode(buffer); } catch (DecoderException expected) { rejected = true; }
-            helper.assertTrue(rejected, "oversized network lists must be rejected before allocation");
-            buffer.clear();
-            buffer.writeResourceLocation(dimension).writeResourceLocation(new ResourceLocation("minecraft", "water"))
-                    .writeVarInt(-1);
-            rejected = false;
-            try { FluidFlowPayload.decode(buffer); } catch (DecoderException expected) { rejected = true; }
-            helper.assertTrue(rejected, "negative fluid path lengths must be rejected");
-            buffer.clear();
-            new FluidFlowPayload(dimension, Fluids.WATER, List.of(SOURCE, FIRST_PIPE, new BlockPos(5, 1, 1))).encode(buffer);
-            rejected = false;
-            try { FluidFlowPayload.decode(buffer); } catch (DecoderException expected) { rejected = true; }
-            helper.assertTrue(rejected, "disconnected fluid paths must be rejected");
-        } finally { buffer.release(); }
-        helper.succeed();
-    }
-
-    @GameTest(template = TEMPLATE, timeoutTicks = 20)
-    public static void fluidAnimationOnlyReportsCompletedTransfers(GameTestHelper helper) {
+    public static void fullFluidTargetDoesNotDrainTheSource(GameTestHelper helper) {
         helper.setBlock(SOURCE, Blocks.CHEST);
         helper.setBlock(target(1), Blocks.CHEST);
         helper.setBlock(FIRST_PIPE, ModBlocks.FLUID_PIPE.get());
@@ -643,21 +530,12 @@ public class PipeGameTests {
                 Caps.create(PipeType.FLUID, helper.getLevel(), destination.getBlockPos(), Direction.WEST), pipe,
                 List.of(pipe.getBlockPos()));
         SideConfig cfg = new SideConfig(PipeType.FLUID);
-        int[] notifications = {0};
-        int moved = FluidTransfer.run(helper.getLevel(), sourceCaps, cfg, List.of(target), 1000, false, PipeType.FLUID,
-                (endpoint, fluid) -> {
-                    helper.assertTrue(endpoint == target && fluid.getFluid() == Fluids.WATER && fluid.getAmount() == 1000,
-                            "callback must describe the real target and fluid moved");
-                    helper.assertTrue(source.tank.isEmpty() && destination.tank.getFluidAmount() == 1000,
-                            "callback must run after the real transfer");
-                    notifications[0]++;
-                });
-        helper.assertTrue(moved == 1000 && notifications[0] == 1, "one successful transfer produces one notification");
+        int moved = FluidTransfer.run(helper.getLevel(), sourceCaps, cfg, List.of(target), 1000, false, PipeType.FLUID);
+        helper.assertTrue(moved == 1000 && source.tank.isEmpty() && destination.tank.getFluidAmount() == 1000,
+                "the fluid moves to the target");
         source.tank.fill(new FluidStack(Fluids.WATER, 1000), IFluidHandler.FluidAction.EXECUTE);
-        moved = FluidTransfer.run(helper.getLevel(), sourceCaps, cfg, List.of(target), 1000, false, PipeType.FLUID,
-                (endpoint, fluid) -> notifications[0]++);
-        helper.assertTrue(moved == 0 && notifications[0] == 1 && source.tank.getFluidAmount() == 1000,
-                "a full target must not drain fluid or produce an animation");
+        moved = FluidTransfer.run(helper.getLevel(), sourceCaps, cfg, List.of(target), 1000, false, PipeType.FLUID);
+        helper.assertTrue(moved == 0 && source.tank.getFluidAmount() == 1000, "a full target must not drain fluid");
         helper.succeed();
     }
 
@@ -961,50 +839,62 @@ public class PipeGameTests {
         helper.succeed();
     }
 
-    // ---- cards, facades, water ----------------------------------------------------------------------------
+    // ---- cards, water ------------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 60)
+    public static void onlyPipesAttachedToBlocksTick(GameTestHelper helper) {
+        PipeBlockEntity first = line(helper, 3);
+        helper.startSequence()
+                .thenIdle(5)
+                .thenExecute(() -> {
+                    var level = helper.getLevel();
+                    var type = com.knozyy.flowline.registry.ModBlockEntities.PIPE.get();
+                    BlockPos middle = helper.absolutePos(new BlockPos(2, 1, 1));
+                    BlockState middleState = level.getBlockState(middle);
+                    helper.assertTrue(((PipeBlock) middleState.getBlock()).getTicker(level, middleState, type) == null,
+                            "a pipe that only carries (no block attached) must not tick");
+                    BlockState firstState = level.getBlockState(first.getBlockPos());
+                    helper.assertTrue(((PipeBlock) firstState.getBlock()).getTicker(level, firstState, type) != null,
+                            "a pipe attached to a block ticks");
+                    helper.assertTrue(first.side(Direction.WEST).interval >= 0, "the extracting side has run");
+                    helper.setBlock(SOURCE, Blocks.AIR);
+                    PipeBlock.updateConnections(level, first.getBlockPos());
+                    BlockState now = level.getBlockState(first.getBlockPos());
+                    helper.assertTrue(((PipeBlock) now.getBlock()).getTicker(level, now, type) == null,
+                            "once its block is gone the pipe stops ticking");
+                    helper.assertTrue(first.side(Direction.WEST).interval < 0 && !first.emitsSignal(),
+                            "a pipe that stops ticking resets its sides and its redstone output");
+                })
+                .thenSucceed();
+    }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
-    public static void configCardCopiesAndPastes(GameTestHelper helper) {
+    public static void filterCardCopiesOnlyRules(GameTestHelper helper) {
         PipeBlockEntity pipe = twoTargets(helper);
         SideConfig from = pipe.side(Direction.WEST);
         from.distribution = com.knozyy.flowline.pipe.Distribution.BALANCED;
         from.limit = 7;
         from.setEntry(0, allow("minecraft:diamond"));
         Player player = helper.makeMockPlayer();
-        ItemStack card = new ItemStack(ModItems.CONFIG_CARD.get());
+        ItemStack card = new ItemStack(ModItems.FILTER_CARD.get());
 
         helper.startSequence()
                 .thenIdle(2)
                 .thenExecute(() -> {
                     player.setShiftKeyDown(true);
-                    ModItems.CONFIG_CARD.get().useOnPipe(pipe, Direction.WEST, Conn.EXTRACT, player,
+                    ModItems.FILTER_CARD.get().useOnPipe(pipe, Direction.WEST, Conn.EXTRACT, player,
                             net.minecraft.world.InteractionHand.MAIN_HAND, card);
                     player.setShiftKeyDown(false);
                     PipeBlockEntity other = be(helper, new BlockPos(2, 1, 1));
-                    ModItems.CONFIG_CARD.get().useOnPipe(other, Direction.SOUTH, Conn.ENDPOINT, player,
+                    ModItems.FILTER_CARD.get().useOnPipe(other, Direction.SOUTH, Conn.ENDPOINT, player,
                             net.minecraft.world.InteractionHand.MAIN_HAND, card);
                     SideConfig to = other.side(Direction.SOUTH);
-                    helper.assertTrue(to.mode == SideMode.EXTRACT, "the mode is pasted");
-                    helper.assertTrue(to.distribution == com.knozyy.flowline.pipe.Distribution.BALANCED && to.limit == 7,
-                            "settings are pasted");
                     helper.assertTrue(to.getEntry(0) != null && to.getEntry(0).sameMatch(allow("minecraft:diamond")),
                             "rules are pasted");
+                    helper.assertTrue(to.mode != SideMode.EXTRACT && to.limit != 7,
+                            "the filter card leaves mode and settings alone");
                 })
                 .thenSucceed();
-    }
-
-    @GameTest(template = TEMPLATE, timeoutTicks = 100)
-    public static void facadeMakesFullBlockAndDrops(GameTestHelper helper) {
-        helper.setBlock(FIRST_PIPE, ModBlocks.ITEM_PIPE.get());
-        PipeBlockEntity pipe = be(helper, FIRST_PIPE);
-        helper.assertTrue(com.knozyy.flowline.item.FacadeItem.isValid(Blocks.STONE.defaultBlockState()), "stone is a facade");
-        helper.assertTrue(!com.knozyy.flowline.item.FacadeItem.isValid(Blocks.CHEST.defaultBlockState()),
-                "chests are not");
-        pipe.setFacade(Blocks.STONE.defaultBlockState());
-        helper.assertTrue(helper.getBlockState(FIRST_PIPE).getShape(helper.getLevel(), helper.absolutePos(FIRST_PIPE))
-                .equals(net.minecraft.world.phys.shapes.Shapes.block()), "a facaded pipe is a full block");
-        helper.destroyBlock(FIRST_PIPE);
-        helper.succeedWhen(() -> helper.assertItemEntityPresent(ModItems.FACADE.get(), FIRST_PIPE, 2.0));
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)

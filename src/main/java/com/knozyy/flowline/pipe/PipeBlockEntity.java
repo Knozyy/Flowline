@@ -1,21 +1,14 @@
 package com.knozyy.flowline.pipe;
 
 import com.knozyy.flowline.util.Stacks;
-import com.knozyy.flowline.FlowlineConfig;
 import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.item.UpgradeType;
-import com.knozyy.flowline.network.ModNetwork;
-import com.knozyy.flowline.network.TravelPayload;
-import com.knozyy.flowline.network.FluidFlowPayload;
-import net.minecraftforge.fluids.FluidStack;
 import com.knozyy.flowline.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
@@ -25,20 +18,14 @@ import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.client.model.data.ModelData;
-import net.minecraftforge.client.model.data.ModelProperty;
-import net.minecraftforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiConsumer;
+import net.minecraft.world.level.block.entity.BlockEntity;
 
 public class PipeBlockEntity extends BlockEntity {
-    /** Model data: the block a facade makes the pipe look like. */
-    public static final ModelProperty<BlockState> FACADE = new ModelProperty<>();
     /** No dye: connects to pipes of any colour. */
     public static final int NO_COLOR = -1;
 
@@ -50,9 +37,6 @@ public class PipeBlockEntity extends BlockEntity {
     private int disconnected = 0;
     /** {@link net.minecraft.world.item.DyeColor} id, or {@link #NO_COLOR}. Pipes of two different colours never connect. */
     private int color = NO_COLOR;
-    /** Block the pipe is hidden behind, or null. */
-    @Nullable
-    private BlockState facade = null;
     /** Redstone signal at the last neighbour update, for pulse mode's rising edges. */
     private boolean powered = false;
     /** {@link SideConfig#UPGRADE_SLOTS} upgrades per side; slot = side ordinal * UPGRADE_SLOTS + index. */
@@ -178,7 +162,7 @@ public class PipeBlockEntity extends BlockEntity {
         }
     }
 
-    // ---- connections, colour, facade ----------------------------------------------------------------------
+    // ---- connections, colour ----------------------------------------------------------------------------
 
     public boolean isDisconnected(Direction dir) {
         return (disconnected & (1 << dir.ordinal())) != 0;
@@ -209,28 +193,11 @@ public class PipeBlockEntity extends BlockEntity {
         sync();
     }
 
-    @Nullable
-    public BlockState facade() {
-        return facade;
-    }
-
-    public void setFacade(@Nullable BlockState value) {
-        if (value == facade) return;
-        facade = value;
-        setChanged();
-        sync();
-    }
-
-    /** Sends the colour and facade to watching clients, which redraw the block. */
+    /** Sends the colour to watching clients, which redraw the block. */
     private void sync() {
         if (level != null && !level.isClientSide) {
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
         }
-    }
-
-    @Override
-    public ModelData getModelData() {
-        return facade == null ? ModelData.EMPTY : ModelData.builder().with(FACADE, facade).build();
     }
 
     // ---- ticking ------------------------------------------------------------------------------------------
@@ -322,6 +289,18 @@ public class PipeBlockEntity extends BlockEntity {
         }
     }
 
+    /**
+     * The pipe lost its last attached block and no longer ticks (see {@link PipeBlock#getTicker}): what the tick
+     * would have cleaned up is cleaned up now, and a redstone output stops.
+     */
+    public void stopTicking() {
+        for (SideConfig cfg : sides) cfg.resetRuntime();
+        if (emitting && level != null) {
+            emitting = false;
+            level.updateNeighborsAt(worldPosition, getBlockState().getBlock());
+        }
+    }
+
     /** Whether a side's redstone output condition holds after an operation that moved {@code moved} (-1: asleep). */
     private boolean signalAfter(ServerLevel level, Direction dir, SideConfig cfg, long moved, boolean blocked) {
         return switch (cfg.signal) {
@@ -363,47 +342,7 @@ public class PipeBlockEntity extends BlockEntity {
         }
         BlockPos source = worldPosition.relative(dir);
         if (cfg.sourceCaps == null) cfg.sourceCaps = Caps.create(type, level, source, dir.getOpposite());
-        return type.transfer(level, source, cfg.sourceCaps, cfg, targets, elapsed, animation(level, source),
-                fluidAnimation(level, source));
-    }
-
-    @Nullable
-    private BiConsumer<PipeNetwork.Target, FluidStack> fluidAnimation(ServerLevel level, BlockPos source) {
-        if (type != PipeType.FLUID || !FlowlineConfig.SEND_FLUID_ANIMATIONS.get()) return null;
-        double x = worldPosition.getX() + 0.5, y = worldPosition.getY() + 0.5, z = worldPosition.getZ() + 0.5;
-        if (level.getNearestPlayer(x, y, z, TravelPayload.RANGE, false) == null) return null;
-        int[] sent = {0};
-        return (target, fluid) -> {
-            if (sent[0] >= 16 || target.path().isEmpty() || !target.path().get(0).equals(worldPosition)
-                    || target.path().size() + 2 > FluidFlowPayload.MAX_PATH) return;
-            List<BlockPos> path = new ArrayList<>(target.path().size() + 2);
-            path.add(source);
-            path.addAll(target.path());
-            path.add(target.endpointPos());
-            sent[0]++;
-            ModNetwork.CHANNEL.send(PacketDistributor.NEAR.with(() -> new PacketDistributor.TargetPoint(x, y, z,
-                            TravelPayload.RANGE, level.dimension())),
-                    new FluidFlowPayload(level.dimension().location(), fluid.getFluid(), path));
-        };
-    }
-
-    /** Sends moved items to nearby players for the travel animation, or null when nobody would see it. */
-    @Nullable
-    private BiConsumer<PipeNetwork.Target, ItemStack> animation(ServerLevel level, BlockPos source) {
-        if (!type.movesItems() || !FlowlineConfig.SEND_ANIMATIONS.get()) return null;
-        double x = worldPosition.getX() + 0.5, y = worldPosition.getY() + 0.5, z = worldPosition.getZ() + 0.5;
-        if (level.getNearestPlayer(x, y, z, TravelPayload.RANGE, false) == null) return null;
-        return (target, stack) -> {
-            if (target.path().isEmpty() || !target.path().get(0).equals(worldPosition)
-                    || target.path().size() + 2 > TravelPayload.MAX_PATH) return;
-            List<BlockPos> path = new ArrayList<>(target.path().size() + 2);
-            path.add(source);
-            path.addAll(target.path());
-            path.add(target.endpointPos());
-            ModNetwork.CHANNEL.send(PacketDistributor.NEAR.with(() -> new PacketDistributor.TargetPoint(x, y, z,
-                            TravelPayload.RANGE, level.dimension())),
-                    new TravelPayload(Stacks.withCount(stack, Math.min(stack.getCount(), stack.getMaxStackSize())), path));
-        };
+        return type.transfer(level, source, cfg.sourceCaps, cfg, targets, elapsed);
     }
 
     // ---- world hooks --------------------------------------------------------------------------------------
@@ -459,18 +398,13 @@ public class PipeBlockEntity extends BlockEntity {
 
     private void saveVisuals(CompoundTag tag) {
         if (color != NO_COLOR) tag.putInt("color", color);
-        if (facade != null) tag.put("facade", NbtUtils.writeBlockState(facade));
     }
 
     private void loadVisuals(CompoundTag tag) {
         color = tag.contains("color") ? tag.getInt("color") : NO_COLOR;
-        facade = tag.contains("facade")
-                ? NbtUtils.readBlockState(BuiltInRegistries.BLOCK.asLookup(), tag.getCompound("facade"))
-                : null;
-        if (facade != null && facade.isAir()) facade = null;
     }
 
-    /** Clients only need what changes the look: colour and facade. */
+    /** Clients only need what changes the look: the colour. */
     @Override
     public CompoundTag getUpdateTag() {
         CompoundTag tag = new CompoundTag();
@@ -497,10 +431,9 @@ public class PipeBlockEntity extends BlockEntity {
         redraw();
     }
 
-    /** Client: the facade or colour changed, rebuild the chunk mesh with the new model data and tint. */
+    /** Client: the colour changed, rebuild the chunk mesh with the new tint. */
     private void redraw() {
         if (level == null || !level.isClientSide) return;
-        requestModelDataUpdate();
         level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_IMMEDIATE);
     }
 }

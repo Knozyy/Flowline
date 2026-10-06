@@ -3,10 +3,9 @@ package com.knozyy.flowline.test;
 import com.knozyy.flowline.Flowline;
 import com.knozyy.flowline.FlowlineConfig;
 import com.knozyy.flowline.filter.FilterEntry;
-import com.knozyy.flowline.item.ConfigCardItem;
+import com.knozyy.flowline.item.FilterCardItem;
 import com.knozyy.flowline.item.WrenchItem;
 import com.knozyy.flowline.network.FilterSyncPayload;
-import com.knozyy.flowline.network.TravelPayload;
 import com.knozyy.flowline.pipe.*;
 import com.knozyy.flowline.pipe.transfer.*;
 import com.knozyy.flowline.registry.ModBlocks;
@@ -112,10 +111,9 @@ public class AuditGameTests {
         source.setStackInSlot(0, new ItemStack(Items.DIAMOND, 8));
         Caps from = resources(h, SOURCE, PipeType.ITEM, source, null, null);
         Caps to = resources(h, DESTINATION, PipeType.ITEM, destination, null, null);
-        int[] animations = {0};
         int moved = ItemTransfer.run(h.getLevel(), h.absolutePos(SOURCE), from, new SideConfig(PipeType.ITEM),
-                List.of(target(pipe(h), to)), 8, false, PipeType.ITEM, (t, stack) -> animations[0]++);
-        h.assertTrue(moved == 0 && animations[0] == 0, "rolled-back items must not consume the budget or animate");
+                List.of(target(pipe(h), to)), 8, false, PipeType.ITEM);
+        h.assertTrue(moved == 0, "rolled-back items must not consume the budget");
         h.assertTrue(source.getStackInSlot(0).getCount() == 8 && destination.getStackInSlot(0).isEmpty(),
                 "all rejected items must return to the source");
         h.succeed();
@@ -140,7 +138,7 @@ public class AuditGameTests {
         Caps second = resources(h, new BlockPos(3, 1, 1), PipeType.ITEM, finalTarget, null, null);
         PipeBlockEntity pipe = pipe(h);
         int moved = ItemTransfer.run(h.getLevel(), h.absolutePos(SOURCE), from, new SideConfig(PipeType.ITEM),
-                List.of(target(pipe, first), target(pipe, second)), 8, false, PipeType.ITEM, null);
+                List.of(target(pipe, first), target(pipe, second)), 8, false, PipeType.ITEM);
         h.assertTrue(moved == 8 && partial.getStackInSlot(0).getCount() == 2
                 && finalTarget.getStackInSlot(0).getCount() == 6, "only actual acceptance spends the shared budget");
         h.assertTrue(source.getStackInSlot(0).isEmpty(), "all eight items must arrive, without duplication");
@@ -156,7 +154,7 @@ public class AuditGameTests {
         Caps to = resources(h, DESTINATION, PipeType.ITEM, destination, null, null);
         SideConfig cfg = new SideConfig(PipeType.ITEM); cfg.limit = 1_000_000_000;
         int moved = ItemTransfer.run(h.getLevel(), h.absolutePos(SOURCE), from, cfg,
-                List.of(target(pipe(h), to)), 16, false, PipeType.ITEM, null);
+                List.of(target(pipe(h), to)), 16, false, PipeType.ITEM);
         h.assertTrue(moved == 16 && destination.getStackInSlot(0).getCount() == 16,
                 "a large virtual inventory still has surplus above its reserve");
         h.succeed();
@@ -173,7 +171,7 @@ public class AuditGameTests {
         SideConfig cfg = new SideConfig(PipeType.ITEM); cfg.limit = 14;
         PipeBlockEntity pipe = pipe(h);
         int moved = ItemTransfer.run(h.getLevel(), h.absolutePos(SOURCE), from, cfg,
-                List.of(target(pipe, one), target(pipe, two)), 20, true, PipeType.ITEM, null);
+                List.of(target(pipe, one), target(pipe, two)), 20, true, PipeType.ITEM);
         h.assertTrue(moved == 6 && first.getStackInSlot(0).getCount() == 3 && second.getStackInSlot(0).getCount() == 3,
                 "balanced distribution must divide the six surplus items, counting the reserve once");
         h.assertTrue(!PipeType.ITEM.hasWork(from, cfg), "the retained reserve is not stuck work");
@@ -283,7 +281,7 @@ public class AuditGameTests {
             FlowlineConfig.ENERGY_PER_TICK.set(100_000_000);
             FlowlineConfig.STACK_MULTIPLIERS.set(List.of(Integer.MAX_VALUE));
             long moved = PipeType.ENERGY.transfer(h.getLevel(), h.absolutePos(SOURCE), from,
-                    new SideConfig(PipeType.ENERGY), List.of(target(pipe, to)), 12000, null);
+                    new SideConfig(PipeType.ENERGY), List.of(target(pipe, to)), 12000);
             h.assertTrue(moved == Integer.MAX_VALUE && source.getEnergyStored() == 0,
                     "legal high multipliers must clamp the budget, never wrap it");
         } finally {
@@ -293,15 +291,27 @@ public class AuditGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void oldVisualPacketsRejectInvalidListLengths(GameTestHelper h) {
+    public static void guidePagesAreTranslated(GameTestHelper h) {
+        for (String code : new String[]{"en_us", "tr_tr"}) {
+            var stream = AuditGameTests.class.getResourceAsStream("/assets/flowline/lang/" + code + ".json");
+            h.assertTrue(stream != null, code + " must be packaged");
+            var lang = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(stream,
+                    java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            for (var page : com.knozyy.flowline.compat.GuidePages.pages()) {
+                h.assertTrue(!page.items().isEmpty(), page.id() + " must show on some items");
+                for (var line : page.lines()) {
+                    String key = ((net.minecraft.network.chat.contents.TranslatableContents) line.getContents()).getKey();
+                    h.assertTrue(lang.has(key), code + " is missing " + key);
+                }
+            }
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void filterSyncRejectsInvalidListLengths(GameTestHelper h) {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         try {
-            for (int size : new int[]{-1, TravelPayload.MAX_PATH + 1}) {
-                buf.clear();buf.writeItem(new ItemStack(Items.DIAMOND));buf.writeVarInt(size);
-                boolean rejected = false;
-                try { TravelPayload.decode(buf); } catch (DecoderException expected) { rejected = true; }
-                h.assertTrue(rejected, "invalid item animation list length must be rejected before allocation");
-            }
             for (int size : new int[]{-1, FilterSyncPayload.MAX_CHANGES + 1}) {
                 buf.clear();buf.writeVarInt(1);buf.writeBoolean(false);buf.writeVarInt(size);
                 boolean rejected = false;
@@ -332,7 +342,7 @@ public class AuditGameTests {
                     .result().orElseThrow());entries.add(entry);
         }
         CompoundTag data = new CompoundTag();data.put("filter", entries);card.getOrCreateTag().put("flowline_card", data);
-        ((ConfigCardItem) card.getItem()).useOnPipe(pipe, Direction.EAST, Conn.ENDPOINT, player, InteractionHand.MAIN_HAND, card);
+        ((FilterCardItem) card.getItem()).useOnPipe(pipe, Direction.EAST, Conn.ENDPOINT, player, InteractionHand.MAIN_HAND, card);
         h.assertTrue(pipe.side(Direction.EAST).filterSize() == 0, "corrupt card indices must be skipped without allocation");
         h.succeed();
     }
