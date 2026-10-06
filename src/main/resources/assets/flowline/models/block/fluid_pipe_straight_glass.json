@@ -1,0 +1,107 @@
+{
+  "render_type": "minecraft:translucent",
+  "textures": {
+    "glass": "flowline:block/fluid_pipe_glass",
+    "particle": "flowline:block/fluid_pipe_collar"
+  },
+  "elements": [
+    {
+      "from": [
+        5.5,
+        5.5,
+        5
+      ],
+      "to": [
+        10.5,
+        10.5,
+        11
+      ],
+      "faces": {
+        "down": {
+          "texture": "#glass"
+        },
+        "up": {
+          "texture": "#glass"
+        },
+        "west": {
+          "texture": "#glass"
+        },
+        "east": {
+          "texture": "#glass"
+        }
+      }
+    },
+    {
+      "from": [
+        5.5,
+        5.5,
+        5
+      ],
+      "to": [
+        5.5,
+        10.5,
+        11
+      ],
+      "shade": false,
+      "faces": {
+        "east": {
+          "texture": "#glass"
+        }
+      }
+    },
+    {
+      "from": [
+        10.5,
+        5.5,
+        5
+      ],
+      "to": [
+        10.5,
+        10.5,
+        11
+      ],
+      "shade": false,
+      "faces": {
+        "west": {
+          "texture": "#glass"
+        }
+      }
+    },
+    {
+      "from": [
+        5.5,
+        5.5,
+        5
+      ],
+      "to": [
+        10.5,
+        5.5,
+        11
+      ],
+      "shade": false,
+      "faces": {
+        "up": {
+          "texture": "#glass"
+        }
+      }
+    },
+    {
+      "from": [
+        5.5,
+        10.5,
+        5
+      ],
+      "to": [
+        10.5,
+        10.5,
+        11
+      ],
+      "shade": false,
+      "faces": {
+        "down": {
+          "texture": "#glass"
+        }
+      }
+    }
+  ]
+}

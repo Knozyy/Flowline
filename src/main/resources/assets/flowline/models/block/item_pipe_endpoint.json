@@ -1,8 +1,7 @@
 {
-  "render_type": "minecraft:cutout",
+  "render_type": "minecraft:solid",
   "textures": {
-    "pipe": "flowline:block/item_pipe",
-    "inner": "flowline:block/item_pipe_inner",
+    "rail": "flowline:block/pipe_rail",
     "collar": "flowline:block/item_pipe_collar",
     "particle": "flowline:block/item_pipe_collar"
   },
@@ -14,142 +13,116 @@
         2
       ],
       "to": [
+        6,
+        6,
+        5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#rail",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        10,
+        2
+      ],
+      "to": [
+        6,
+        11,
+        5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#rail",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "from": [
+        10,
+        5,
+        2
+      ],
+      "to": [
+        11,
+        6,
+        5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#rail",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "from": [
+        10,
+        10,
+        2
+      ],
+      "to": [
         11,
         11,
         5
       ],
       "faces": {
         "down": {
-          "uv": [
-            5,
-            0,
-            11,
-            3
-          ],
-          "texture": "#pipe"
+          "texture": "#rail",
+          "tintindex": 0
         },
         "up": {
-          "uv": [
-            5,
-            0,
-            11,
-            3
-          ],
-          "texture": "#pipe"
+          "texture": "#rail",
+          "tintindex": 0
         },
         "west": {
-          "uv": [
-            0,
-            5,
-            3,
-            11
-          ],
-          "texture": "#pipe"
+          "texture": "#rail",
+          "tintindex": 0
         },
         "east": {
-          "uv": [
-            0,
-            5,
-            3,
-            11
-          ],
-          "texture": "#pipe"
-        }
-      }
-    },
-    {
-      "from": [
-        5.02,
-        5,
-        2
-      ],
-      "to": [
-        5.02,
-        11,
-        5
-      ],
-      "shade": false,
-      "faces": {
-        "east": {
-          "uv": [
-            5,
-            5,
-            11,
-            11
-          ],
-          "texture": "#inner"
-        }
-      }
-    },
-    {
-      "from": [
-        10.98,
-        5,
-        2
-      ],
-      "to": [
-        10.98,
-        11,
-        5
-      ],
-      "shade": false,
-      "faces": {
-        "west": {
-          "uv": [
-            5,
-            5,
-            11,
-            11
-          ],
-          "texture": "#inner"
-        }
-      }
-    },
-    {
-      "from": [
-        5,
-        5.02,
-        2
-      ],
-      "to": [
-        11,
-        5.02,
-        5
-      ],
-      "shade": false,
-      "faces": {
-        "up": {
-          "uv": [
-            5,
-            5,
-            11,
-            11
-          ],
-          "texture": "#inner"
-        }
-      }
-    },
-    {
-      "from": [
-        5,
-        10.98,
-        2
-      ],
-      "to": [
-        11,
-        10.98,
-        5
-      ],
-      "shade": false,
-      "faces": {
-        "down": {
-          "uv": [
-            5,
-            5,
-            11,
-            11
-          ],
-          "texture": "#inner"
+          "texture": "#rail",
+          "tintindex": 0
         }
       }
     },
@@ -166,58 +139,58 @@
       ],
       "faces": {
         "down": {
+          "texture": "#collar",
           "uv": [
             4,
             4,
             12,
-            12
-          ],
-          "texture": "#collar"
+            6
+          ]
         },
         "up": {
+          "texture": "#collar",
           "uv": [
             4,
             4,
             12,
-            12
-          ],
-          "texture": "#collar"
+            6
+          ]
         },
         "north": {
+          "texture": "#collar",
           "uv": [
             4,
             4,
             12,
             12
-          ],
-          "texture": "#collar"
+          ]
         },
         "south": {
+          "texture": "#collar",
           "uv": [
             4,
             4,
             12,
             12
-          ],
-          "texture": "#collar"
+          ]
         },
         "west": {
+          "texture": "#collar",
           "uv": [
             4,
             4,
-            12,
+            6,
             12
-          ],
-          "texture": "#collar"
+          ]
         },
         "east": {
+          "texture": "#collar",
           "uv": [
             4,
             4,
-            12,
+            6,
             12
-          ],
-          "texture": "#collar"
+          ]
         }
       }
     }

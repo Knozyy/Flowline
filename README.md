@@ -9,6 +9,9 @@ Curvy Pipes is optional. When 1.15.8 is installed on client and server, the **sa
 pipe items** place curved lines too: a pipe in the **main hand always places a block pipe**; a pipe in the **off
 hand** has two modes, **Build for me** and **Curvy**, switched with the mode key (**B** by default) and shown under
 the crosshair, and right-click does the chosen mode's work. Without Curvy, the off hand only has Build for me.
+The **universal pipe** works in Curvy mode too: a curved line carries one resource, so the mode key cycles Build for
+me → Curvy: Items → Curvy: Fluids → Curvy: Energy, and the line is laid in the chosen channel (paid for with
+universal pipes).
 There are no separate curved items or conversion recipes. The Build for me introduction appears once for eight
 seconds and stays dismissed across restarts. The independent Flowline curve implementation has been removed.
 
@@ -31,30 +34,17 @@ See [curved-pipe controls and migration](docs/CURVED_PIPES_TR.md) and [Curvy's I
 | Universal Pipe | Moves items, fluids and energy at once. Each side can switch its **channels** (items / fluids / energy) on and off; rules are item rules unless marked as fluid rules. 3 from one of each pipe + a diamond. |
 | Chemical Pipe | Only with **Mekanism** installed: moves Mekanism chemicals (gases, infuse types, pigments, slurries). |
 | Flowline Wrench | **Sneak + right-click** a side to cycle: normal (Insert) → **Extract** → **disconnected** → normal. Right-click a side: open its screen. **Sneak + scroll** on a side: Extract sides cycle their distribution (with Ctrl: their redstone mode), Insert sides change their priority (Ctrl: ±10). Wrenches from other mods (tagged `forge:tools/wrench`: Create, Mekanism, Thermal...) do the same on pipes. |
-| Empty hand | Right-click a side: opens its config screen. Sneak + right-click with both hands empty: take a facade off. |
+| Empty hand | Right-click a side: opens its config screen. |
 | Pipe in the off hand, Build for me mode | Look at a block (up to `buildRange` = 32 blocks away): the route back to you is shown as **ghost pipes** with the number of pipes needed, around obstacles and with as few turns as possible. **Right-click** lays it. Each pipe is placed normally (protection mods apply, survival uses up the off-hand stack; ghosts past what you carry are drawn faint). The mode key (**B**, changeable in Controls) switches to Curvy. |
 | Speed / Stack / Filter / Knozy Upgrade | Six upgrade slots per side (GUI, or right-click the side). **Speed** lowers the starting interval, **Stack** multiplies the amount per operation, **Filter** adds filter entries, **Knozy** counts as all three. Insert sides only take Filter upgrades (for more insert rules); the rest is returned when a side goes back to Insert. Everything drops when the pipe is broken. |
-| Dye | Right-click a pipe with a dye: pipes of **two different colours never connect**, undyed pipes connect to every colour. Using the pipe's own colour again washes it off. |
-| Configuration Card | Sneak + right-click a side: copy its mode, settings and filter. Right-click another side: paste. Sneak + use in the air: clear. |
-| Filter Card | Same, but only the filter rules. |
-| Facade | Craft 8 blank facades (4 iron nuggets + paper), then a blank facade + any full block → a facade of that block. Right-click a pipe to hide it behind the block; the pipe keeps working. |
+| Dye | Right-click a pipe with a dye: its corner rails and node cage take the colour (the glass and end collars keep the pipe's own colour). Pipes of **two different colours never connect**, undyed pipes connect to every colour. Using the pipe's own colour again washes it off. |
+| Filter Card | Sneak + right-click a side: copy its filter rules. Right-click another side: paste them. Sneak + use in the air: clear. Mode, settings and upgrades are not copied. |
 
-Pipes can be **waterlogged**. Pipe walls have a window, and items moved by a pipe are drawn **travelling through
-it** (server: `sendItemAnimations`, client: `renderTravellingItems`, both can be turned off).
+With JEI or EMI installed, the pipes, the wrench, the upgrades and the Filter Card have short how-to pages.
 
-### See the network and fluid flow
-
-Hold a wrench, hold **Shift**, and look at a pipe to see its connected network through walls. Sources are green,
-targets orange, overflow targets purple, and pipes pale. Higher-priority targets are brighter; a small legend
-explains the colours. The view refreshes once per second and disappears when you release Shift or look away.
-The server can disable it with `network.allowNetworkView` or limit its distance with `network.networkViewRange`
-(32 blocks by default). Each player can turn it off with `renderNetworkView`.
-
-Moving fluid is drawn **inside fluid pipes**, using the fluid's own texture and tint. Its texture scrolls in the
-transfer direction, including bends and vertical runs, and fades about a second after the last transfer. This
-block-pipe renderer covers fluid pipes; normal universal, energy and chemical pipes do not use it. Curved lines use Curvy's own rendering. Facades
-hide the drawing. The server switch is `animations.sendFluidAnimations`; the client switch is `renderFluidInPipes`.
-Client limits default to **128 animated pipes** (`maxFluidPipes`) and **32 blocks** (`fluidRenderRange`).
+Pipes can be **waterlogged**. A pipe is a glass duct: four coloured rails on the corners, glass between them and a
+small cage where the pipe bends or branches. Pipes draw **no effects or animations** (nothing travels, flows or
+glows inside them), so they cost nothing beyond their block model.
 
 ### Sides
 
@@ -149,16 +139,15 @@ the number of Stack upgrades: items 16 × `[1, 2, 4 ... 64]` (16 to 1024 items),
 `[1, 2, 4 ... 64]` (1 to 64 buckets), energy 8000 FE/t × `[1, 4, 16, 64, 128, 256, 1024]` (8000 to 8192000 FE/t,
 a bit above Mekanism's basic to ultimate cables; energy pipes work every tick while they have something to move;
 amounts are capped at 2147483647 per operation), filter entries (`baseFilterSlots` = 9, `filterSlotsPerUpgrade` = 9), every pacing value
-above (`idleBackoffFactor` = 2), the max network size and network view permission/range (`[network]`),
-and `sendItemAnimations` / `sendFluidAnimations` (`[animations]`).
+above (`idleBackoffFactor` = 2), the max network size (`[network]`) and the Build for me range (`[building]`).
 
-`config/flowline-client.toml` (per player, editable from the same screen at any time): `renderTravellingItems`,
-`maxTravellingItems`, `ticksPerPipe`, `renderNetworkView`, `renderFluidInPipes`, `maxFluidPipes`, `fluidRenderRange`. The internal `buildForMeHintSeen` flag saves whether the one-time introduction was shown.
+`config/flowline-client.toml` only holds the internal `buildForMeHintSeen` flag, which saves whether the one-time
+Build for me introduction was shown.
 
-The network protocol is version 6: clients and servers need the same Flowline version for these visual packets.
+The network protocol is version 10: clients and servers need the same Flowline version.
 
 Pipes are see-through by default. Players who prefer solid pipes can enable the built-in **Flowline: Solid Pipes**
-resource pack (Options > Resource Packs).
+resource pack (Options > Resource Packs): it swaps the glass for frosted, opaque panels.
 
 ## Building
 

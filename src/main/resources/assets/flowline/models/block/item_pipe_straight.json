@@ -1,0 +1,130 @@
+{
+  "render_type": "minecraft:solid",
+  "textures": {
+    "rail": "flowline:block/pipe_rail",
+    "collar": "flowline:block/item_pipe_collar",
+    "particle": "flowline:block/item_pipe_collar"
+  },
+  "elements": [
+    {
+      "from": [
+        5,
+        5,
+        5
+      ],
+      "to": [
+        6,
+        6,
+        11
+      ],
+      "faces": {
+        "down": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#rail",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        10,
+        5
+      ],
+      "to": [
+        6,
+        11,
+        11
+      ],
+      "faces": {
+        "down": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#rail",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "from": [
+        10,
+        5,
+        5
+      ],
+      "to": [
+        11,
+        6,
+        11
+      ],
+      "faces": {
+        "down": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#rail",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "from": [
+        10,
+        10,
+        5
+      ],
+      "to": [
+        11,
+        11,
+        11
+      ],
+      "faces": {
+        "down": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "up": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#rail",
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#rail",
+          "tintindex": 0
+        }
+      }
+    }
+  ]
+}

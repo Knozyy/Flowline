@@ -1,8 +1,299 @@
 {
   "multipart": [
     {
+      "when": {
+        "north": "pipe|endpoint|extract",
+        "south": "pipe|endpoint|extract",
+        "east": "none",
+        "west": "none",
+        "up": "none",
+        "down": "none"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_straight"
+      }
+    },
+    {
+      "when": {
+        "north": "pipe|endpoint|extract",
+        "south": "pipe|endpoint|extract",
+        "east": "none",
+        "west": "none",
+        "up": "none",
+        "down": "none"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_straight_glass"
+      }
+    },
+    {
+      "when": {
+        "north": "none",
+        "south": "none",
+        "east": "pipe|endpoint|extract",
+        "west": "pipe|endpoint|extract",
+        "up": "none",
+        "down": "none"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_straight",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "north": "none",
+        "south": "none",
+        "east": "pipe|endpoint|extract",
+        "west": "pipe|endpoint|extract",
+        "up": "none",
+        "down": "none"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_straight_glass",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "north": "none",
+        "south": "none",
+        "east": "none",
+        "west": "none",
+        "up": "pipe|endpoint|extract",
+        "down": "pipe|endpoint|extract"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_straight",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "north": "none",
+        "south": "none",
+        "east": "none",
+        "west": "none",
+        "up": "pipe|endpoint|extract",
+        "down": "pipe|endpoint|extract"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_straight_glass",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "OR": [
+          {
+            "north": "pipe|endpoint|extract",
+            "east": "pipe|endpoint|extract"
+          },
+          {
+            "north": "pipe|endpoint|extract",
+            "west": "pipe|endpoint|extract"
+          },
+          {
+            "north": "pipe|endpoint|extract",
+            "up": "pipe|endpoint|extract"
+          },
+          {
+            "north": "pipe|endpoint|extract",
+            "down": "pipe|endpoint|extract"
+          },
+          {
+            "south": "pipe|endpoint|extract",
+            "east": "pipe|endpoint|extract"
+          },
+          {
+            "south": "pipe|endpoint|extract",
+            "west": "pipe|endpoint|extract"
+          },
+          {
+            "south": "pipe|endpoint|extract",
+            "up": "pipe|endpoint|extract"
+          },
+          {
+            "south": "pipe|endpoint|extract",
+            "down": "pipe|endpoint|extract"
+          },
+          {
+            "east": "pipe|endpoint|extract",
+            "up": "pipe|endpoint|extract"
+          },
+          {
+            "east": "pipe|endpoint|extract",
+            "down": "pipe|endpoint|extract"
+          },
+          {
+            "west": "pipe|endpoint|extract",
+            "up": "pipe|endpoint|extract"
+          },
+          {
+            "west": "pipe|endpoint|extract",
+            "down": "pipe|endpoint|extract"
+          },
+          {
+            "north": "none",
+            "south": "none",
+            "east": "none",
+            "west": "none",
+            "up": "none",
+            "down": "none"
+          },
+          {
+            "south": "none",
+            "east": "none",
+            "west": "none",
+            "up": "none",
+            "down": "none"
+          },
+          {
+            "north": "none",
+            "east": "none",
+            "west": "none",
+            "up": "none",
+            "down": "none"
+          },
+          {
+            "north": "none",
+            "south": "none",
+            "west": "none",
+            "up": "none",
+            "down": "none"
+          },
+          {
+            "north": "none",
+            "south": "none",
+            "east": "none",
+            "up": "none",
+            "down": "none"
+          },
+          {
+            "north": "none",
+            "south": "none",
+            "east": "none",
+            "west": "none",
+            "down": "none"
+          },
+          {
+            "north": "none",
+            "south": "none",
+            "east": "none",
+            "west": "none",
+            "up": "none"
+          }
+        ]
+      },
       "apply": {
         "model": "flowline:block/fluid_pipe_core"
+      }
+    },
+    {
+      "when": {
+        "OR": [
+          {
+            "north": "pipe|endpoint|extract",
+            "east": "pipe|endpoint|extract"
+          },
+          {
+            "north": "pipe|endpoint|extract",
+            "west": "pipe|endpoint|extract"
+          },
+          {
+            "north": "pipe|endpoint|extract",
+            "up": "pipe|endpoint|extract"
+          },
+          {
+            "north": "pipe|endpoint|extract",
+            "down": "pipe|endpoint|extract"
+          },
+          {
+            "south": "pipe|endpoint|extract",
+            "east": "pipe|endpoint|extract"
+          },
+          {
+            "south": "pipe|endpoint|extract",
+            "west": "pipe|endpoint|extract"
+          },
+          {
+            "south": "pipe|endpoint|extract",
+            "up": "pipe|endpoint|extract"
+          },
+          {
+            "south": "pipe|endpoint|extract",
+            "down": "pipe|endpoint|extract"
+          },
+          {
+            "east": "pipe|endpoint|extract",
+            "up": "pipe|endpoint|extract"
+          },
+          {
+            "east": "pipe|endpoint|extract",
+            "down": "pipe|endpoint|extract"
+          },
+          {
+            "west": "pipe|endpoint|extract",
+            "up": "pipe|endpoint|extract"
+          },
+          {
+            "west": "pipe|endpoint|extract",
+            "down": "pipe|endpoint|extract"
+          },
+          {
+            "north": "none",
+            "south": "none",
+            "east": "none",
+            "west": "none",
+            "up": "none",
+            "down": "none"
+          },
+          {
+            "south": "none",
+            "east": "none",
+            "west": "none",
+            "up": "none",
+            "down": "none"
+          },
+          {
+            "north": "none",
+            "east": "none",
+            "west": "none",
+            "up": "none",
+            "down": "none"
+          },
+          {
+            "north": "none",
+            "south": "none",
+            "west": "none",
+            "up": "none",
+            "down": "none"
+          },
+          {
+            "north": "none",
+            "south": "none",
+            "east": "none",
+            "up": "none",
+            "down": "none"
+          },
+          {
+            "north": "none",
+            "south": "none",
+            "east": "none",
+            "west": "none",
+            "down": "none"
+          },
+          {
+            "north": "none",
+            "south": "none",
+            "east": "none",
+            "west": "none",
+            "up": "none"
+          }
+        ]
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_core_glass"
       }
     },
     {
@@ -15,10 +306,26 @@
     },
     {
       "when": {
+        "north": "pipe"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_arm_glass"
+      }
+    },
+    {
+      "when": {
         "north": "endpoint"
       },
       "apply": {
         "model": "flowline:block/fluid_pipe_endpoint"
+      }
+    },
+    {
+      "when": {
+        "north": "endpoint"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_endpoint_glass"
       }
     },
     {
@@ -31,10 +338,27 @@
     },
     {
       "when": {
+        "north": "extract"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_extract_glass"
+      }
+    },
+    {
+      "when": {
         "east": "pipe"
       },
       "apply": {
         "model": "flowline:block/fluid_pipe_arm",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "east": "pipe"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_arm_glass",
         "y": 90
       }
     },
@@ -49,10 +373,28 @@
     },
     {
       "when": {
+        "east": "endpoint"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_endpoint_glass",
+        "y": 90
+      }
+    },
+    {
+      "when": {
         "east": "extract"
       },
       "apply": {
         "model": "flowline:block/fluid_pipe_extract",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "east": "extract"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_extract_glass",
         "y": 90
       }
     },
@@ -67,10 +409,28 @@
     },
     {
       "when": {
+        "south": "pipe"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_arm_glass",
+        "y": 180
+      }
+    },
+    {
+      "when": {
         "south": "endpoint"
       },
       "apply": {
         "model": "flowline:block/fluid_pipe_endpoint",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "south": "endpoint"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_endpoint_glass",
         "y": 180
       }
     },
@@ -85,10 +445,28 @@
     },
     {
       "when": {
+        "south": "extract"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_extract_glass",
+        "y": 180
+      }
+    },
+    {
+      "when": {
         "west": "pipe"
       },
       "apply": {
         "model": "flowline:block/fluid_pipe_arm",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "west": "pipe"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_arm_glass",
         "y": 270
       }
     },
@@ -103,10 +481,28 @@
     },
     {
       "when": {
+        "west": "endpoint"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_endpoint_glass",
+        "y": 270
+      }
+    },
+    {
+      "when": {
         "west": "extract"
       },
       "apply": {
         "model": "flowline:block/fluid_pipe_extract",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "west": "extract"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_extract_glass",
         "y": 270
       }
     },
@@ -121,10 +517,28 @@
     },
     {
       "when": {
+        "up": "pipe"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_arm_glass",
+        "x": 270
+      }
+    },
+    {
+      "when": {
         "up": "endpoint"
       },
       "apply": {
         "model": "flowline:block/fluid_pipe_endpoint",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "up": "endpoint"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_endpoint_glass",
         "x": 270
       }
     },
@@ -139,10 +553,28 @@
     },
     {
       "when": {
+        "up": "extract"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_extract_glass",
+        "x": 270
+      }
+    },
+    {
+      "when": {
         "down": "pipe"
       },
       "apply": {
         "model": "flowline:block/fluid_pipe_arm",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "down": "pipe"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_arm_glass",
         "x": 90
       }
     },
@@ -157,10 +589,28 @@
     },
     {
       "when": {
+        "down": "endpoint"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_endpoint_glass",
+        "x": 90
+      }
+    },
+    {
+      "when": {
         "down": "extract"
       },
       "apply": {
         "model": "flowline:block/fluid_pipe_extract",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "down": "extract"
+      },
+      "apply": {
+        "model": "flowline:block/fluid_pipe_extract_glass",
         "x": 90
       }
     }
