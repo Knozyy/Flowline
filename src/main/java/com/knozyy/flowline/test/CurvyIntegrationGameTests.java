@@ -207,6 +207,51 @@ public final class CurvyIntegrationGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
+    public static void universalPipeFollowsItsChosenCurvyChannel(GameTestHelper helper) {
+        if (!CurvyPipesCompat.available()) { helper.succeed(); return; }
+        var player = helper.makeMockPlayer();
+        var pos = helper.absolutePos(new BlockPos(1, 2, 1));
+        var hit = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
+        var universal = ModItems.UNIVERSAL_PIPE.get();
+        try {
+            helper.assertTrue(CurvyPipesCompat.universal(new ItemStack(universal)), "universal pipe must be recognized");
+            var method = Class.forName("cyb0124.curvy_pipes.common.CommonHandler").getDeclaredMethod("onRightClickBlock",
+                    net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock.class);
+            for (int channel = 0; channel < CurvyPipesCompat.CHANNELS.size(); channel++) {
+                String name = CurvyPipesCompat.CHANNELS.get(channel);
+                var nativeItem = ForgeRegistries.ITEMS.getValue(CurvyPipesCompat.universalId(name));
+                helper.assertTrue(nativeItem != null && nativeItem != net.minecraft.world.item.Items.AIR,
+                        "native universal " + name + " item must be registered");
+                helper.assertTrue(CurvyPipesCompat.resolveMaterial(CurvyPipesCompat.universalId(name).toString()) == universal,
+                        "native universal " + name + " must be paid for with the universal pipe");
+                helper.assertTrue(CurvyPipesCompat.nativeId(new ItemStack(universal), channel)
+                        == net.minecraft.world.item.Item.getId(nativeItem), "channel id mapping");
+                player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(universal, 3));
+                player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(universal, 3));
+                OffhandMode.setChannel(player, channel);
+                for (OffhandMode mode : OffhandMode.values()) {
+                    OffhandMode.set(player, mode);
+                    for (InteractionHand hand : InteractionHand.values()) {
+                        var event = new net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock(player, hand, pos, hit);
+                        method.invoke(null, event);
+                        boolean intercepted = event.getUseItem() == net.minecraftforge.eventbus.api.Event.Result.DENY;
+                        // intercepted here means native Curvy resolved the universal pipe as a pipe of this channel
+                        boolean expected = hand == InteractionHand.OFF_HAND && mode == OffhandMode.CURVY;
+                        helper.assertTrue(intercepted == expected, "universal " + name + " " + hand + " " + mode
+                                + " intercepted=" + intercepted);
+                    }
+                }
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        } finally {
+            OffhandMode.set(player, OffhandMode.BUILD);
+            OffhandMode.setChannel(player, 0);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
     public static void nativeConfigPreservesUserPipesAndIntegrations(GameTestHelper helper) {
         String yaml = "ignore_unknown_pipes: false\nae2: {cables: OffHand}\npipe_types:\n"
                 + "  - {id: custom, name: Custom, texture: curvy_pipes:block/item_pipe, diameter: 0.1, variant: {Item: {rate: 1E3}}}\n";
@@ -214,15 +259,17 @@ public final class CurvyIntegrationGameTests {
         var config = JsonParser.parseString(merged).getAsJsonObject();
         helper.assertTrue(config.getAsJsonObject("ae2").get("cables").getAsString().equals("OffHand"),
                 "Curvy integration settings must survive");
+        // item/fluid/energy plus one native definition per universal channel
+        int native_ = CurvyPipesCompat.TYPES.size() + CurvyPipesCompat.CHANNELS.size();
         var pipes = config.getAsJsonArray("pipe_types");
         helper.assertTrue(pipes.get(0).getAsJsonObject().getAsJsonObject("variant").getAsJsonObject("Item")
                 .get("rate").getAsJsonPrimitive().isNumber(), "Curvy scientific notation must remain numeric");
-        helper.assertTrue(pipes.size() == 4 && pipes.get(0).getAsJsonObject().get("id").getAsString().equals("custom"),
+        helper.assertTrue(pipes.size() == 1 + native_ && pipes.get(0).getAsJsonObject().get("id").getAsString().equals("custom"),
                 "User pipe definitions must survive");
         helper.assertTrue(JsonParser.parseString(CurvyPipesCompat.withFlowlinePipes(merged)).getAsJsonObject()
-                .getAsJsonArray("pipe_types").size() == 4, "Repeated loading must not duplicate pipe IDs");
+                .getAsJsonArray("pipe_types").size() == 1 + native_, "Repeated loading must not duplicate pipe IDs");
         helper.assertTrue(JsonParser.parseString(CurvyPipesCompat.withFlowlinePipes("ae2: {cables: Disable}\n"))
-                .getAsJsonObject().getAsJsonArray("pipe_types").size() == 3, "Integration-only configs must work");
+                .getAsJsonObject().getAsJsonArray("pipe_types").size() == native_, "Integration-only configs must work");
         helper.succeed();
     }
 }

@@ -37,6 +37,8 @@ import java.util.List;
 public final class OffhandPipe {
     private static final double CORE = 5 / 16.0;
     private static OffhandMode mode = OffhandMode.BUILD;
+    /** Which native Curvy channel a universal pipe lays (index into {@link CurvyPipesCompat#CHANNELS}). */
+    private static int channel;
     /** The planned route and what it was planned for; replanned when the target or the player's block changes. */
     private static List<BlockPos> route = List.of();
     @Nullable
@@ -51,6 +53,14 @@ public final class OffhandPipe {
     /** Curvy mode only exists with Curvy Pipes installed. */
     public static OffhandMode mode() {
         return CurvyPipesCompat.available() ? mode : OffhandMode.BUILD;
+    }
+
+    public static int channel() {
+        return channel;
+    }
+
+    private static boolean universal(Player player) {
+        return player != null && CurvyPipesCompat.universal(player.getOffhandItem());
     }
 
     public static boolean holding(@Nullable Player player) {
@@ -68,7 +78,13 @@ public final class OffhandPipe {
             mc.player.displayClientMessage(Component.translatable("message.flowline.offhand.no_curvy"), true);
             return;
         }
-        mode = mode.next();
+        // a universal pipe has three Curvy channels: Build for me -> Curvy item -> Curvy fluid -> Curvy energy -> back
+        if (mode() == OffhandMode.CURVY && universal(mc.player) && channel < CurvyPipesCompat.CHANNELS.size() - 1) {
+            channel++;
+        } else {
+            mode = mode.next();
+            channel = 0;
+        }
         sync();
         clearRoute();
         mc.player.displayClientMessage(Component.translatable("message.flowline.offhand.switched", modeName()), true);
@@ -76,11 +92,15 @@ public final class OffhandPipe {
 
     /** Tells the server the current mode, e.g. after joining a world. */
     public static void sync() {
-        ModNetwork.sendToServer(new OffhandModePayload(mode()));
+        ModNetwork.sendToServer(new OffhandModePayload(mode(), channel));
     }
 
     private static Component modeName() {
-        return Component.translatable(mode() == OffhandMode.CURVY ? "hud.flowline.mode.curvy" : "hud.flowline.mode.build");
+        if (mode() != OffhandMode.CURVY) return Component.translatable("hud.flowline.mode.build");
+        Minecraft mc = Minecraft.getInstance();
+        if (!universal(mc.player)) return Component.translatable("hud.flowline.mode.curvy");
+        return Component.translatable("hud.flowline.mode.curvy_channel",
+                Component.translatable("hud.flowline.channel." + CurvyPipesCompat.CHANNELS.get(channel)));
     }
 
     /** Whether the route preview applies right now: off-hand pipe, Build for me mode, no pipe in the main hand. */

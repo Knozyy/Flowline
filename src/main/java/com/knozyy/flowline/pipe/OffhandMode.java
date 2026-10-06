@@ -15,6 +15,7 @@ public enum OffhandMode {
     CURVY;
 
     private static final Map<Player, OffhandMode> SERVER = new WeakHashMap<>();
+    private static final Map<Player, Integer> CHANNEL = new WeakHashMap<>();
 
     public OffhandMode next() {
         return this == BUILD ? CURVY : BUILD;
@@ -31,5 +32,17 @@ public enum OffhandMode {
 
     public static void set(Player player, OffhandMode mode) {
         SERVER.put(player, mode);
+    }
+
+    /**
+     * Server: which native Curvy channel (index into {@code CurvyPipesCompat.CHANNELS}) a universal pipe in the off hand
+     * lays in Curvy mode. Other pipes ignore it.
+     */
+    public static int channelOf(Player player) {
+        return CHANNEL.getOrDefault(player, 0);
+    }
+
+    public static void setChannel(Player player, int channel) {
+        CHANNEL.put(player, channel);
     }
 }

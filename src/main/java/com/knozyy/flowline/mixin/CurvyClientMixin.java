@@ -2,6 +2,7 @@ package com.knozyy.flowline.mixin;
 
 import com.knozyy.flowline.client.OffhandPipe;
 import com.knozyy.flowline.compat.CurvyPipesCompat;
+import com.knozyy.flowline.compat.UniversalChannel;
 import com.knozyy.flowline.pipe.OffhandMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionHand;
@@ -39,6 +40,20 @@ public abstract class CurvyClientMixin {
         if (event.isAttack() && (main || off && !flowline$curvyOffhand())) ci.cancel();
     }
 
+    /** Native `interact` asks for the item id of the held stack; a universal pipe answers with its channel's native one. */
+    @Inject(method = "onInteract", at = @At(value = "INVOKE",
+            target = "Lcyb0124/curvy_pipes/client/ClientHandler;interact(Lnet/minecraft/world/phys/HitResult;Lnet/minecraft/world/item/ItemStack;Z)Z"))
+    private static void flowline$channelBefore(InputEvent.InteractionKeyMappingTriggered event, CallbackInfo ci) {
+        var player = Minecraft.getInstance().player;
+        if (player != null) UniversalChannel.pending(player, event.getHand());
+    }
+
+    @Inject(method = "onInteract", at = @At(value = "INVOKE", shift = At.Shift.AFTER,
+            target = "Lcyb0124/curvy_pipes/client/ClientHandler;interact(Lnet/minecraft/world/phys/HitResult;Lnet/minecraft/world/item/ItemStack;Z)Z"))
+    private static void flowline$channelAfter(InputEvent.InteractionKeyMappingTriggered event, CallbackInfo ci) {
+        UniversalChannel.clear();
+    }
+
     @ModifyArg(method = "renderLevel(Lnet/minecraftforge/client/event/RenderLevelStageEvent;)V",
             at = @At(value = "INVOKE", target = "Lcyb0124/curvy_pipes/client/ClientHandler;renderLevel(DDDZZIIIIDFII)V"), index = 11)
     private static int flowline$noMainHandCurvePreview(int itemId) {
@@ -51,6 +66,7 @@ public abstract class CurvyClientMixin {
     private static int flowline$offhandCurvePreviewInCurvyMode(int itemId) {
         var player = Minecraft.getInstance().player;
         if (player == null || !CurvyPipesCompat.supported(player.getOffhandItem())) return itemId;
-        return flowline$curvyOffhand() ? itemId : 0;
+        if (!flowline$curvyOffhand()) return 0;
+        return CurvyPipesCompat.nativeId(player.getOffhandItem(), OffhandPipe.channel());
     }
 }

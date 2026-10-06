@@ -58,6 +58,24 @@ public abstract class CurvyConfigMixin {
                 || OffhandMode.of(event.getEntity()) != OffhandMode.CURVY);
     }
 
+    /** A universal pipe in Curvy mode is looked up as the native pipe of its channel; see UniversalChannel. */
+    @Inject(method = "itemId", at = @At("RETURN"), cancellable = true)
+    private static void flowline$universalChannel(net.minecraft.world.item.ItemStack stack, CallbackInfoReturnable<Integer> cir) {
+        cir.setReturnValue(com.knozyy.flowline.compat.UniversalChannel.rewrite(stack, cir.getReturnValue()));
+    }
+
+    @Inject(method = "onRightClickBlock", at = @At(value = "INVOKE",
+            target = "Lcyb0124/curvy_pipes/common/CommonHandler;itemId(Lnet/minecraft/world/item/ItemStack;)I"))
+    private static void flowline$blockChannel(PlayerInteractEvent.RightClickBlock event, CallbackInfo ci) {
+        com.knozyy.flowline.compat.UniversalChannel.pending(event.getEntity(), event.getHand());
+    }
+
+    @Inject(method = "onRightClickItem", at = @At(value = "INVOKE",
+            target = "Lcyb0124/curvy_pipes/common/CommonHandler;itemId(Lnet/minecraft/world/item/ItemStack;)I"))
+    private static void flowline$itemChannel(PlayerInteractEvent.RightClickItem event, CallbackInfo ci) {
+        com.knozyy.flowline.compat.UniversalChannel.pending(event.getEntity(), event.getHand());
+    }
+
     @Inject(method = "onRightClickBlock", at = @At("HEAD"), cancellable = true)
     private static void flowline$normalBlockPlacement(PlayerInteractEvent.RightClickBlock event, CallbackInfo ci) {
         if (flowline$notCurvy(event)) ci.cancel();
