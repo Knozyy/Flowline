@@ -10,7 +10,7 @@
     },
     {
       "type": "patchouli:text",
-      "text": "$(thing)Insert$() sides have a $(thing)priority$(), an insert filter, $(thing)Max ≤$() (keep at most this much in the target) and $(thing)Overflow$(): a target that only gets what the others could not take.$(br2)Right-click a side with the wrench or an empty hand to open its screen."
+      "text": "$(thing)Insert$() sides have a $(thing)priority$(), an insert filter, $(thing)Max ≤$() (keep at most this much in the target) and $(thing)Overflow$(): a target that only gets what the others could not take.$(br2)Right-click a side to open its screen, whatever you hold (like a chest); sneak to place a block against the pipe instead."
     }
   ]
 }

@@ -90,7 +90,7 @@ EN = {
         ]),
         "modes": ("Extract and Insert", [
             text("$(thing)Extract$() sides have a redstone mode, a distribution mode, redstone output, a filter, upgrades, $(thing)Keep ≥$() (leave at least this much in the source) and, on energy, an FE/t limit."),
-            text("$(thing)Insert$() sides have a $(thing)priority$(), an insert filter, $(thing)Max ≤$() (keep at most this much in the target) and $(thing)Overflow$(): a target that only gets what the others could not take." + BR2 + "Right-click a side with the wrench or an empty hand to open its screen."),
+            text("$(thing)Insert$() sides have a $(thing)priority$(), an insert filter, $(thing)Max ≤$() (keep at most this much in the target) and $(thing)Overflow$(): a target that only gets what the others could not take." + BR2 + "Right-click a side to open its screen, whatever you hold (like a chest); sneak to place a block against the pipe instead."),
         ]),
         "distribution": ("Distribution and Redstone", [
             text("Distribution: $(thing)Nearest$(), $(thing)Farthest$(), $(thing)Round robin$(), $(thing)Random$(), $(thing)Balanced$() (splits an operation evenly) and $(thing)Priority$() (highest insert priority first)."),
@@ -175,7 +175,7 @@ TR = {
         ]),
         "modes": ("Extract ve Insert", [
             text("$(thing)Extract$() taraflarının redstone modu, dağıtım modu, redstone çıktısı, filtresi, yükseltmeleri, $(thing)Keep ≥$() (kaynakta en az bu kadar bırak) ve enerjide FE/t sınırı vardır."),
-            text("$(thing)Insert$() taraflarının $(thing)önceliği$(), bir alıcı filtresi, $(thing)Max ≤$() (hedefte en fazla bu kadar tut) ve $(thing)Overflow$() (taşma) vardır: yalnızca diğerlerinin alamadığını alan hedef." + BR2 + "Ekranını açmak için bir tarafa anahtarla ya da boş elle sağ tıklayın."),
+            text("$(thing)Insert$() taraflarının $(thing)önceliği$(), bir alıcı filtresi, $(thing)Max ≤$() (hedefte en fazla bu kadar tut) ve $(thing)Overflow$() (taşma) vardır: yalnızca diğerlerinin alamadığını alan hedef." + BR2 + "Ekranını açmak için bir tarafa sağ tıklayın; elinizde ne olduğu önemli değil (sandık gibi). Boruya blok koymak için eğilerek tıklayın."),
         ]),
         "distribution": ("Dağıtım ve Redstone", [
             text("Dağıtım: $(thing)En yakın$(), $(thing)En uzak$(), $(thing)Sırayla$(), $(thing)Rastgele$(), $(thing)Dengeli$() (bir işlemi eşit böler) ve $(thing)Öncelik$() (en yüksek öncelik önce)."),

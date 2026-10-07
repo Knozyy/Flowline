@@ -264,8 +264,9 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
     // ---- interaction ------------------------------------------------------------------------------------------
 
     /**
-     * Tools configure the clicked side, dyes paint the pipe, an empty hand opens the side's screen. Any other held item
-     * keeps its normal behaviour, e.g. placing a block against the pipe.
+     * Tools configure the clicked side and dyes paint the pipe. Anything else in the main hand opens the side's screen,
+     * like a chest: sneak to place a block against the pipe instead (the game skips the block while sneaking with an
+     * item). A pipe in hand keeps laying pipes.
      */
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
@@ -279,8 +280,10 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
             if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be) paint(be, dye.getDyeColor(), player, stack);
             return InteractionResult.sidedSuccess(level.isClientSide);
         }
-        if (!stack.isEmpty() || hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
-        return useEmptyHand(state, level, pos, player, hit);
+        if (hand != InteractionHand.MAIN_HAND || com.knozyy.flowline.compat.CurvyPipesCompat.pipe(stack)) {
+            return InteractionResult.PASS;
+        }
+        return openSide(state, level, pos, player, hit);
     }
 
     /**
@@ -312,9 +315,8 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
         tool.useOnPipe(be, side, state.getValue(prop(side)), player, hand, stack);
     }
 
-    /** Empty-handed click on an endpoint side opens that side's configuration screen. */
-    private InteractionResult useEmptyHand(BlockState state, Level level, BlockPos pos, Player player,
-                                           BlockHitResult hit) {
+    /** A click on an endpoint side opens that side's configuration screen. */
+    private InteractionResult openSide(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         PipeBlockEntity be = level.getBlockEntity(pos) instanceof PipeBlockEntity pipe ? pipe : null;
         Direction side = sideFromHit(hit, pos);
         Conn conn = state.getValue(prop(side));

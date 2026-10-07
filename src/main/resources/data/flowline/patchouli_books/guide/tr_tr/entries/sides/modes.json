@@ -10,7 +10,7 @@
     },
     {
       "type": "patchouli:text",
-      "text": "$(thing)Insert$() taraflarının $(thing)önceliği$(), bir alıcı filtresi, $(thing)Max ≤$() (hedefte en fazla bu kadar tut) ve $(thing)Overflow$() (taşma) vardır: yalnızca diğerlerinin alamadığını alan hedef.$(br2)Ekranını açmak için bir tarafa anahtarla ya da boş elle sağ tıklayın."
+      "text": "$(thing)Insert$() taraflarının $(thing)önceliği$(), bir alıcı filtresi, $(thing)Max ≤$() (hedefte en fazla bu kadar tut) ve $(thing)Overflow$() (taşma) vardır: yalnızca diğerlerinin alamadığını alan hedef.$(br2)Ekranını açmak için bir tarafa sağ tıklayın; elinizde ne olduğu önemli değil (sandık gibi). Boruya blok koymak için eğilerek tıklayın."
     }
   ]
 }

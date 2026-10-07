@@ -855,8 +855,8 @@ en.update({
     "guide.flowline.pipes.1": "Pipes connect to pipes of the same type and to any block that can hold what they carry.",
     "guide.flowline.pipes.2": "A pipe moves nothing by itself: sneak + right-click a side with a wrench to make it Extract. "
                               "That side takes from its block and gives to the other blocks attached to the network.",
-    "guide.flowline.pipes.3": "Right-click a side with an empty hand to open its screen: filters, distribution, redstone "
-                              "and upgrades.",
+    "guide.flowline.pipes.3": "Right-click a side to open its screen, whatever you hold: filters, distribution, redstone "
+                              "and upgrades. Sneak + right-click to place a block against the pipe instead.",
     "guide.flowline.pipes.4": "Dye pipes to keep networks apart: two different colours never connect. A pipe in the off "
                               "hand lays a whole route (Build for me); the mode key, B by default, switches modes.",
     "guide.flowline.universal_pipe.1": "Moves items, fluids and energy at once. Each side can switch its channels on "
@@ -879,8 +879,8 @@ tr.update({
     "guide.flowline.pipes.1": "Borular aynı türden borulara ve taşıdıkları şeyi tutabilen her bloğa bağlanır.",
     "guide.flowline.pipes.2": "Boru kendiliğinden hiçbir şey taşımaz: bir tarafı Çek yapmak için anahtarla Shift + sağ "
                               "tıkla. O taraf bloğundan alır, ağa bağlı diğer bloklara verir.",
-    "guide.flowline.pipes.3": "Bir tarafın ekranını açmak için boş elle sağ tıkla: filtreler, dağıtım, redstone ve "
-                              "yükseltmeler.",
+    "guide.flowline.pipes.3": "Elinde ne olursa olsun bir tarafa sağ tıklayınca ekranı açılır: filtreler, dağıtım, "
+                              "redstone ve yükseltmeler. Boruya blok koymak için Shift + sağ tıkla.",
     "guide.flowline.pipes.4": "Ağları ayırmak için boruları boya: iki farklı renk asla bağlanmaz. Sol eldeki boru bütün "
                               "bir yolu döşer (Benim için döşe); mod tuşu, varsayılan B, modu değiştirir.",
     "guide.flowline.universal_pipe.1": "Eşya, sıvı ve enerjiyi aynı anda taşır. Her taraf kanallarını kendi ekranından "

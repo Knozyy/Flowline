@@ -391,7 +391,7 @@
   "hud.flowline.build.aim": "Look at a block within %s blocks",
   "guide.flowline.pipes.1": "Pipes connect to pipes of the same type and to any block that can hold what they carry.",
   "guide.flowline.pipes.2": "A pipe moves nothing by itself: sneak + right-click a side with a wrench to make it Extract. That side takes from its block and gives to the other blocks attached to the network.",
-  "guide.flowline.pipes.3": "Right-click a side with an empty hand to open its screen: filters, distribution, redstone and upgrades.",
+  "guide.flowline.pipes.3": "Right-click a side to open its screen, whatever you hold: filters, distribution, redstone and upgrades. Sneak + right-click to place a block against the pipe instead.",
   "guide.flowline.pipes.4": "Dye pipes to keep networks apart: two different colours never connect. A pipe in the off hand lays a whole route (Build for me); the mode key, B by default, switches modes.",
   "guide.flowline.universal_pipe.1": "Moves items, fluids and energy at once. Each side can switch its channels on and off in its screen.",
   "guide.flowline.universal_pipe.2": "With Curvy Pipes installed, the mode key cycles Build for me, Curvy: Items, Curvy: Fluids and Curvy: Energy; a curved line carries the chosen one.",

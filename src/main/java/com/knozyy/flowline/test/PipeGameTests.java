@@ -841,6 +841,26 @@ public class PipeGameTests {
 
     // ---- cards, water ------------------------------------------------------------------------------------
 
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void anyHeldItemOpensASideLikeAChest(GameTestHelper helper) {
+        PipeBlockEntity first = line(helper, 1);
+        var level = helper.getLevel();
+        BlockPos pos = first.getBlockPos();
+        PipeBlock.updateConnections(level, pos);
+        BlockState state = level.getBlockState(pos);
+        helper.assertTrue(state.getValue(PipeBlock.prop(Direction.WEST)).isEndpoint(), "the chest side is an endpoint");
+        var hit = new net.minecraft.world.phys.BlockHitResult(
+                new net.minecraft.world.phys.Vec3(pos.getX() + 0.1, pos.getY() + 0.5, pos.getZ() + 0.5), Direction.WEST, pos, false);
+        Player player = helper.makeMockPlayer();
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Blocks.STONE));
+        helper.assertTrue(state.use(level, player, net.minecraft.world.InteractionHand.MAIN_HAND, hit).consumesAction(),
+                "a block in hand still opens the side, like a chest");
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(ModBlocks.ITEM_PIPE.get()));
+        helper.assertTrue(state.use(level, player, net.minecraft.world.InteractionHand.MAIN_HAND, hit)
+                == net.minecraft.world.InteractionResult.PASS, "a pipe in hand keeps laying pipes");
+        helper.succeed();
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 60)
     public static void onlyPipesAttachedToBlocksTick(GameTestHelper helper) {
         PipeBlockEntity first = line(helper, 3);

@@ -409,7 +409,7 @@
   "hud.flowline.build.aim": "%s blok içinde bir bloğa bak",
   "guide.flowline.pipes.1": "Borular aynı türden borulara ve taşıdıkları şeyi tutabilen her bloğa bağlanır.",
   "guide.flowline.pipes.2": "Boru kendiliğinden hiçbir şey taşımaz: bir tarafı Çek yapmak için anahtarla Shift + sağ tıkla. O taraf bloğundan alır, ağa bağlı diğer bloklara verir.",
-  "guide.flowline.pipes.3": "Bir tarafın ekranını açmak için boş elle sağ tıkla: filtreler, dağıtım, redstone ve yükseltmeler.",
+  "guide.flowline.pipes.3": "Elinde ne olursa olsun bir tarafa sağ tıklayınca ekranı açılır: filtreler, dağıtım, redstone ve yükseltmeler. Boruya blok koymak için Shift + sağ tıkla.",
   "guide.flowline.pipes.4": "Ağları ayırmak için boruları boya: iki farklı renk asla bağlanmaz. Sol eldeki boru bütün bir yolu döşer (Benim için döşe); mod tuşu, varsayılan B, modu değiştirir.",
   "guide.flowline.universal_pipe.1": "Eşya, sıvı ve enerjiyi aynı anda taşır. Her taraf kanallarını kendi ekranından açıp kapatabilir.",
   "guide.flowline.universal_pipe.2": "Curvy Pipes kuruluysa mod tuşu Benim için döşe, Curvy: Eşya, Curvy: Sıvı ve Curvy: Enerji arasında döner; kıvrımlı hat seçilen kanalı taşır.",
