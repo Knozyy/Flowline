@@ -1,13 +1,17 @@
 # Changelog
 
-## 0.3.2
+## 0.3.5
 
 - New look: every pipe is a glass duct with coloured rails on its corners and a small cage only where it bends or
   branches. Each kind has its own pastel colour; the Solid Pipes resource pack swaps the glass for frosted panels.
 - Dyes now colour the whole pipe (rails and cages); the glass and end collars keep the pipe's own colour.
 - The universal pipe works with Curvy Pipes: in the off hand the mode key cycles Build for me, Curvy: Items,
   Curvy: Fluids and Curvy: Energy.
-- New wrench, held like a tool. New upgrade and Filter Card icons; the pipe screens use the pipe colours.
+- New wrench, held like a tool. Upgrades are drawn as cards in their own colours and the Filter Card as a light card
+  with gold contacts, so the two no longer look alike. The pipe screens use the pipe colours.
+- Right-clicking a pipe side opens its screen whatever you hold, like a chest; sneak + right-click places a block
+  against the pipe instead, and a pipe in hand keeps laying pipes.
+- The tag list's Any/All tooltip now names the same option as its button.
 - JEI and EMI show short how-to pages on the pipes, the wrench, the upgrades and the Filter Card.
 - Faster: pipes that are not attached to any block no longer tick, and only the glass is drawn as translucent.
   Pipes draw no effects or animations any more, so the server sends no visual packets.
