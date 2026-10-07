@@ -198,22 +198,27 @@ def wrench_texture():
 
 write_png(f"assets/{MODID}/textures/item/wrench.png", wrench_texture())
 
-def module_icon(symbol, accent, card=False):
-    """A pipe seen end-on, like the glass ducts: dark frame, the four corner rails in the accent colour, dark glass with
-    `symbol` (a set of (x, y) pixels) in the accent colour. A card has a punched corner hole instead of a rail."""
-    frame, glass_c = (0x4A, 0x52, 0x5E), mix(DARK, accent, 0.18)
+CARD_CUT = ((10, 1), (11, 1), (12, 1), (11, 2), (12, 2), (12, 3))   # the cut top-right corner
+
+
+def card_icon(body, symbol, symbol_colour, stripe=None, contacts=False):
+    """A portrait card with a cut corner (upgrades and the Filter Card): `symbol` pixels on it, and either a coloured
+    stripe along the bottom (upgrades) or gold contacts (the Filter Card). Lit from the upper left, dark outline."""
     grid = [[None] * 16 for _ in range(16)]
-    for y in range(2, 14):
-        for x in range(2, 14):
-            grid[y][x] = glass_c if 4 <= x <= 11 and 4 <= y <= 11 else frame
-    rails = ((2, 2), (3, 2), (2, 3), (13, 2), (12, 2), (13, 3), (2, 13), (2, 12), (3, 13), (13, 13), (12, 13), (13, 12))
-    for x, y in rails:
-        grid[y][x] = accent
-    if card:
-        for x, y in ((13, 2), (12, 2), (13, 3)):
-            grid[y][x] = None
+    for y in range(1, 15):
+        for x in range(3, 13):
+            grid[y][x] = body
+    for x, y in CARD_CUT:
+        grid[y][x] = None
+    if stripe:
+        for x in range(3, 13):
+            grid[13][x] = grid[14][x] = stripe
+    if contacts:
+        for x in range(4, 12, 2):
+            grid[12][x] = grid[13][x] = (0xE8, 0xC4, 0x6A)
     for x, y in symbol:
-        grid[y][x] = accent
+        if y <= 12:
+            grid[y][x] = symbol_colour
     out = [[(0, 0, 0, 0)] * 16 for _ in range(16)]
     for y in range(16):
         for x in range(16):
@@ -248,14 +253,13 @@ UPGRADE_ART = {
                              (10, (7, 8))]), TYPES["chemical"]),
     "knozy_upgrade": (chevrons((5, 8), 3, 5) | bars([(9, (4, 11)), (11, (4, 11))]), TYPES["universal"]),
 }
+# upgrades: dark cards with a big symbol and a stripe in their colour
 for up_name, (symbol, accent) in UPGRADE_ART.items():
-    write_png(f"assets/{MODID}/textures/item/{up_name}.png", module_icon(symbol, accent))
+    write_png(f"assets/{MODID}/textures/item/{up_name}.png",
+              card_icon((0x4A, 0x52, 0x5E), symbol, accent, stripe=tuple(int(c * 0.75) for c in accent)))
 
 
-CARD_ART = {
-    # a funnel: copies only the filter
-    "filter_card": (bars([(4, (4, 11)), (5, (5, 10)), (6, (6, 9)), (7, (7, 8)), (8, (7, 8)), (9, (7, 8))]),
-                    TYPES["chemical"]),
-}
-for card_name, (symbol, accent) in CARD_ART.items():
-    write_png(f"assets/{MODID}/textures/item/{card_name}.png", module_icon(symbol, accent, card=True))
+# the Filter Card: a light card with gold contacts and a small funnel, so it never looks like the Filter Upgrade
+write_png(f"assets/{MODID}/textures/item/filter_card.png",
+          card_icon((0xC8, 0xCE, 0xD6), bars([(5, (5, 9)), (6, (6, 8)), (7, (7, 7)), (8, (7, 7))]), (0x3E, 0x9A, 0x5E),
+                    contacts=True))
