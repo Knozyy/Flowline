@@ -245,7 +245,7 @@ public class RuleEditorScreen extends AbstractContainerScreen<RuleEditorScreen.B
                     validate();
                 }));
         tips.add(new Tip(anyAllButton, () -> List.of(
-                Component.translatable(allTags ? "gui.flowline.library.all" : "gui.flowline.library.any"),
+                Component.translatable(allTags ? "gui.flowline.library.all_short" : "gui.flowline.library.any_short"),
                 Component.translatable(allTags ? "gui.flowline.library.all.desc" : "gui.flowline.library.any.desc")
                         .withStyle(ChatFormatting.GRAY))));
         searchBox = field(MID_L + 3, 34, MID_R - MID_L - 6, 128, Component.translatable("gui.flowline.library.search")
