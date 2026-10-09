@@ -290,6 +290,20 @@ public class AuditGameTests {
         h.succeed();
     }
 
+    private static net.minecraft.resources.ResourceLocation id(String path) {
+        return new net.minecraft.resources.ResourceLocation("flowline", path);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void removedItemsMapToTheirSuccessors(GameTestHelper h) {
+        h.assertTrue(com.knozyy.flowline.registry.RemovedItems.replacement(id("config_card")) == ModItems.FILTER_CARD.get(),
+                "old Configuration Cards become Filter Cards");
+        h.assertTrue(com.knozyy.flowline.registry.RemovedItems.replacement(id("facade")) == null
+                && com.knozyy.flowline.registry.RemovedItems.dropped(id("facade")), "facades are dropped without a warning");
+        h.assertTrue(!com.knozyy.flowline.registry.RemovedItems.dropped(id("item_pipe")), "nothing else is touched");
+        h.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void guidePagesAreTranslated(GameTestHelper h) {
         for (String code : new String[]{"en_us", "tr_tr"}) {

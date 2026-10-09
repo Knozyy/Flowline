@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.6
+
+- Worlds from before 0.3 open without Forge's missing-entries warning: Configuration Cards become Filter Cards
+  (their filter rules stay) and facade items are dropped.
+
 ## 0.3.5
 
 - New look: every pipe is a glass duct with coloured rails on its corners and a small cage only where it bends or
