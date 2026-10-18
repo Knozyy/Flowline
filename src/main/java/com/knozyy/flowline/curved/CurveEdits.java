@@ -25,7 +25,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.DyeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -266,6 +268,27 @@ public final class CurveEdits {
 
     /** The end on node {@code nodeId} the player may use: it exists, is in reach, and its block holds what it carries. */
     @Nullable
+    // ---- painting -----------------------------------------------------------------------------------------
+
+    /**
+     * Dyes a curved edge with the dye in {@code hand}, like a block pipe: its own colour again washes it off, a new
+     * colour costs one dye in survival. Block pipe faces at its ends are worked out again, so a colour that no longer
+     * matches lets go.
+     */
+    public static EditResult paint(ServerPlayer player, long edgeId, InteractionHand hand) {
+        CurveData data = CurveData.get(player.serverLevel());
+        CurveEdge edge = data.graph().edge(edgeId).orElse(null);
+        ItemStack stack = player.getItemInHand(hand);
+        if (edge == null || !(stack.getItem() instanceof DyeItem dye)) return EditResult.error(PlaceError.INVALID_OBJECT);
+        if (edge.shape().points().stream().allMatch(p -> tooFar(player, p))) return EditResult.error(PlaceError.TOO_FAR);
+        EdgeInfo info = data.info(edgeId);
+        int colour = dye.getDyeColor().getId();
+        boolean wash = info.color() == colour;
+        data.putEdge(edge, new EdgeInfo(info.type(), wash ? PipeBlockEntity.NO_COLOR : colour, info.start(), info.end()));
+        if (!wash && !player.getAbilities().instabuild) stack.shrink(1);
+        return EditResult.OK;
+    }
+
     private static CurvedEnd usableEnd(ServerPlayer player, CurveData data, long nodeId) {
         CurvedEnd end = data.end(nodeId).orElse(null);
         CurveNode node = data.graph().node(nodeId).orElse(null);

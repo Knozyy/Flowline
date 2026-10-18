@@ -8,6 +8,7 @@ import com.knozyy.flowline.network.curve.CurveEdgesPayload;
 import com.knozyy.flowline.network.curve.CurveForceJointPayload;
 import com.knozyy.flowline.network.curve.CurveForgetPayload;
 import com.knozyy.flowline.network.curve.CurveInsertPayload;
+import com.knozyy.flowline.network.curve.CurvePaintPayload;
 import com.knozyy.flowline.network.curve.CurvePlacePayload;
 import com.knozyy.flowline.network.curve.CurveRemovePayload;
 import com.knozyy.flowline.network.curve.CurveResultPayload;
@@ -55,6 +56,9 @@ final class CurveMessages {
                     case OPEN -> CurveEdits.openEnd(player, p.node());
                     case CYCLE -> CurveEdits.cycleEnd(player, p.node());
                 })).add();
+        channel.messageBuilder(CurvePaintPayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(CurvePaintPayload::encode).decoder(CurvePaintPayload::decode)
+                .consumerMainThread(server(p -> p.requestId(), (player, p) -> CurveEdits.paint(player, p.edge(), p.hand()))).add();
         channel.messageBuilder(CurveResultPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(CurveResultPayload::encode).decoder(CurveResultPayload::decode)
                 .consumerMainThread((CurveResultPayload p, Supplier<NetworkEvent.Context> c) -> {

@@ -18,7 +18,7 @@ import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
 public final class ModNetwork {
-    private static final String PROTOCOL = "12";
+    private static final String PROTOCOL = "13";
     private static final Map<ServerPlayer, Integer> BUILD_REQUESTS = new WeakHashMap<>();
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Flowline.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);

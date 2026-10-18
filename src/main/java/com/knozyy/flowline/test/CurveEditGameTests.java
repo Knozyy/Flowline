@@ -11,6 +11,7 @@ import com.knozyy.flowline.curved.EditResult;
 import com.knozyy.flowline.curved.PlaceRequest;
 import com.knozyy.flowline.pipe.Conn;
 import com.knozyy.flowline.pipe.PipeBlock;
+import com.knozyy.flowline.pipe.PipeBlockEntity;
 import com.knozyy.flowline.pipe.PipeType;
 import com.knozyy.flowline.registry.ModBlocks;
 import com.knozyy.flowline.registry.ModItems;
@@ -20,7 +21,9 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
@@ -464,5 +467,43 @@ public class CurveEditGameTests {
         Vec3d leaving = com.knozyy.flowline.curve.CurveGraph.exitDirection(added, end.id());
         h.assertTrue(arriving.dot(leaving) > 1 - 1e-9, "the new piece carries straight on, dot " + arriving.dot(leaving));
         done(h, player);
+    }
+
+    // ---- painting -----------------------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void paintingAnEdgeSplitsTheNetwork(GameTestHelper h) {
+        ServerPlayer player = player(h, 16);
+        h.assertTrue(CurveEdits.place(player, chestToPipe(h)).ok(), "placed");
+        ((PipeBlockEntity) h.getBlockEntity(PIPE)).setColor(DyeColor.WHITE.getId());
+        PipeBlock.updateConnections(h.getLevel(), h.absolutePos(PIPE));
+        h.assertTrue(h.getBlockState(PIPE).getValue(PipeBlock.prop(Direction.WEST)) == Conn.PIPE, "an undyed edge fits a white pipe");
+        long edge = onlyEdge(h, new Vec3(CHEST_FACE_X, 1.5, 4.5));
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.RED_DYE, 2));
+        EditResult red = CurveEdits.paint(player, edge, InteractionHand.MAIN_HAND);
+        h.assertTrue(red.ok(), "dyed, got " + red);
+        h.assertTrue(CurveData.get(h.getLevel()).info(edge).color() == DyeColor.RED.getId(), "the edge is red");
+        h.assertTrue(h.getBlockState(PIPE).getValue(PipeBlock.prop(Direction.WEST)) == Conn.NONE, "red and white let go");
+        h.assertTrue(player.getMainHandItem().getCount() == 1, "one dye is used");
+        h.assertTrue(CurveEdits.paint(player, edge, InteractionHand.MAIN_HAND).ok(), "dyed again");
+        h.assertTrue(CurveData.get(h.getLevel()).info(edge).color() == PipeBlockEntity.NO_COLOR, "the same dye washes it off");
+        h.assertTrue(h.getBlockState(PIPE).getValue(PipeBlock.prop(Direction.WEST)) == Conn.PIPE, "and the face joins again");
+        h.assertTrue(player.getMainHandItem().getCount() == 1, "washing costs nothing");
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
+        h.assertTrue(CurveEdits.paint(player, edge, InteractionHand.MAIN_HAND).error() == PlaceError.INVALID_OBJECT, "no dye");
+        done(h, player);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void curvePaintPayloadRoundTrips(GameTestHelper h) {
+        var buf = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+        try {
+            var payload = new com.knozyy.flowline.network.curve.CurvePaintPayload(7, 1L << 40, InteractionHand.OFF_HAND);
+            payload.encode(buf);
+            h.assertTrue(com.knozyy.flowline.network.curve.CurvePaintPayload.decode(buf).equals(payload), "round trip");
+        } finally {
+            buf.release();
+        }
+        h.succeed();
     }
 }
