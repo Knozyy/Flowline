@@ -100,6 +100,111 @@ public final class CurveEdits {
         return EditResult.OK;
     }
 
+    // ---- breaking and removing ----------------------------------------------------------------------------
+
+    /** Breaks one curved edge: its pipes come back, nodes left without edges go (their upgrades drop). */
+    public static EditResult breakEdge(ServerPlayer player, long edgeId) {
+        ServerLevel level = player.serverLevel();
+        CurveData data = CurveData.get(level);
+        CurveEdge edge = data.graph().edge(edgeId).orElse(null);
+        if (edge == null) return EditResult.error(PlaceError.INVALID_OBJECT);
+        if (edge.shape().points().stream().allMatch(p -> tooFar(player, p))) return EditResult.error(PlaceError.TOO_FAR);
+        if (breakDenied(player, level, List.of(edge))) return EditResult.DENIED;
+        PipeType type = data.info(edgeId).type();
+        data.removeEdge(edgeId);
+        CurveCost.give(player, type, edge.shape().cost());
+        dropLonely(level, data, edge.from());
+        dropLonely(level, data, edge.to());
+        return EditResult.OK;
+    }
+
+    /**
+     * Removes a node: an end takes its edge with it, a node between two edges is bridged by one new edge (the cost
+     * difference is settled), a joint of three or more edges stays (invalid_object).
+     */
+    public static EditResult removeNode(ServerPlayer player, long nodeId) {
+        ServerLevel level = player.serverLevel();
+        CurveData data = CurveData.get(level);
+        CurveNode node = data.graph().node(nodeId).orElse(null);
+        if (node == null) return EditResult.error(PlaceError.INVALID_OBJECT);
+        if (tooFar(player, node.pos())) return EditResult.error(PlaceError.TOO_FAR);
+        List<CurveEdge> edges = data.graph().edgesAt(nodeId);
+        if (edges.isEmpty()) {
+            drop(level, node.pos(), data.removeNode(nodeId));
+            return EditResult.OK;
+        }
+        if (edges.size() == 1) return breakEdge(player, edges.get(0).id());
+        if (edges.size() > 2) return EditResult.error(PlaceError.INVALID_OBJECT);
+
+        CurveEdge a = edges.get(0), b = edges.get(1);
+        long farA = a.from() == nodeId ? a.to() : a.from(), farB = b.from() == nodeId ? b.to() : b.from();
+        EndCondition start = leaving(data, a, farA), end = arriving(data, b, farB);
+        Vec3d pa = data.graph().node(farA).orElseThrow().pos(), pb = data.graph().node(farB).orElseThrow().pos();
+        SolvedChain chain = CurveSolver.solve(List.of(pa, pb), CurveRules.DIAMETER, start, end).orElse(null);
+        if (chain == null) return EditResult.error(PlaceError.INVALID_SHAPE);
+        EdgeInfo infoA = data.info(a.id());
+        CurveEdge merged = new CurveEdge(data.newEdgeId(), farA, farB, CurveRules.DIAMETER, chain.spans().get(0));
+        PlaceError error = PlacementValidator.validate(data.graph(),
+                new PlacementCandidate(List.of(), List.of(merged), Set.of(a.id(), b.id()), Map.of()), new WorldShapes(level))
+                .orElse(null);
+        if (error != null) return EditResult.error(error);
+        if (denied(player, level, List.of(merged)) || breakDenied(player, level, List.of(a, b))) return EditResult.DENIED;
+        int required = CostPlan.required(List.of(merged.shape()), List.of(a.shape(), b.shape()));
+        int available = CurveCost.available(player, infoA.type());
+        if (!CostPlan.affordable(required, available, false)) return EditResult.missing(required - available);
+
+        settle(player, infoA.type(), required);
+        data.removeEdge(a.id());
+        data.removeEdge(b.id());
+        drop(level, node.pos(), data.removeNode(nodeId));
+        data.putEdge(merged, new EdgeInfo(infoA.type(), infoA.color(), start, end));
+        return EditResult.OK;
+    }
+
+    /** The condition of a chain that leaves node {@code far} along {@code edge}'s own condition there. */
+    static EndCondition leaving(CurveData data, CurveEdge edge, long far) {
+        EdgeInfo info = data.info(edge.id());
+        if (edge.from() == far) return info.start();
+        return info.end().fixed() ? new EndCondition(info.end().direction().scale(-1)) : EndCondition.FREE;
+    }
+
+    /** The condition of a chain that arrives at node {@code far} along {@code edge}'s own condition there. */
+    static EndCondition arriving(CurveData data, CurveEdge edge, long far) {
+        EdgeInfo info = data.info(edge.id());
+        if (edge.to() == far) return info.end();
+        return info.start().fixed() ? new EndCondition(info.start().direction().scale(-1)) : EndCondition.FREE;
+    }
+
+    /** Takes {@code required} pipes, or gives {@code -required} back. */
+    static void settle(ServerPlayer player, PipeType type, int required) {
+        if (required > 0) CurveCost.take(player, type, required);
+        else CurveCost.give(player, type, -required);
+    }
+
+    /** Removes a node that has no edges left, dropping its end's upgrades where it stood. */
+    static void dropLonely(ServerLevel level, CurveData data, long nodeId) {
+        CurveNode node = data.graph().node(nodeId).orElse(null);
+        if (node != null && data.graph().edgesAt(nodeId).isEmpty()) drop(level, node.pos(), data.removeNode(nodeId));
+    }
+
+    static void drop(ServerLevel level, Vec3d at, List<ItemStack> stacks) {
+        for (ItemStack stack : stacks) {
+            net.minecraft.world.entity.item.ItemEntity item = new net.minecraft.world.entity.item.ItemEntity(level, at.x(), at.y(),
+                    at.z(), stack);
+            item.setDefaultPickUpDelay();
+            level.addFreshEntity(item);
+        }
+    }
+
+    /** Flowline's protection check for taking pipes away: a break event in every cell the edges reach. */
+    static boolean breakDenied(ServerPlayer player, ServerLevel level, List<CurveEdge> edges) {
+        for (BlockPos cell : cells(edges)) {
+            var event = new net.minecraftforge.event.level.BlockEvent.BreakEvent(level, cell, level.getBlockState(cell), player);
+            if (net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event)) return true;
+        }
+        return false;
+    }
+
     // ---- shared steps -------------------------------------------------------------------------------------
 
     /** The pipe type of a held pipe item, or null. */

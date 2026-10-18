@@ -157,6 +157,101 @@ public class CurveEditGameTests {
         done(h, player);
     }
 
+    // ---- breaking and removing ----------------------------------------------------------------------------
+
+    /** The curved node of the test standing at {@code rel}. */
+    static CurveNode nodeAt(GameTestHelper h, Vec3 rel) {
+        Vec3 abs = h.absoluteVec(rel);
+        return CurveData.get(h.getLevel()).graph().nodes().stream()
+                .filter(n -> n.pos().distanceSq(new Vec3d(abs.x, abs.y, abs.z)) < 1e-12).findFirst().orElseThrow();
+    }
+
+    static long onlyEdge(GameTestHelper h, Vec3 relNode) {
+        return CurveData.get(h.getLevel()).graph().edgesAt(nodeAt(h, relNode).id()).get(0).id();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void breakRefundsTheCost(GameTestHelper h) {
+        ServerPlayer player = player(h, 16);
+        h.assertTrue(CurveEdits.place(player, chestToPipe(h)).ok(), "placed");
+        EditResult result = CurveEdits.breakEdge(player, onlyEdge(h, new Vec3(CHEST_FACE_X, 1.5, 4.5)));
+        h.assertTrue(result.ok(), "broken, got " + result);
+        h.assertTrue(pipesHeld(player) == 16, "every pipe comes back, held " + pipesHeld(player));
+        h.assertTrue(edges(h) == 0 && CurveData.get(h.getLevel()).graph().nodes().stream()
+                .noneMatch(n -> n.pos().distanceSq(new Vec3d(h.absoluteVec(new Vec3(7, 1.5, 4.5)).x,
+                        h.absoluteVec(new Vec3(7, 1.5, 4.5)).y, h.absoluteVec(new Vec3(7, 1.5, 4.5)).z)) < 1e-12),
+                "the edge and its lonely nodes are gone");
+        h.assertTrue(h.getBlockState(PIPE).getValue(PipeBlock.prop(Direction.WEST)) == Conn.NONE, "the pipe face lets go");
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void breakDropsEndUpgrades(GameTestHelper h) {
+        ServerPlayer player = player(h, 16);
+        h.assertTrue(CurveEdits.place(player, chestToPipe(h)).ok(), "placed");
+        CurveNode chestEnd = nodeAt(h, new Vec3(CHEST_FACE_X, 1.5, 4.5));
+        var end = CurveData.get(h.getLevel()).end(chestEnd.id()).orElseThrow();
+        end.cfg().mode = com.knozyy.flowline.pipe.SideMode.EXTRACT;
+        end.upgrades().setItem(0, new ItemStack(ModItems.SPEED_UPGRADE.get()));
+        end.upgrades().setItem(1, new ItemStack(ModItems.STACK_UPGRADE.get()));
+        h.assertTrue(CurveEdits.breakEdge(player, onlyEdge(h, new Vec3(CHEST_FACE_X, 1.5, 4.5))).ok(), "broken");
+        Vec3d p = chestEnd.pos();
+        long upgrades = h.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                new net.minecraft.world.phys.AABB(p.x() - 1, p.y() - 1, p.z() - 1, p.x() + 1, p.y() + 1, p.z() + 1)).stream()
+                .filter(e -> com.knozyy.flowline.item.UpgradeItem.typeOf(e.getItem()) != null).count();
+        h.assertTrue(upgrades == 2, "the end's two upgrades drop where it was, found " + upgrades);
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void creativeBreakGivesNothing(GameTestHelper h) {
+        ServerPlayer player = player(h, 1);
+        player.setGameMode(GameType.CREATIVE);
+        h.assertTrue(CurveEdits.place(player, chestToPipe(h)).ok(), "creative places for free");
+        h.assertTrue(pipesHeld(player) == 1, "nothing taken");
+        h.assertTrue(CurveEdits.breakEdge(player, onlyEdge(h, new Vec3(CHEST_FACE_X, 1.5, 4.5))).ok(), "broken");
+        h.assertTrue(pipesHeld(player) == 1, "and nothing given back");
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void removeMiddleNodeMergesEdges(GameTestHelper h) {
+        ServerPlayer player = player(h, 64);
+        PlaceRequest straight = chestToPipe(h);
+        Vec3 bend = new Vec3(4, 2.5, 4.5);
+        EditResult placed = CurveEdits.place(player, new PlaceRequest(PipeType.ITEM, straight.start(), straight.end(),
+                List.of(h.absoluteVec(bend))));
+        h.assertTrue(placed.ok(), "a bent chain through a middle node, got " + placed);
+        CurveData data = CurveData.get(h.getLevel());
+        CurveNode middle = nodeAt(h, bend);
+        List<CurveEdge> before = data.graph().edgesAt(middle.id());
+        int oldCost = before.get(0).shape().cost() + before.get(1).shape().cost();
+        int held = pipesHeld(player);
+        EditResult removed = CurveEdits.removeNode(player, middle.id());
+        h.assertTrue(removed.ok(), "removing the middle node, got " + removed);
+        CurveNode chestEnd = nodeAt(h, new Vec3(CHEST_FACE_X, 1.5, 4.5));
+        List<CurveEdge> after = data.graph().edgesAt(chestEnd.id());
+        h.assertTrue(after.size() == 1 && data.graph().node(middle.id()).isEmpty(), "one edge, no middle node");
+        CurveNode pipeEnd = nodeAt(h, new Vec3(7, 1.5, 4.5));
+        CurveEdge merged = after.get(0);
+        h.assertTrue(merged.from() == chestEnd.id() && merged.to() == pipeEnd.id(), "it joins the same two ends");
+        h.assertTrue(pipesHeld(player) == held + oldCost - merged.shape().cost(), "the cost difference is settled");
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void removeJointIsRefused(GameTestHelper h) {
+        ServerPlayer player = player(h, 16);
+        long joint = CurveTestSupport.node(h, new Vec3(4.5, 2.5, 4.5), com.knozyy.flowline.curved.Anchor.FREE, PipeType.ITEM);
+        for (Vec3 far : List.of(new Vec3(2.5, 2.5, 4.5), new Vec3(6.5, 2.5, 4.5), new Vec3(4.5, 2.5, 6.5))) {
+            long other = CurveTestSupport.node(h, far, com.knozyy.flowline.curved.Anchor.FREE, PipeType.ITEM);
+            CurveTestSupport.edge(h, joint, other, PipeType.ITEM, com.knozyy.flowline.curve.EndCondition.FREE,
+                    com.knozyy.flowline.curve.EndCondition.FREE);
+        }
+        h.assertTrue(CurveEdits.removeNode(player, joint).error() == PlaceError.INVALID_OBJECT, "a joint cannot be removed");
+        done(h, player);
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void placeExtendsAnEnd(GameTestHelper h) {
         ServerPlayer player = player(h, 64);
