@@ -875,6 +875,25 @@ public class PipeGameTests {
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void sideUpgradesCountLikeTheBlockPipe(GameTestHelper helper) {
+        SideConfig cfg = new SideConfig(PipeType.ITEM);
+        cfg.mode = SideMode.EXTRACT;
+        net.minecraft.world.SimpleContainer slots = new net.minecraft.world.SimpleContainer(SideConfig.UPGRADE_SLOTS);
+        slots.setItem(0, upgrade(UpgradeType.SPEED));
+        slots.setItem(1, upgrade(UpgradeType.SPEED));
+        slots.setItem(3, upgrade(UpgradeType.FILTER));
+        com.knozyy.flowline.pipe.SideUpgrades.sync(cfg, slots, 0);
+        helper.assertTrue(cfg.speedCount == 2 && cfg.filterCount == 1 && cfg.stackCount == 0,
+                "2 speed and 1 filter, got " + cfg.speedCount + "/" + cfg.filterCount + "/" + cfg.stackCount);
+        helper.assertTrue(com.knozyy.flowline.pipe.SideUpgrades.accepts(cfg, upgrade(UpgradeType.SPEED)), "extract takes speed");
+        cfg.mode = SideMode.INSERT;
+        helper.assertTrue(!com.knozyy.flowline.pipe.SideUpgrades.accepts(cfg, upgrade(UpgradeType.SPEED)), "insert refuses speed");
+        helper.assertTrue(com.knozyy.flowline.pipe.SideUpgrades.accepts(cfg, upgrade(UpgradeType.FILTER)), "insert takes filter");
+        helper.assertTrue(!com.knozyy.flowline.pipe.SideUpgrades.accepts(cfg, new ItemStack(Items.STONE)), "stone is no upgrade");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
     public static void curvedModeIsUnavailableUntilTheEngineLands(GameTestHelper helper) {
         helper.assertTrue(com.knozyy.flowline.pipe.OffhandMode.of(helper.makeMockPlayer())
                 == com.knozyy.flowline.pipe.OffhandMode.BUILD, "the off hand starts in Build for me");
