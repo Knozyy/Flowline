@@ -67,6 +67,16 @@ public final class CurveGraph {
         }
     }
 
+    /** Every node, in the order they were first added. */
+    public java.util.Collection<CurveNode> nodes() {
+        return java.util.Collections.unmodifiableCollection(nodes.values());
+    }
+
+    /** Every edge, in the order they were first added. */
+    public java.util.Collection<CurveEdge> edges() {
+        return java.util.Collections.unmodifiableCollection(edges.values());
+    }
+
     public Optional<CurveNode> node(long id) {
         return Optional.ofNullable(nodes.get(id));
     }
