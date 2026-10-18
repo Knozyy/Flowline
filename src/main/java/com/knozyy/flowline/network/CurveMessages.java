@@ -55,6 +55,7 @@ final class CurveMessages {
                 .consumerMainThread(server(p -> p.requestId(), (player, p) -> switch (p.action()) {
                     case OPEN -> CurveEdits.openEnd(player, p.node());
                     case CYCLE -> CurveEdits.cycleEnd(player, p.node());
+                    case CARD -> CurveEdits.useCardOnEnd(player, p.node(), net.minecraft.world.InteractionHand.MAIN_HAND);
                 })).add();
         channel.messageBuilder(CurvePaintPayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(CurvePaintPayload::encode).decoder(CurvePaintPayload::decode)

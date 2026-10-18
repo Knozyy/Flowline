@@ -43,7 +43,7 @@ public final class CurveHighlight {
             current = null;
             return;
         }
-        if (ClientCurves.INSTANCE.graph().nodes().isEmpty() && !CurvePlacer.active(mc)) {
+        if (ClientCurves.INSTANCE.graph().nodes().isEmpty() && !CurveInput.active(mc)) {
             current = null;
             return;
         }

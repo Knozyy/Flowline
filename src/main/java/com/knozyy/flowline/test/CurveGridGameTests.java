@@ -1,6 +1,7 @@
 package com.knozyy.flowline.test;
 
 import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.client.curve.CurvePlacer;
 import com.knozyy.flowline.client.curve.CurveTarget;
 import com.knozyy.flowline.curve.Aabb;
 import com.knozyy.flowline.curve.GridCandidates;
@@ -78,6 +79,68 @@ public class CurveGridGameTests {
         h.assertTrue(CurveTarget.choose(3, none, 2, true) == CurveTarget.Kind.BLOCK_FACE, "no node through a wall");
         h.assertTrue(CurveTarget.choose(none, none, none, true) == CurveTarget.Kind.AIR, "nothing: the air");
         h.assertTrue(CurveTarget.choose(1, 1, 1, false) == CurveTarget.Kind.AIR, "without snapping only the air");
+        h.succeed();
+    }
+
+    private static CurvePlacer.Action use(boolean curved, boolean drawing, CurveTarget.Kind target, boolean shift,
+                                          CurvePlacer.HeldKind held) {
+        return CurvePlacer.decide(curved, drawing, target, shift, CurvePlacer.Click.USE, held);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void curvedModeClaimsTheUseKey(GameTestHelper h) {
+        h.assertTrue(use(true, false, CurveTarget.Kind.BLOCK_FACE, false, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.START,
+                "curved mode starts a chain on the block instead of using it");
+        h.assertTrue(use(true, false, CurveTarget.Kind.AIR, false, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.START,
+                "or in the air");
+        h.assertTrue(use(false, false, CurveTarget.Kind.BLOCK_FACE, false, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.PASS,
+                "Build for me leaves the click alone");
+        h.assertTrue(use(true, false, CurveTarget.Kind.BLOCK_FACE, false, CurvePlacer.HeldKind.OTHER) == CurvePlacer.Action.PASS,
+                "a block in the main hand still places");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void drawingAddsThenFinishes(GameTestHelper h) {
+        h.assertTrue(use(true, true, CurveTarget.Kind.AIR, false, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.ADD, "air adds a point");
+        h.assertTrue(use(true, true, CurveTarget.Kind.BLOCK_FACE, false, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.FINISH,
+                "a block face finishes");
+        h.assertTrue(use(true, true, CurveTarget.Kind.PIPE_FACE, false, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.FINISH,
+                "so does a pipe face");
+        h.assertTrue(use(true, true, CurveTarget.Kind.NODE, false, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.FINISH,
+                "and a node");
+        h.assertTrue(use(true, true, CurveTarget.Kind.AIR, true, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.FINISH,
+                "shift finishes in the air");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void leftClickBreaksPointedEdges(GameTestHelper h) {
+        for (boolean curved : new boolean[]{true, false}) {
+            h.assertTrue(CurvePlacer.decide(curved, false, CurveTarget.Kind.EDGE, false, CurvePlacer.Click.ATTACK,
+                    CurvePlacer.HeldKind.OTHER) == CurvePlacer.Action.BREAK, "an edge breaks in every mode");
+            h.assertTrue(CurvePlacer.decide(curved, false, CurveTarget.Kind.BLOCK_FACE, false, CurvePlacer.Click.ATTACK,
+                    CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.PASS, "a block is mined as usual");
+        }
+        h.assertTrue(CurvePlacer.decide(true, false, CurveTarget.Kind.AIR, false, CurvePlacer.Click.PICK,
+                CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.GRID_NEXT, "middle click turns the grid");
+        h.assertTrue(CurvePlacer.decide(true, false, CurveTarget.Kind.AIR, true, CurvePlacer.Click.PICK,
+                CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.GRID_PREVIOUS, "shift turns it back");
+        h.assertTrue(CurvePlacer.decide(false, false, CurveTarget.Kind.BLOCK_FACE, false, CurvePlacer.Click.PICK,
+                CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.PASS, "outside curved mode it picks the block");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void endsOpenLikeSides(GameTestHelper h) {
+        h.assertTrue(use(false, false, CurveTarget.Kind.NODE, false, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.OPEN_END,
+                "an empty hand opens the end's screen");
+        h.assertTrue(use(false, false, CurveTarget.Kind.NODE, true, CurvePlacer.HeldKind.WRENCH) == CurvePlacer.Action.CYCLE_END,
+                "shift and the wrench cycle its mode");
+        h.assertTrue(use(true, false, CurveTarget.Kind.NODE, false, CurvePlacer.HeldKind.CARD) == CurvePlacer.Action.CARD_END,
+                "a Filter Card applies, even in curved mode");
+        h.assertTrue(use(false, false, CurveTarget.Kind.EDGE, false, CurvePlacer.HeldKind.DYE) == CurvePlacer.Action.PAINT,
+                "a dye paints the edge");
         h.succeed();
     }
 }

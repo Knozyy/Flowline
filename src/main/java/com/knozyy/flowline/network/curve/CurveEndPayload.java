@@ -2,9 +2,12 @@ package com.knozyy.flowline.network.curve;
 
 import net.minecraft.network.FriendlyByteBuf;
 
-/** Client → server: use the curved end on node {@code node} like a pipe side (open its screen, or cycle its mode). */
+/**
+ * Client → server: use the curved end on node {@code node} like a pipe side: open its screen, cycle its mode with the
+ * wrench, or apply the Filter Card in the main hand.
+ */
 public record CurveEndPayload(int requestId, long node, Action action) {
-    public enum Action { OPEN, CYCLE }
+    public enum Action { OPEN, CYCLE, CARD }
 
     public void encode(FriendlyByteBuf buf) {
         buf.writeVarInt(requestId);

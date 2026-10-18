@@ -47,9 +47,9 @@ public final class OffhandPipe {
 
     private OffhandPipe() {}
 
-    /** Whether curved placement exists yet; false until Flowline's own curved pipe engine lands. */
+    /** Whether curved placement exists; kept as a switch so the mode key can be turned off again if needed. */
     public static boolean curvedAvailable() {
-        return false;
+        return true;
     }
 
     public static OffhandMode mode() {
@@ -72,6 +72,7 @@ public final class OffhandPipe {
             return;
         }
         mode = mode.next();
+        com.knozyy.flowline.client.curve.CurvePlacer.cancel();
         sync();
         clearRoute();
         mc.player.displayClientMessage(Component.translatable("message.flowline.offhand.switched", modeName()), true);

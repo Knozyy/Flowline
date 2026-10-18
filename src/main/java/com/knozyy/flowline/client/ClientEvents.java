@@ -89,7 +89,13 @@ public final class ClientEvents {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
         while (Keys.BUILD.consumeClick()) {
-            if (mc.player != null && mc.screen == null) OffhandPipe.toggle(mc);
+            if (mc.player == null || mc.screen != null) continue;
+            // B drops a half-drawn curved chain first; pressed again it switches modes
+            if (com.knozyy.flowline.client.curve.CurvePlacer.drawing()) {
+                com.knozyy.flowline.client.curve.CurvePlacer.cancel();
+            } else {
+                OffhandPipe.toggle(mc);
+            }
         }
         OffhandPipe.tick(mc);
     }
