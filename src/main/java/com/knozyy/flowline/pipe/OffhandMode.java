@@ -7,7 +7,7 @@ import java.util.WeakHashMap;
 
 /**
  * What a pipe in the off hand does on right-click: lay a route of block pipes to the player ("Build for me"), or place
- * a curved Curvy Pipes line. The client switches it with a key and tells the server, which keeps it per player.
+ * a curved line. The client switches it with a key and tells the server, which keeps it per player.
  * Pipes in the main hand always place a single block.
  */
 public enum OffhandMode {
@@ -15,7 +15,6 @@ public enum OffhandMode {
     CURVY;
 
     private static final Map<Player, OffhandMode> SERVER = new WeakHashMap<>();
-    private static final Map<Player, Integer> CHANNEL = new WeakHashMap<>();
 
     public OffhandMode next() {
         return this == BUILD ? CURVY : BUILD;
@@ -32,17 +31,5 @@ public enum OffhandMode {
 
     public static void set(Player player, OffhandMode mode) {
         SERVER.put(player, mode);
-    }
-
-    /**
-     * Server: which native Curvy channel (index into {@code CurvyPipesCompat.CHANNELS}) a universal pipe in the off hand
-     * lays in Curvy mode. Other pipes ignore it.
-     */
-    public static int channelOf(Player player) {
-        return CHANNEL.getOrDefault(player, 0);
-    }
-
-    public static void setChannel(Player player, int channel) {
-        CHANNEL.put(player, channel);
     }
 }

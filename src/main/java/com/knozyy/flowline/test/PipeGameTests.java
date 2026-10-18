@@ -863,6 +863,20 @@ public class PipeGameTests {
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void curvedModeIsUnavailableUntilTheEngineLands(GameTestHelper helper) {
+        helper.assertTrue(com.knozyy.flowline.pipe.OffhandMode.of(helper.makeMockPlayer())
+                == com.knozyy.flowline.pipe.OffhandMode.BUILD, "the off hand starts in Build for me");
+        for (var mode : com.knozyy.flowline.pipe.OffhandMode.values()) {
+            var buf = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+            new com.knozyy.flowline.network.OffhandModePayload(mode).encode(buf);
+            helper.assertTrue(buf.readableBytes() == 1, "the payload carries the mode only, no Curvy channel");
+            helper.assertTrue(com.knozyy.flowline.network.OffhandModePayload.decode(buf).mode() == mode,
+                    mode + " survives the trip to the server");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
     public static void pipeItemsArePlainBlockItems(GameTestHelper helper) {
         for (var block : List.of(ModBlocks.ITEM_PIPE, ModBlocks.FLUID_PIPE, ModBlocks.ENERGY_PIPE,
                 ModBlocks.UNIVERSAL_PIPE)) {

@@ -18,7 +18,7 @@ import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
 public final class ModNetwork {
-    private static final String PROTOCOL = "10";
+    private static final String PROTOCOL = "11";
     private static final Map<ServerPlayer, Integer> BUILD_REQUESTS = new WeakHashMap<>();
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Flowline.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
@@ -52,10 +52,7 @@ public final class ModNetwork {
 
     private static void onOffhandMode(OffhandModePayload payload, Supplier<NetworkEvent.Context> context) {
         ServerPlayer player = context.get().getSender();
-        if (player != null) {
-            com.knozyy.flowline.pipe.OffhandMode.set(player, payload.mode());
-            com.knozyy.flowline.pipe.OffhandMode.setChannel(player, payload.channel());
-        }
+        if (player != null) com.knozyy.flowline.pipe.OffhandMode.set(player, payload.mode());
         context.get().setPacketHandled(true);
     }
 
