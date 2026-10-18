@@ -352,6 +352,94 @@ public class CurveEditGameTests {
         done(h, player);
     }
 
+    // ---- curved ends: screen, wrench, Filter Card ----------------------------------------------------------
+
+    /** Chest at (0,1,4), item pipe at (7,1,4), a placed curve between them; returns the chest end's node id. */
+    static long placedEnd(GameTestHelper h, ServerPlayer player) {
+        h.assertTrue(CurveEdits.place(player, chestToPipe(h)).ok(), "placed");
+        return nodeAt(h, new Vec3(CHEST_FACE_X, 1.5, 4.5)).id();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void curvedEndOpensTheSameScreen(GameTestHelper h) {
+        ServerPlayer player = player(h, 16);
+        long node = placedEnd(h, player);
+        var end = CurveData.get(h.getLevel()).end(node).orElseThrow();
+        EditResult opened = CurveEdits.openEnd(player, node);
+        h.assertTrue(opened.ok(), "the end's screen opens, got " + opened);
+        h.assertTrue(player.containerMenu instanceof com.knozyy.flowline.menu.PipeMenu, "it is the pipe side screen");
+        var before = end.cfg().distribution;
+        player.containerMenu.clickMenuButton(player, com.knozyy.flowline.menu.PipeMenu.BTN_DISTRIBUTION);
+        h.assertTrue(end.cfg().distribution != before, "and its buttons change the end's settings");
+        player.closeContainer();
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void curvedEndAcceptsUpgradesLikeASide(GameTestHelper h) {
+        ServerPlayer player = player(h, 16);
+        long node = placedEnd(h, player);
+        var end = CurveData.get(h.getLevel()).end(node).orElseThrow();
+        end.cfg().mode = com.knozyy.flowline.pipe.SideMode.EXTRACT;
+        h.assertTrue(CurveEdits.openEnd(player, node).ok(), "opened");
+        var slot = player.containerMenu.slots.get(0);
+        h.assertTrue(slot.mayPlace(new ItemStack(ModItems.SPEED_UPGRADE.get())), "an extracting end takes a speed upgrade");
+        slot.set(new ItemStack(ModItems.SPEED_UPGRADE.get()));
+        h.assertTrue(end.cfg().speedCount == 1, "and counts it");
+        player.closeContainer();
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void cycleEndTogglesExtract(GameTestHelper h) {
+        ServerPlayer player = player(h, 16);
+        long node = placedEnd(h, player);
+        var end = CurveData.get(h.getLevel()).end(node).orElseThrow();
+        h.assertTrue(end.cfg().mode == com.knozyy.flowline.pipe.SideMode.INSERT, "a new end inserts");
+        h.assertTrue(CurveEdits.cycleEnd(player, node).ok() && end.cfg().mode == com.knozyy.flowline.pipe.SideMode.EXTRACT,
+                "the wrench makes it extract");
+        h.assertTrue(CurveEdits.cycleEnd(player, node).ok() && end.cfg().mode == com.knozyy.flowline.pipe.SideMode.INSERT,
+                "and insert again");
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void curvedEndMenuClosesWhenEndGoes(GameTestHelper h) {
+        ServerPlayer player = player(h, 16);
+        long node = placedEnd(h, player);
+        h.assertTrue(CurveEdits.openEnd(player, node).ok(), "opened");
+        var menu = player.containerMenu;
+        h.assertTrue(menu.stillValid(player), "valid while the end is there");
+        h.assertTrue(CurveEdits.breakEdge(player, onlyEdge(h, new Vec3(CHEST_FACE_X, 1.5, 4.5))).ok(), "broken");
+        h.assertTrue(!menu.stillValid(player), "the screen of a removed end closes");
+        player.closeContainer();
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void filterCardWorksOnCurvedEnds(GameTestHelper h) {
+        ServerPlayer player = player(h, 16);
+        long node = placedEnd(h, player);
+        BlockPos source = new BlockPos(7, 1, 3), chest = new BlockPos(7, 1, 2);
+        h.setBlock(source, ModBlocks.ITEM_PIPE.get());
+        h.setBlock(chest, Blocks.CHEST);
+        PipeBlock.updateConnections(h.getLevel(), h.absolutePos(source));
+        var pipe = CurveNetworkGameTests.pipe(h, source);
+        pipe.side(Direction.NORTH).setEntry(0, com.knozyy.flowline.filter.FilterEntry.ofItem("minecraft:dirt"));
+        ItemStack card = new ItemStack(ModItems.FILTER_CARD.get());
+        player.setItemInHand(InteractionHand.MAIN_HAND, card);
+        player.setShiftKeyDown(true);
+        ModItems.FILTER_CARD.get().useOnPipe(pipe, Direction.NORTH,
+                h.getBlockState(source).getValue(PipeBlock.prop(Direction.NORTH)), player, InteractionHand.MAIN_HAND, card);
+        player.setShiftKeyDown(false);
+        EditResult pasted = CurveEdits.useCardOnEnd(player, node, InteractionHand.MAIN_HAND);
+        h.assertTrue(pasted.ok(), "the card pastes onto the curved end, got " + pasted);
+        var rule = CurveData.get(h.getLevel()).end(node).orElseThrow().cfg().getEntry(0);
+        h.assertTrue(rule != null && rule.sameMatch(com.knozyy.flowline.filter.FilterEntry.ofItem("minecraft:dirt")),
+                "with the same rule");
+        done(h, player);
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void placeExtendsAnEnd(GameTestHelper h) {
         ServerPlayer player = player(h, 64);

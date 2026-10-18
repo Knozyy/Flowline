@@ -278,6 +278,13 @@ public final class CurveData extends SavedData {
         dirty.clear();
         for (BlockPos pos : changed) {
             for (long node : nodesAnchoredTo(pos)) PipeNetwork.invalidateNode(level, node);
+            // like a block pipe's neighbour update: an end next to the change looks again soon (redstone, its block)
+            for (CurvedEnd end : ends.values()) {
+                CurveNode node = graph.node(end.nodeId()).orElse(null);
+                if (node == null) continue;
+                BlockPos cell = BlockPos.containing(node.pos().x(), node.pos().y(), node.pos().z());
+                if (end.block().equals(pos) || cell.distManhattan(pos) <= 1) end.cfg().wake();
+            }
             if (!level.isLoaded(pos)) continue;
             List<com.knozyy.flowline.curve.Aabb> solids =
                     WorldShapes.boxes(level.getBlockState(pos).getCollisionShape(level, pos), pos);

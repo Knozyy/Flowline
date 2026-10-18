@@ -48,6 +48,13 @@ final class CurveMessages {
                 .encoder(CurveForceJointPayload::encode).decoder(CurveForceJointPayload::decode)
                 .consumerMainThread(server(p -> p.requestId(),
                         (player, p) -> CurveEdits.forceJoint(player, p.node(), p.desired()))).add();
+        channel.messageBuilder(com.knozyy.flowline.network.curve.CurveEndPayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(com.knozyy.flowline.network.curve.CurveEndPayload::encode)
+                .decoder(com.knozyy.flowline.network.curve.CurveEndPayload::decode)
+                .consumerMainThread(server(p -> p.requestId(), (player, p) -> switch (p.action()) {
+                    case OPEN -> CurveEdits.openEnd(player, p.node());
+                    case CYCLE -> CurveEdits.cycleEnd(player, p.node());
+                })).add();
         channel.messageBuilder(CurveResultPayload.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(CurveResultPayload::encode).decoder(CurveResultPayload::decode)
                 .consumerMainThread((CurveResultPayload p, Supplier<NetworkEvent.Context> c) -> {

@@ -355,15 +355,7 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
         if (!(player instanceof ServerPlayer serverPlayer)) return;
         Component title = Component.translatable("gui.flowline.pipe_config", be.getBlockState().getBlock().getName(),
                 Component.translatable("direction.flowline." + side.getName()));
-        BlockPos pos = be.getBlockPos();
-        NetworkHooks.openScreen(serverPlayer,
-                new SimpleMenuProvider((id, inventory, p) -> new PipeMenu(id, inventory, be, side), title),
-                buf -> {
-                    buf.writeBlockPos(pos);
-                    buf.writeEnum(side);
-                    buf.writeEnum(be.type());
-                    buf.writeEnum(be.side(side).mode);
-                });
+        PipeMenu.open(serverPlayer, new com.knozyy.flowline.menu.PipeSideHost(be, side), title);
     }
 
     /**

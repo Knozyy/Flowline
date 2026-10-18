@@ -78,6 +78,20 @@ public final class CurvedEnd implements Port {
         return removed;
     }
 
+    /** Takes out the upgrades an inserting end cannot use (everything but Filter upgrades). */
+    public List<ItemStack> takeExtractOnlyUpgrades() {
+        List<ItemStack> removed = new ArrayList<>();
+        for (int i = 0; i < upgrades.getContainerSize(); i++) {
+            ItemStack stack = upgrades.getItem(i);
+            if (stack.isEmpty() || com.knozyy.flowline.item.UpgradeItem.typeOf(stack) == com.knozyy.flowline.item.UpgradeType.FILTER) {
+                continue;
+            }
+            removed.add(upgrades.removeItemNoUpdate(i));
+        }
+        SideUpgrades.sync(cfg, upgrades, 0);
+        return removed;
+    }
+
     @Override
     public PipeType type() {
         return type;

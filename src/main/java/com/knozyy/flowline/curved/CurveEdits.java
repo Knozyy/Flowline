@@ -262,6 +262,66 @@ public final class CurveEdits {
         return EditResult.OK;
     }
 
+    // ---- curved ends --------------------------------------------------------------------------------------
+
+    /** The end on node {@code nodeId} the player may use: it exists, is in reach, and its block holds what it carries. */
+    @Nullable
+    private static CurvedEnd usableEnd(ServerPlayer player, CurveData data, long nodeId) {
+        CurvedEnd end = data.end(nodeId).orElse(null);
+        CurveNode node = data.graph().node(nodeId).orElse(null);
+        if (end == null || node == null) return null;
+        return tooFar(player, node.pos()) ? null : end;
+    }
+
+    /** Opens the end's screen, the same one a block pipe side has. */
+    public static EditResult openEnd(ServerPlayer player, long nodeId) {
+        ServerLevel level = player.serverLevel();
+        CurveData data = CurveData.get(level);
+        CurvedEnd end = usableEnd(player, data, nodeId);
+        if (end == null) return EditResult.error(PlaceError.INVALID_OBJECT);
+        if (!end.type().hasEndpoint(level, end.block(), end.access())) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.flowline.no_endpoint"), true);
+            return EditResult.error(PlaceError.INVALID_OBJECT);
+        }
+        net.minecraft.network.chat.Component title = net.minecraft.network.chat.Component.translatable("gui.flowline.pipe_config",
+                CurveCost.item(end.type()).getDescription(),
+                net.minecraft.network.chat.Component.translatable("direction.flowline." + end.access().getName()));
+        com.knozyy.flowline.menu.PipeMenu.open(player, new CurvedEndHost(level, end), title);
+        return EditResult.OK;
+    }
+
+    /**
+     * The wrench on a curved end: insert ↔ extract. A block pipe side's third step, disconnected, has no curved
+     * counterpart: breaking the edge is how a curved end lets go.
+     */
+    public static EditResult cycleEnd(ServerPlayer player, long nodeId) {
+        CurveData data = CurveData.get(player.serverLevel());
+        CurvedEnd end = usableEnd(player, data, nodeId);
+        if (end == null) return EditResult.error(PlaceError.INVALID_OBJECT);
+        boolean extract = end.cfg().mode != com.knozyy.flowline.pipe.SideMode.EXTRACT;
+        end.cfg().mode = extract ? com.knozyy.flowline.pipe.SideMode.EXTRACT : com.knozyy.flowline.pipe.SideMode.INSERT;
+        if (!extract) {
+            for (ItemStack upgrade : end.takeExtractOnlyUpgrades()) player.getInventory().placeItemBackInInventory(upgrade);
+        }
+        end.cfg().resetRuntime();
+        data.endChanged(nodeId);
+        return EditResult.OK;
+    }
+
+    /** The Filter Card on a curved end, as on a block pipe side: sneak to copy, otherwise paste. */
+    public static EditResult useCardOnEnd(ServerPlayer player, long nodeId, net.minecraft.world.InteractionHand hand) {
+        CurveData data = CurveData.get(player.serverLevel());
+        CurvedEnd end = usableEnd(player, data, nodeId);
+        ItemStack stack = player.getItemInHand(hand);
+        if (end == null || !(stack.getItem() instanceof com.knozyy.flowline.item.FilterCardItem)) {
+            return EditResult.error(PlaceError.INVALID_OBJECT);
+        }
+        com.knozyy.flowline.item.FilterCardItem.useOnConfig(end.cfg(), end.type(),
+                net.minecraft.network.chat.Component.translatable("direction.flowline." + end.access().getName()), player, stack,
+                () -> data.endChanged(nodeId));
+        return EditResult.OK;
+    }
+
     /** The condition of a chain that leaves node {@code far} along {@code edge}'s own condition there. */
     static EndCondition leaving(CurveData data, CurveEdge edge, long far) {
         EdgeInfo info = data.info(edge.id());

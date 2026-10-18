@@ -173,6 +173,12 @@ public class CurveNetworkGameTests {
                     h.assertTrue(count(h, b, Items.DIAMOND) == 0, "no signal at the end: nothing moves");
                     h.setBlock(new BlockPos(1, 1, 3), Blocks.REDSTONE_BLOCK);
                 })
+                .thenIdle(2)
+                .thenExecute(() -> {
+                    var cfg = CurveData.get(h.getLevel()).end(end).orElseThrow().cfg();
+                    h.assertTrue(cfg.interval <= com.knozyy.flowline.pipe.Pacing.start(cfg.speedCount),
+                            "the change next to the end wakes it, like a block pipe's neighbour update; interval " + cfg.interval);
+                })
                 .thenWaitUntil(() -> h.assertTrue(count(h, b, Items.DIAMOND) == 8, "a signal next to the end starts it"))
                 .thenExecute(() -> CurveTestSupport.clear(h))
                 .thenSucceed();
