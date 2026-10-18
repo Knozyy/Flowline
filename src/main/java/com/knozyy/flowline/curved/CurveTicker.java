@@ -27,6 +27,7 @@ public final class CurveTicker {
         CurveData data = CurveData.get(level);
         data.processDirty(level);
         for (CurvedEnd end : new java.util.ArrayList<>(data.ends())) tick(level, data, end);
+        CurveSync.flush(level);
     }
 
     private static void tick(ServerLevel level, CurveData data, CurvedEnd end) {

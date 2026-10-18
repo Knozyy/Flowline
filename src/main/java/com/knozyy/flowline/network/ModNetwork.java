@@ -18,7 +18,7 @@ import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
 public final class ModNetwork {
-    private static final String PROTOCOL = "11";
+    private static final String PROTOCOL = "12";
     private static final Map<ServerPlayer, Integer> BUILD_REQUESTS = new WeakHashMap<>();
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Flowline.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
@@ -48,6 +48,12 @@ public final class ModNetwork {
         CHANNEL.messageBuilder(OffhandModePayload.class, id++, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(OffhandModePayload::encode).decoder(OffhandModePayload::decode)
                 .consumerMainThread(ModNetwork::onOffhandMode).add();
+        CurveMessages.register(CHANNEL, id);
+    }
+
+    public static void sendToPlayer(ServerPlayer player, Object message) {
+        if (player instanceof net.minecraftforge.common.util.FakePlayer) return;
+        CHANNEL.send(net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player), message);
     }
 
     private static void onOffhandMode(OffhandModePayload payload, Supplier<NetworkEvent.Context> context) {

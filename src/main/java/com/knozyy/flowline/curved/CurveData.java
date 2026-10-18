@@ -49,6 +49,9 @@ public final class CurveData extends SavedData {
     private final Map<Long, Long> pipeFaces = new HashMap<>();
     /** Block → nodes fixed to one of its faces. */
     private final Map<BlockPos, Set<Long>> anchoredTo = new HashMap<>();
+    private final Map<net.minecraft.world.level.ChunkPos, Set<Long>> edgesByChunk = new HashMap<>();
+    private final Map<Long, Set<net.minecraft.world.level.ChunkPos>> chunksByEdge = new HashMap<>();
+    private final Map<net.minecraft.world.level.ChunkPos, Set<Long>> nodesByChunk = new HashMap<>();
     private long nextNode = 1, nextEdge = 1;
     /** The level this data belongs to; null for data made outside a level (tests, loading). */
     private ServerLevel level;
@@ -94,6 +97,16 @@ public final class CurveData extends SavedData {
         return List.copyOf(anchoredTo.getOrDefault(pos, Set.of()));
     }
 
+    /** Edges whose boxes reach chunk column {@code chunk}. */
+    public Set<Long> edgesIn(net.minecraft.world.level.ChunkPos chunk) {
+        return Set.copyOf(edgesByChunk.getOrDefault(chunk, Set.of()));
+    }
+
+    /** Nodes standing in chunk column {@code chunk}. */
+    public Set<Long> nodesIn(net.minecraft.world.level.ChunkPos chunk) {
+        return Set.copyOf(nodesByChunk.getOrDefault(chunk, Set.of()));
+    }
+
     // ---- writing ------------------------------------------------------------------------------------------
 
     public long newNodeId() {
@@ -108,7 +121,10 @@ public final class CurveData extends SavedData {
 
     /** Adds the node (or replaces the one with the same id, keeping its end) fixed by {@code anchor}. */
     public void putNode(CurveNode node, Anchor anchor, PipeType type) {
+        graph.node(node.id()).ifPresent(old -> unindexNode(old));
         graph.putNode(node);
+        nodesByChunk.computeIfAbsent(CurveSync.chunkOf(node.pos()), k -> new LinkedHashSet<>()).add(node.id());
+        if (level != null) CurveSync.nodeChanged(level, node);
         nodeTypes.put(node.id(), type);
         if (!anchor(node.id()).equals(anchor) || !anchors.containsKey(node.id())) setAnchor(node.id(), anchor);
         setDirty();
@@ -116,8 +132,13 @@ public final class CurveData extends SavedData {
     }
 
     public void putEdge(CurveEdge edge, EdgeInfo info) {
+        graph.edge(edge.id()).ifPresent(this::unindexEdge);
         graph.putEdge(edge);
         infos.put(edge.id(), info);
+        Set<net.minecraft.world.level.ChunkPos> chunks = CurveSync.chunksOf(edge);
+        chunksByEdge.put(edge.id(), chunks);
+        for (var chunk : chunks) edgesByChunk.computeIfAbsent(chunk, k -> new LinkedHashSet<>()).add(edge.id());
+        if (level != null) CurveSync.edgeChanged(level, edge);
         setDirty();
         nodeChanged(edge.from());
         nodeChanged(edge.to());
@@ -125,6 +146,10 @@ public final class CurveData extends SavedData {
 
     public void removeEdge(long id) {
         Optional<CurveEdge> edge = graph.edge(id);
+        edge.ifPresent(e -> {
+            unindexEdge(e);
+            if (level != null) CurveSync.edgeRemoved(level, e);
+        });
         graph.removeEdge(id);
         infos.remove(id);
         setDirty();
@@ -136,7 +161,12 @@ public final class CurveData extends SavedData {
 
     /** Removes a node without edges; gives back the upgrades of its end, if it had one. */
     public List<ItemStack> removeNode(long id) {
+        Optional<CurveNode> gone = graph.node(id);
         graph.removeNode(id);
+        gone.ifPresent(n -> {
+            unindexNode(n);
+            if (level != null) CurveSync.nodeRemoved(level, n);
+        });
         Anchor old = anchor(id);
         List<ItemStack> upgrades = unanchor(id);
         anchors.remove(id);
@@ -165,6 +195,30 @@ public final class CurveData extends SavedData {
         anchorChanged(old);
         nodeChanged(node);
         return upgrades;
+    }
+
+    private void unindexEdge(CurveEdge edge) {
+        Set<net.minecraft.world.level.ChunkPos> chunks = chunksByEdge.remove(edge.id());
+        if (chunks == null) return;
+        for (var chunk : chunks) {
+            Set<Long> set = edgesByChunk.get(chunk);
+            if (set != null && set.remove(edge.id()) && set.isEmpty()) edgesByChunk.remove(chunk);
+        }
+    }
+
+    private void unindexNode(CurveNode node) {
+        var chunk = CurveSync.chunkOf(node.pos());
+        Set<Long> set = nodesByChunk.get(chunk);
+        if (set != null && set.remove(node.id()) && set.isEmpty()) nodesByChunk.remove(chunk);
+    }
+
+    /** Clients see the change of an end's mode (its green ring) at the next tick's end. */
+    public void endChanged(long node) {
+        setDirty();
+        if (level == null) return;
+        graph.node(node).ifPresent(n -> CurveSync.nodeChanged(level, n));
+        for (CurveEdge edge : graph.edgesAt(node)) CurveSync.edgeChanged(level, edge);
+        PipeNetwork.invalidateNode(level, node);
     }
 
     /** Networks through the node are rebuilt, and a block pipe the node sits on redraws that face. */
