@@ -25,7 +25,8 @@ public final class CurveTicker {
     public static void tick(TickEvent.LevelTickEvent event) {
         if (event.phase != TickEvent.Phase.END || !(event.level instanceof ServerLevel level)) return;
         CurveData data = CurveData.get(level);
-        for (CurvedEnd end : data.ends()) tick(level, data, end);
+        data.processDirty(level);
+        for (CurvedEnd end : new java.util.ArrayList<>(data.ends())) tick(level, data, end);
     }
 
     private static void tick(ServerLevel level, CurveData data, CurvedEnd end) {

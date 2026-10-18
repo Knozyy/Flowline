@@ -204,6 +204,60 @@ public final class CurveData extends SavedData {
         return pos.asLong() * 8 + face.ordinal();
     }
 
+    // ---- world changes ------------------------------------------------------------------------------------
+
+    /** Blocks that changed this tick; looked at once at the end of the tick. Not saved. */
+    private final Set<BlockPos> dirty = new LinkedHashSet<>();
+
+    public void markDirty(BlockPos pos) {
+        dirty.add(pos.immutable());
+    }
+
+    /**
+     * Curvy Pipes' answer to changed blocks (curvy-behaviour-addendum-re.md, B4): an edge whose boxes now overlap a
+     * changed block's collision shape breaks, its pipes drop where it met the block, and nodes left without edges go.
+     * Nodes fixed to a changed block keep their anchor and settings; their networks are rebuilt.
+     */
+    public void processDirty(ServerLevel level) {
+        if (dirty.isEmpty()) return;
+        List<BlockPos> changed = new ArrayList<>(dirty);
+        dirty.clear();
+        for (BlockPos pos : changed) {
+            for (long node : nodesAnchoredTo(pos)) PipeNetwork.invalidateNode(level, node);
+            if (!level.isLoaded(pos)) continue;
+            List<com.knozyy.flowline.curve.Aabb> solids =
+                    WorldShapes.boxes(level.getBlockState(pos).getCollisionShape(level, pos), pos);
+            if (solids.isEmpty()) continue;
+            com.knozyy.flowline.curve.Aabb cell = new com.knozyy.flowline.curve.Aabb(pos.getX(), pos.getY(), pos.getZ(),
+                    pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1);
+            Map<Long, Vec3d> broken = new LinkedHashMap<>();
+            for (com.knozyy.flowline.curve.SegmentBox box : graph.boxesNear(cell)) {
+                if (broken.containsKey(box.edgeId())) continue;
+                for (com.knozyy.flowline.curve.Aabb solid : solids) {
+                    if (box.box().overlaps(solid)) {
+                        broken.put(box.edgeId(), box.box().center());
+                        break;
+                    }
+                }
+            }
+            for (Map.Entry<Long, Vec3d> entry : broken.entrySet()) {
+                CurveEdge edge = graph.edge(entry.getKey()).orElse(null);
+                if (edge == null) continue;
+                EdgeInfo info = infos.get(edge.id());
+                removeEdge(edge.id());
+                int cost = edge.shape().cost();
+                net.minecraft.world.item.Item item = CurveCost.item(info.type());
+                while (cost > 0) {
+                    int part = Math.min(cost, item.getMaxStackSize());
+                    CurveEdits.drop(level, entry.getValue(), List.of(new ItemStack(item, part)));
+                    cost -= part;
+                }
+                CurveEdits.dropLonely(level, this, edge.from());
+                CurveEdits.dropLonely(level, this, edge.to());
+            }
+        }
+    }
+
     // ---- saving -------------------------------------------------------------------------------------------
 
     @Override
