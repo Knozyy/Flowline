@@ -2,7 +2,13 @@ package com.knozyy.flowline.test;
 
 import com.knozyy.flowline.Flowline;
 import com.knozyy.flowline.curve.Aabb;
+import com.knozyy.flowline.curve.CurveRules;
+import com.knozyy.flowline.curve.CurveSolver;
+import com.knozyy.flowline.curve.EdgeShape;
+import com.knozyy.flowline.curve.EndCondition;
+import com.knozyy.flowline.curve.Frames;
 import com.knozyy.flowline.curve.Obb;
+import com.knozyy.flowline.curve.SolvedSpan;
 import com.knozyy.flowline.curve.Vec3d;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -68,6 +74,86 @@ public class CurveGeometryGameTests {
         h.assertTrue(near(down, 3.8125, 1e-9), "a ray from above hits the top face, got " + down);
         h.assertTrue(Double.isNaN(box.rayHit(v(0.5, 5, 0.5), v(0, 1, 0), 10)), "a ray going away misses");
         h.assertTrue(box.rayHit(v(0.5, 1, 0.5), v(0, -1, 0), 10) == 0, "a ray starting inside hits at once");
+        h.succeed();
+    }
+
+    // ---- frames and edge shapes --------------------------------------------------------------------------
+
+    private static List<Vec3d> straight(Vec3d step, int segments) {
+        List<Vec3d> points = new java.util.ArrayList<>();
+        for (int i = 0; i <= segments; i++) points.add(step.scale(i));
+        return points;
+    }
+
+    private static SolvedSpan elbow() {
+        return CurveSolver.solve(List.of(v(0, 0, 0), v(2, 2, 0)), CurveRules.DIAMETER, new EndCondition(v(0, 1, 0)),
+                new EndCondition(v(1, 0, 0))).orElseThrow().spans().get(0);
+    }
+
+    private static Vec3d tangent(List<Vec3d> points, int segment) {
+        return points.get(segment + 1).sub(points.get(segment)).normalize();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void framesStraightAlongXUseUp(GameTestHelper h) {
+        for (Vec3d n : Frames.normals(straight(v(0.5, 0, 0), 8))) {
+            h.assertTrue(n.distanceSq(v(0, 1, 0)) < 1e-24, "a pipe along x keeps its top up, got " + n);
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void framesVerticalUseZ(GameTestHelper h) {
+        for (Vec3d n : Frames.normals(straight(v(0, 0.5, 0), 8))) {
+            h.assertTrue(n.distanceSq(v(0, 0, 1)) < 1e-24, "a vertical pipe faces z, got " + n);
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void framesStayPerpendicular(GameTestHelper h) {
+        List<Vec3d> points = elbow().points();
+        List<Vec3d> normals = Frames.normals(points);
+        h.assertTrue(normals.size() == points.size() - 1, "one normal per segment");
+        for (int k = 0; k < normals.size(); k++) {
+            h.assertTrue(near(normals.get(k).length(), 1, 1e-9), "unit normal " + k);
+            h.assertTrue(Math.abs(normals.get(k).dot(tangent(points, k))) < 1e-9, "normal " + k + " is square to its segment");
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void framesEndsMatchBlockAxes(GameTestHelper h) {
+        endsMatchBlockAxes(h, elbow().points());
+        // a chain that leaves its plane, so parallel transport alone ends up turned off the grid
+        List<Vec3d> twisted = new java.util.ArrayList<>();
+        for (SolvedSpan span : CurveSolver.solve(List.of(v(0, 0, 0), v(2, 1, 1), v(3, 3, 0), v(4, 3, 3)),
+                CurveRules.DIAMETER, EndCondition.FREE, EndCondition.FREE).orElseThrow().spans()) {
+            if (!twisted.isEmpty()) twisted.remove(twisted.size() - 1);
+            twisted.addAll(span.points());
+        }
+        endsMatchBlockAxes(h, twisted);
+        h.succeed();
+    }
+
+    private static void endsMatchBlockAxes(GameTestHelper h, List<Vec3d> points) {
+        List<Vec3d> normals = Frames.normals(points);
+        Vec3d first = Frames.blockNormal(tangent(points, 0));
+        h.assertTrue(normals.get(0).distanceSq(first) < 1e-18, "the first segment is square to the block grid");
+        int last = normals.size() - 1;
+        Vec3d t = tangent(points, last), target = Frames.blockNormal(t);
+        Vec3d n = normals.get(last);
+        boolean aligned = Math.abs(n.dot(target)) > 1 - 1e-9 || Math.abs(n.dot(t.cross(target))) > 1 - 1e-9;
+        h.assertTrue(aligned, "the last segment is square to the block grid up to a quarter turn, got " + n);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void edgeBoxesCoverSegments(GameTestHelper h) {
+        List<Obb> boxes = EdgeShape.boxes(new SolvedSpan(straight(v(0.5, 0, 0), 8), 0.5), R);
+        h.assertTrue(boxes.size() == 8, "one box per segment");
+        Aabb b = EdgeShape.bounds(boxes);
+        h.assertTrue(near(b.minX(), 0, 1e-9) && near(b.maxX(), 4, 1e-9) && near(b.minY(), -R, 1e-9)
+                && near(b.maxY(), R, 1e-9) && near(b.minZ(), -R, 1e-9) && near(b.maxZ(), R, 1e-9), "bounds " + b);
         h.succeed();
     }
 
