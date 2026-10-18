@@ -858,6 +858,21 @@ public class PipeGameTests {
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(ModBlocks.ITEM_PIPE.get()));
         helper.assertTrue(state.use(level, player, net.minecraft.world.InteractionHand.MAIN_HAND, hit)
                 == net.minecraft.world.InteractionResult.PASS, "a pipe in hand keeps laying pipes");
+        helper.assertTrue(player.containerMenu == player.inventoryMenu, "a pipe in hand opens no screen");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void pipeItemsArePlainBlockItems(GameTestHelper helper) {
+        for (var block : List.of(ModBlocks.ITEM_PIPE, ModBlocks.FLUID_PIPE, ModBlocks.ENERGY_PIPE,
+                ModBlocks.UNIVERSAL_PIPE)) {
+            Item item = block.get().asItem();
+            helper.assertTrue(item instanceof net.minecraft.world.item.BlockItem bi && bi.getBlock() == block.get(),
+                    block.getId() + " must be a plain block item of its pipe");
+            helper.assertTrue(PipeBlock.isPipe(new ItemStack(item)), block.getId() + " is a pipe");
+        }
+        helper.assertTrue(!PipeBlock.isPipe(new ItemStack(Items.STONE)), "stone is not a pipe");
+        helper.assertTrue(!PipeBlock.isPipe(ItemStack.EMPTY), "an empty hand holds no pipe");
         helper.succeed();
     }
 

@@ -6,7 +6,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
-import com.knozyy.flowline.compat.CurvyPipesCompat;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
@@ -45,7 +44,7 @@ public final class PipeBuilder {
     public static void build(ServerPlayer player) {
         if (!player.isAlive() || player.isSpectator() || !player.mayBuild()) return;
         ItemStack stack = player.getOffhandItem();
-        if (!CurvyPipesCompat.pipe(stack)) {
+        if (!PipeBlock.isPipe(stack)) {
             player.displayClientMessage(Component.translatable("message.flowline.build.no_pipe"), true);
             return;
         }

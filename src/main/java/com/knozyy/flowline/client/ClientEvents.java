@@ -1,7 +1,6 @@
 package com.knozyy.flowline.client;
 
 import com.knozyy.flowline.Flowline;
-import com.knozyy.flowline.compat.CurvyPipesCompat;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
@@ -31,7 +30,7 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onTooltip(ItemTooltipEvent event) {
-        if (CurvyPipesCompat.supported(event.getItemStack())) {
+        if (PipeBlock.isPipe(event.getItemStack())) {
             event.getToolTip().add(Component.translatable("tooltip.flowline.curvy.hands").withStyle(ChatFormatting.GRAY));
         }
     }

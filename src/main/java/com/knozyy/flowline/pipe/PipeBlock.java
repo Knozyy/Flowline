@@ -88,6 +88,11 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
         return PROPS.get(dir);
     }
 
+    /** True for the item of any Flowline pipe. */
+    public static boolean isPipe(ItemStack stack) {
+        return stack.getItem() instanceof net.minecraft.world.item.BlockItem item && item.getBlock() instanceof PipeBlock;
+    }
+
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         for (Direction d : Direction.values()) builder.add(prop(d));
@@ -280,7 +285,7 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
             if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be) paint(be, dye.getDyeColor(), player, stack);
             return InteractionResult.sidedSuccess(level.isClientSide);
         }
-        if (hand != InteractionHand.MAIN_HAND || com.knozyy.flowline.compat.CurvyPipesCompat.pipe(stack)) {
+        if (hand != InteractionHand.MAIN_HAND || isPipe(stack)) {
             return InteractionResult.PASS;
         }
         return openSide(state, level, pos, player, hit);
