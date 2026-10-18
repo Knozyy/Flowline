@@ -133,6 +133,69 @@ public class CurveNetworkGameTests {
                 .thenSucceed();
     }
 
+    /**
+     * Chest A at (0,1,z) with an extracting curved end on its east face, a straight curved edge to the west face of an
+     * item pipe at (6,1,z), and chest B behind the pipe at (7,1,z). Returns the end's node id.
+     */
+    static long extractingEnd(GameTestHelper h, int z) {
+        h.setBlock(new BlockPos(0, 1, z), Blocks.CHEST);
+        h.setBlock(new BlockPos(7, 1, z), Blocks.CHEST);
+        h.setBlock(new BlockPos(6, 1, z), ModBlocks.ITEM_PIPE.get());
+        PipeBlock.updateConnections(h.getLevel(), h.absolutePos(new BlockPos(6, 1, z)));
+        long end = CurveTestSupport.node(h, new Vec3(1, 1.5, z + 0.5), new Anchor.BlockFace(new BlockPos(0, 1, z), Direction.EAST),
+                PipeType.ITEM);
+        long pipeFace = CurveTestSupport.node(h, new Vec3(6, 1.5, z + 0.5), new Anchor.PipeFace(new BlockPos(6, 1, z), Direction.WEST),
+                PipeType.ITEM);
+        CurveTestSupport.edge(h, end, pipeFace, PipeType.ITEM, EAST, EAST);
+        CurveData.get(h.getLevel()).end(end).orElseThrow().cfg().mode = SideMode.EXTRACT;
+        return end;
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void curvedEndExtractsIntoBlockPipes(GameTestHelper h) {
+        extractingEnd(h, 4);
+        chest(h, new BlockPos(0, 1, 4)).setItem(0, new ItemStack(Items.DIAMOND, 8));
+        h.succeedWhen(() -> {
+            h.assertTrue(count(h, new BlockPos(7, 1, 4), Items.DIAMOND) == 8, "the curved end pulls into the block pipe");
+            CurveTestSupport.clear(h);
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 400)
+    public static void curvedEndFollowsRedstone(GameTestHelper h) {
+        long end = extractingEnd(h, 4);
+        CurveData.get(h.getLevel()).end(end).orElseThrow().cfg().redstone = com.knozyy.flowline.pipe.RedstoneMode.REQUIRE_SIGNAL;
+        chest(h, new BlockPos(0, 1, 4)).setItem(0, new ItemStack(Items.DIAMOND, 8));
+        BlockPos b = new BlockPos(7, 1, 4);
+        h.startSequence()
+                .thenIdle(60)
+                .thenExecute(() -> {
+                    h.assertTrue(count(h, b, Items.DIAMOND) == 0, "no signal at the end: nothing moves");
+                    h.setBlock(new BlockPos(1, 1, 3), Blocks.REDSTONE_BLOCK);
+                })
+                .thenWaitUntil(() -> h.assertTrue(count(h, b, Items.DIAMOND) == 8, "a signal next to the end starts it"))
+                .thenExecute(() -> CurveTestSupport.clear(h))
+                .thenSucceed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void unloadedCurvedEndIsSkipped(GameTestHelper h) {
+        long far = CurveTestSupport.node(h, new Vec3(2001, 1.5, 0.5), new Anchor.BlockFace(new BlockPos(2000, 1, 0), Direction.EAST),
+                PipeType.ITEM);
+        var end = CurveData.get(h.getLevel()).end(far).orElseThrow();
+        end.cfg().mode = SideMode.EXTRACT;
+        h.startSequence()
+                .thenIdle(20)
+                .thenExecute(() -> {
+                    h.assertTrue(end.cfg().interval == -1, "an end in an unloaded chunk never ticks");
+                    BlockPos block = end.block();
+                    h.assertTrue(!h.getLevel().hasChunk(block.getX() >> 4, block.getZ() >> 4),
+                            "and its chunk is not loaded to look at it");
+                    CurveTestSupport.clear(h);
+                })
+                .thenSucceed();
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 300)
     public static void curvedNetworksStayApart(GameTestHelper h) {
         line(h, 1);
