@@ -161,6 +161,107 @@ public final class CurveEdits {
         return EditResult.OK;
     }
 
+    // ---- inserting, moving, forcing ------------------------------------------------------------------------
+
+    /** Splits an edge with a new node {@code along} (0–1) its segment {@code segment}; both halves are re-solved. */
+    public static EditResult insert(ServerPlayer player, long edgeId, int segment, double along) {
+        ServerLevel level = player.serverLevel();
+        CurveData data = CurveData.get(level);
+        CurveEdge edge = data.graph().edge(edgeId).orElse(null);
+        if (edge == null || segment < 0 || segment >= edge.shape().segments() || !(along >= 0 && along <= 1)) {
+            return EditResult.error(PlaceError.INVALID_OBJECT);
+        }
+        List<Vec3d> p = edge.shape().points();
+        Vec3d point = p.get(segment).add(p.get(segment + 1).sub(p.get(segment)).scale(along));
+        if (tooFar(player, point)) return EditResult.error(PlaceError.TOO_FAR);
+        EdgeInfo info = data.info(edgeId);
+        Vec3d a = data.graph().node(edge.from()).orElseThrow().pos(), b = data.graph().node(edge.to()).orElseThrow().pos();
+        SolvedChain chain = CurveSolver.solve(List.of(a, point, b), CurveRules.DIAMETER, info.start(), info.end()).orElse(null);
+        if (chain == null) return EditResult.error(PlaceError.INVALID_SHAPE);
+        CurveNode middle = new CurveNode(data.newNodeId(), point, false);
+        CurveEdge first = new CurveEdge(data.newEdgeId(), edge.from(), middle.id(), edge.diameter(), chain.spans().get(0));
+        CurveEdge second = new CurveEdge(data.newEdgeId(), middle.id(), edge.to(), edge.diameter(), chain.spans().get(1));
+        PlaceError error = PlacementValidator.validate(data.graph(),
+                new PlacementCandidate(List.of(middle), List.of(first, second), Set.of(edgeId), Map.of()), new WorldShapes(level))
+                .orElse(null);
+        if (error != null) return EditResult.error(error);
+        if (denied(player, level, List.of(first, second))) return EditResult.DENIED;
+        int required = CostPlan.required(List.of(first.shape(), second.shape()), List.of(edge.shape()));
+        int available = CurveCost.available(player, info.type());
+        if (!CostPlan.affordable(required, available, false)) return EditResult.missing(required - available);
+
+        settle(player, info.type(), required);
+        data.removeEdge(edgeId);
+        data.putNode(middle, Anchor.FREE, info.type());
+        data.putEdge(first, new EdgeInfo(info.type(), info.color(), info.start(), EndCondition.FREE));
+        data.putEdge(second, new EdgeInfo(info.type(), info.color(), EndCondition.FREE, info.end()));
+        return EditResult.OK;
+    }
+
+    /**
+     * Moves a node to {@code pos}, fixed to {@code face} if given. Every edge touching it is re-solved on its own;
+     * leaving a block face drops the end's settings and upgrades (curvy-behaviour-addendum-re.md, B5).
+     */
+    public static EditResult translate(ServerPlayer player, long nodeId, Vec3 pos, java.util.Optional<PlaceRequest.Face> face) {
+        ServerLevel level = player.serverLevel();
+        CurveData data = CurveData.get(level);
+        CurveNode node = data.graph().node(nodeId).orElse(null);
+        if (node == null) return EditResult.error(PlaceError.INVALID_OBJECT);
+        PipeType type = data.nodeType(nodeId);
+        Resolved target = resolve(level, data, new PlaceRequest.End(pos, java.util.OptionalLong.empty(), face), type);
+        if (target == null) return EditResult.error(PlaceError.INVALID_OBJECT);
+        if (tooFar(player, target.pos())) return EditResult.error(PlaceError.TOO_FAR);
+
+        CurveNode moved = new CurveNode(nodeId, target.pos(), node.forceJoint());
+        List<CurveEdge> reshaped = new ArrayList<>();
+        List<EdgeInfo> infos = new ArrayList<>();
+        Set<Long> replaced = new java.util.HashSet<>();
+        for (CurveEdge edge : data.graph().edgesAt(nodeId)) {
+            EdgeInfo info = data.info(edge.id());
+            boolean fromMoved = edge.from() == nodeId;
+            EndCondition start = fromMoved ? target.startCondition() : info.start();
+            EndCondition end = fromMoved ? info.end() : target.endCondition();
+            Vec3d a = fromMoved ? target.pos() : data.graph().node(edge.from()).orElseThrow().pos();
+            Vec3d b = fromMoved ? data.graph().node(edge.to()).orElseThrow().pos() : target.pos();
+            SolvedChain chain = CurveSolver.solve(List.of(a, b), CurveRules.DIAMETER, start, end).orElse(null);
+            if (chain == null) return EditResult.error(PlaceError.INVALID_SHAPE);
+            reshaped.add(new CurveEdge(edge.id(), edge.from(), edge.to(), edge.diameter(), chain.spans().get(0)));
+            infos.add(new EdgeInfo(info.type(), info.color(), start, end));
+            replaced.add(edge.id());
+        }
+        Map<Long, FaceAttachment> attachments = target.attachment() == null ? Map.of() : Map.of(nodeId, target.attachment());
+        PlaceError error = PlacementValidator.validate(data.graph(),
+                new PlacementCandidate(List.of(moved), reshaped, replaced, attachments), new WorldShapes(level)).orElse(null);
+        if (error != null) return EditResult.error(error);
+        if (denied(player, level, reshaped)) return EditResult.DENIED;
+        List<SolvedSpan> old = new ArrayList<>();
+        for (long id : replaced) old.add(data.graph().edge(id).orElseThrow().shape());
+        int required = CostPlan.required(spans(reshaped), old);
+        int available = CurveCost.available(player, type);
+        if (!CostPlan.affordable(required, available, false)) return EditResult.missing(required - available);
+
+        settle(player, type, required);
+        if (!data.anchor(nodeId).equals(target.anchor())) drop(level, node.pos(), data.setAnchor(nodeId, target.anchor()));
+        data.putNode(moved, target.anchor(), type);
+        for (int i = 0; i < reshaped.size(); i++) data.putEdge(reshaped.get(i), infos.get(i));
+        return EditResult.OK;
+    }
+
+    /** Turns a node's forced joint on or off, if the bigger (or smaller) joint still fits (Curvy's 7 and 8). */
+    public static EditResult forceJoint(ServerPlayer player, long nodeId, boolean desired) {
+        ServerLevel level = player.serverLevel();
+        CurveData data = CurveData.get(level);
+        CurveNode node = data.graph().node(nodeId).orElse(null);
+        if (node == null) return EditResult.error(PlaceError.INVALID_OBJECT);
+        if (tooFar(player, node.pos())) return EditResult.error(PlaceError.TOO_FAR);
+        CurveNode changed = new CurveNode(nodeId, node.pos(), desired);
+        PlaceError error = PlacementValidator.validate(data.graph(),
+                new PlacementCandidate(List.of(changed), List.of(), Set.of(), Map.of()), new WorldShapes(level)).orElse(null);
+        if (error != null) return EditResult.error(error);
+        data.putNode(changed, data.anchor(nodeId), data.nodeType(nodeId));
+        return EditResult.OK;
+    }
+
     /** The condition of a chain that leaves node {@code far} along {@code edge}'s own condition there. */
     static EndCondition leaving(CurveData data, CurveEdge edge, long far) {
         EdgeInfo info = data.info(edge.id());

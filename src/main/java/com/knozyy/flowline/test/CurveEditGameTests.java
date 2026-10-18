@@ -252,6 +252,106 @@ public class CurveEditGameTests {
         done(h, player);
     }
 
+    // ---- inserting, moving, forcing ------------------------------------------------------------------------
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void insertSplitsAnEdge(GameTestHelper h) {
+        ServerPlayer player = player(h, 64);
+        h.assertTrue(CurveEdits.place(player, chestToPipe(h)).ok(), "placed");
+        CurveData data = CurveData.get(h.getLevel());
+        long edgeId = onlyEdge(h, new Vec3(CHEST_FACE_X, 1.5, 4.5));
+        CurveEdge edge = data.graph().edge(edgeId).orElseThrow();
+        Vec3d a = edge.shape().points().get(4), b = edge.shape().points().get(5);
+        Vec3d middle = a.add(b).scale(0.5);
+        int held = pipesHeld(player), oldCost = edge.shape().cost();
+        EditResult result = CurveEdits.insert(player, edgeId, 4, 0.5);
+        h.assertTrue(result.ok(), "inserting, got " + result);
+        h.assertTrue(data.graph().edge(edgeId).isEmpty(), "the old edge is replaced");
+        CurveNode added = data.graph().nodes().stream().filter(n -> data.graph().edgesAt(n.id()).size() == 2
+                && n.pos().distanceSq(middle) < 0.04).findFirst().orElse(null);
+        h.assertTrue(added != null, "a node with two edges near the middle of segment 4");
+        int newCost = data.graph().edgesAt(added.id()).stream().mapToInt(e -> e.shape().cost()).sum();
+        h.assertTrue(pipesHeld(player) == held - (newCost - oldCost), "the cost difference is settled");
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void insertOutsideTheEdgeIsRefused(GameTestHelper h) {
+        ServerPlayer player = player(h, 64);
+        h.assertTrue(CurveEdits.place(player, chestToPipe(h)).ok(), "placed");
+        long edgeId = onlyEdge(h, new Vec3(CHEST_FACE_X, 1.5, 4.5));
+        h.assertTrue(CurveEdits.insert(player, edgeId, 4, 1.5).error() == PlaceError.INVALID_OBJECT, "beyond the segment");
+        h.assertTrue(CurveEdits.insert(player, edgeId, 999, 0.5).error() == PlaceError.INVALID_OBJECT, "no such segment");
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void translateReshapesTouchingEdges(GameTestHelper h) {
+        ServerPlayer player = player(h, 64);
+        h.setBlock(CHEST, Blocks.CHEST);
+        Vec3 loose = new Vec3(4, 2, 4.5), moved = new Vec3(4, 3, 4.5);
+        h.assertTrue(CurveEdits.place(player, new PlaceRequest(PipeType.ITEM,
+                onFace(h, new Vec3(CHEST_FACE_X, 1.5, 4.5), CHEST, Direction.EAST), free(h, loose), List.of())).ok(), "placed");
+        CurveNode end = nodeAt(h, loose);
+        EditResult result = CurveEdits.translate(player, end.id(), h.absoluteVec(moved), Optional.empty());
+        h.assertTrue(result.ok(), "moving the loose end, got " + result);
+        CurveData data = CurveData.get(h.getLevel());
+        Vec3 abs = h.absoluteVec(moved);
+        Vec3d target = new Vec3d(abs.x, abs.y, abs.z);
+        h.assertTrue(data.graph().node(end.id()).orElseThrow().pos().distanceSq(target) < 1e-12, "the node moved");
+        List<Vec3d> points = data.graph().edgesAt(end.id()).get(0).shape().points();
+        h.assertTrue(points.get(points.size() - 1).distanceSq(target) < 1e-12, "the edge follows it");
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void translateOffTheFaceDetaches(GameTestHelper h) {
+        ServerPlayer player = player(h, 64);
+        h.assertTrue(CurveEdits.place(player, chestToPipe(h)).ok(), "placed");
+        CurveData data = CurveData.get(h.getLevel());
+        CurveNode chestEnd = nodeAt(h, new Vec3(CHEST_FACE_X, 1.5, 4.5));
+        var end = data.end(chestEnd.id()).orElseThrow();
+        end.cfg().mode = com.knozyy.flowline.pipe.SideMode.EXTRACT;
+        end.upgrades().setItem(0, new ItemStack(ModItems.SPEED_UPGRADE.get()));
+        Vec3 air = h.absoluteVec(new Vec3(2.5, 2.5, 4.5));
+        EditResult result = CurveEdits.translate(player, chestEnd.id(), air, Optional.empty());
+        h.assertTrue(result.ok(), "moving the end into the air, got " + result);
+        h.assertTrue(data.anchor(chestEnd.id()).equals(com.knozyy.flowline.curved.Anchor.FREE)
+                && data.end(chestEnd.id()).isEmpty(), "the end leaves the chest and its settings go");
+        long upgrades = h.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                new net.minecraft.world.phys.AABB(h.absolutePos(new BlockPos(0, 0, 3))).inflate(2)).stream()
+                .filter(e -> com.knozyy.flowline.item.UpgradeItem.typeOf(e.getItem()) != null).count();
+        h.assertTrue(upgrades == 1, "its upgrade drops at the chest, found " + upgrades);
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void forceJointGrowsTheJoint(GameTestHelper h) {
+        ServerPlayer player = player(h, 64);
+        CurveData data = CurveData.get(h.getLevel());
+        long m = CurveTestSupport.node(h, new Vec3(4.5, 2.5, 4.5), com.knozyy.flowline.curved.Anchor.FREE, PipeType.ITEM);
+        long far = CurveTestSupport.node(h, new Vec3(1.5, 2.5, 4.5), com.knozyy.flowline.curved.Anchor.FREE, PipeType.ITEM);
+        long other = CurveTestSupport.node(h, new Vec3(4.5, 2.5, 7.5), com.knozyy.flowline.curved.Anchor.FREE, PipeType.ITEM);
+        CurveTestSupport.edge(h, far, m, PipeType.ITEM, com.knozyy.flowline.curve.EndCondition.FREE,
+                com.knozyy.flowline.curve.EndCondition.FREE);
+        CurveTestSupport.edge(h, m, other, PipeType.ITEM, com.knozyy.flowline.curve.EndCondition.FREE,
+                com.knozyy.flowline.curve.EndCondition.FREE);
+        h.assertTrue(CurveEdits.forceJoint(player, m, true).ok() && data.graph().node(m).orElseThrow().forceJoint(),
+                "a node with room around it becomes a forced joint");
+        // a stub whose far end lies 0.22 away: outside 0.1875, inside the forced 0.1875·√2 ≈ 0.265
+        long close = CurveTestSupport.node(h, new Vec3(2.5, 4.5, 6.5), com.knozyy.flowline.curved.Anchor.FREE, PipeType.ITEM);
+        long stub = CurveTestSupport.node(h, new Vec3(2.72, 4.5, 6.5), com.knozyy.flowline.curved.Anchor.FREE, PipeType.ITEM);
+        long beyond = CurveTestSupport.node(h, new Vec3(2.5, 4.5, 3.5), com.knozyy.flowline.curved.Anchor.FREE, PipeType.ITEM);
+        CurveTestSupport.edge(h, close, stub, PipeType.ITEM, com.knozyy.flowline.curve.EndCondition.FREE,
+                com.knozyy.flowline.curve.EndCondition.FREE);
+        CurveTestSupport.edge(h, close, beyond, PipeType.ITEM, com.knozyy.flowline.curve.EndCondition.FREE,
+                com.knozyy.flowline.curve.EndCondition.FREE);
+        EditResult forced = CurveEdits.forceJoint(player, close, true);
+        h.assertTrue(forced.error() == PlaceError.NODE_IN_JOINT, "forcing would swallow the stub's far end, got " + forced);
+        h.assertTrue(!data.graph().node(close).orElseThrow().forceJoint(), "and the flag stays off");
+        done(h, player);
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void placeExtendsAnEnd(GameTestHelper h) {
         ServerPlayer player = player(h, 64);
