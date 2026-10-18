@@ -1,6 +1,8 @@
 package com.knozyy.flowline.test;
 
 import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.client.ClientCurves;
+import com.knozyy.flowline.client.curve.MeshCache;
 import com.knozyy.flowline.curve.CurveRules;
 import com.knozyy.flowline.curve.CurveSolver;
 import com.knozyy.flowline.curve.EndCondition;
@@ -8,8 +10,11 @@ import com.knozyy.flowline.curve.MeshPart;
 import com.knozyy.flowline.curve.MeshQuad;
 import com.knozyy.flowline.curve.TubeMesh;
 import com.knozyy.flowline.curve.Vec3d;
+import com.knozyy.flowline.network.curve.CurveEdgesPayload;
+import com.knozyy.flowline.pipe.PipeType;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
@@ -102,6 +107,40 @@ public class CurveMeshGameTests {
                 h.assertTrue(Math.abs(Math.sqrt(p.distanceSq(centre)) - r) < 1e-9, "sphere point off the radius: " + p);
             }
         }
+        h.succeed();
+    }
+
+    private static CurveEdgesPayload.NodeSync syncNode(long id, double x) {
+        return new CurveEdgesPayload.NodeSync(id, v(x, 0, 0), false, (byte) 0, false);
+    }
+
+    private static CurveEdgesPayload.EdgeSync syncEdge(long id, long from, double x0, long to, double x1) {
+        return new CurveEdgesPayload.EdgeSync(id, from, to, PipeType.ITEM, -1, 0.5,
+                List.of(v(x0, 0, 0), v((x0 + x1) / 2, 0, 0), v(x1, 0, 0)));
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void meshCacheRebuildsOnlyChangedEdges(GameTestHelper h) {
+        ClientCurves curves = new ClientCurves();
+        curves.apply(new CurveEdgesPayload(new ChunkPos(0, 0), List.of(syncEdge(1, 10, 0, 11, 1), syncEdge(2, 11, 1, 12, 2)),
+                List.of(syncNode(10, 0), syncNode(11, 1), syncNode(12, 2)), List.of(), List.of()));
+        MeshCache cache = new MeshCache(curves);
+        for (int i = 0; i < 2; i++) {
+            cache.edge(1);
+            cache.edge(2);
+        }
+        h.assertTrue(cache.builds() == 2, "each edge is built once, got " + cache.builds());
+        cache.invalidate(1);
+        cache.edge(1);
+        cache.edge(2);
+        h.assertTrue(cache.builds() == 3, "only the invalidated edge is built again, got " + cache.builds());
+        curves.apply(new CurveEdgesPayload(new ChunkPos(0, 0), List.of(syncEdge(2, 11, 1, 12, 3)),
+                List.of(syncNode(12, 3)), List.of(), List.of()));
+        cache.edge(1);
+        cache.edge(2);
+        h.assertTrue(cache.builds() == 4, "a new copy from the server rebuilds that edge, got " + cache.builds());
+        h.assertTrue(cache.edge(1).stream().filter(q -> q.part() == MeshPart.GLASS).count() == 2 * 4 + 1,
+                "a lone free end gets a cap: 2 segments of 4 panels plus 1");
         h.succeed();
     }
 }

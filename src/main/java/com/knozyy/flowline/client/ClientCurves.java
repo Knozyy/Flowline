@@ -32,6 +32,12 @@ public final class ClientCurves {
     /** The last edit result the server sent, for the HUD. */
     @Nullable
     public CurveResultPayload lastResult;
+    /** Counts changes, so the renderer knows when to drop meshes of what went away. */
+    private int version;
+
+    public int version() {
+        return version;
+    }
 
     public CurveGraph graph() {
         return graph;
@@ -48,6 +54,7 @@ public final class ClientCurves {
     }
 
     public void apply(CurveEdgesPayload payload) {
+        version++;
         for (long id : payload.removedEdges()) removeEdge(id);
         for (long id : payload.removedNodes()) removeNode(id);
         for (CurveEdgesPayload.NodeSync node : payload.nodes()) {
@@ -66,6 +73,7 @@ public final class ClientCurves {
 
     /** The chunk is no longer watched: what only it showed goes. */
     public void forget(ChunkPos chunk) {
+        version++;
         for (long id : new ArrayList<>(edgeSeen.keySet())) {
             Set<ChunkPos> seen = edgeSeen.get(id);
             if (seen.remove(chunk) && seen.isEmpty()) removeEdge(id);
@@ -77,6 +85,7 @@ public final class ClientCurves {
     }
 
     public void reset() {
+        version++;
         for (long id : new ArrayList<>(edges.keySet())) removeEdge(id);
         for (long id : new ArrayList<>(nodes.keySet())) removeNode(id);
         lastResult = null;
