@@ -1,0 +1,107 @@
+package com.knozyy.flowline.test;
+
+import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.curve.CurveRules;
+import com.knozyy.flowline.curve.CurveSolver;
+import com.knozyy.flowline.curve.EndCondition;
+import com.knozyy.flowline.curve.MeshPart;
+import com.knozyy.flowline.curve.MeshQuad;
+import com.knozyy.flowline.curve.TubeMesh;
+import com.knozyy.flowline.curve.Vec3d;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/** The glass duct mesh of curved pipes: the block pipe's profile carried along the curve. */
+@GameTestHolder(Flowline.MODID)
+@PrefixGameTestTemplate(false)
+public class CurveMeshGameTests {
+    private static final double PX = 1 / 16.0;
+
+    private static Vec3d v(double x, double y, double z) {
+        return new Vec3d(x, y, z);
+    }
+
+    private static List<Vec3d> straight(int segments) {
+        List<Vec3d> points = new ArrayList<>();
+        for (int i = 0; i <= segments; i++) points.add(v(i * 0.5, 0, 0));
+        return points;
+    }
+
+    private static Vec3d centroid(MeshQuad q) {
+        return q.a().add(q.b()).add(q.c()).add(q.d()).scale(0.25);
+    }
+
+    private static long count(List<MeshQuad> quads, MeshPart part) {
+        return quads.stream().filter(q -> q.part() == part).count();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void straightTubeHasTheBlockPipeProfile(GameTestHelper h) {
+        List<MeshQuad> quads = TubeMesh.edge(straight(4), TubeMesh.EndStyle.NONE, TubeMesh.EndStyle.NONE);
+        h.assertTrue(quads.size() == 4 * (16 + 8), "4 rails and 4+4 glass faces per segment, got " + quads.size());
+        for (MeshQuad q : quads) {
+            for (Vec3d p : List.of(q.a(), q.b(), q.c(), q.d())) {
+                double y = Math.abs(p.y()), z = Math.abs(p.z());
+                if (q.part() == MeshPart.RAIL) {
+                    h.assertTrue(y >= 2 * PX - 1e-9 && y <= 3 * PX + 1e-9 && z >= 2 * PX - 1e-9 && z <= 3 * PX + 1e-9,
+                            "rails sit in the corners, 2–3 px from the middle: " + p);
+                } else {
+                    h.assertTrue(Math.abs(Math.max(y, z) - 2.5 * PX) < 1e-9, "glass is 2.5 px from the middle: " + p);
+                }
+            }
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void tubeQuadsFaceOutwards(GameTestHelper h) {
+        List<Vec3d> points = CurveSolver.solve(List.of(v(0, 0, 0), v(2, 2, 0)), CurveRules.DIAMETER,
+                new EndCondition(v(0, 1, 0)), new EndCondition(v(1, 0, 0))).orElseThrow().spans().get(0).points();
+        for (MeshQuad q : TubeMesh.edge(points, TubeMesh.EndStyle.NONE, TubeMesh.EndStyle.NONE)) {
+            if (q.part() != MeshPart.GLASS && q.part() != MeshPart.GLASS_INNER) continue;
+            Vec3d c = centroid(q);
+            Vec3d nearest = points.get(0);
+            for (Vec3d p : points) if (p.distanceSq(c) < nearest.distanceSq(c)) nearest = p;
+            double facing = q.normal().dot(c.sub(nearest));
+            h.assertTrue(q.part() == MeshPart.GLASS ? facing > 0 : facing < 0,
+                    q.part() + " faces the wrong way at " + c + " (" + facing + ")");
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void endStylesAddTheirPieces(GameTestHelper h) {
+        List<MeshQuad> none = TubeMesh.edge(straight(4), TubeMesh.EndStyle.NONE, TubeMesh.EndStyle.NONE);
+        List<MeshQuad> collar = TubeMesh.edge(straight(4), TubeMesh.EndStyle.COLLAR, TubeMesh.EndStyle.NONE);
+        List<MeshQuad> ring = TubeMesh.edge(straight(4), TubeMesh.EndStyle.NONE, TubeMesh.EndStyle.RING);
+        List<MeshQuad> cap = TubeMesh.edge(straight(4), TubeMesh.EndStyle.CAP, TubeMesh.EndStyle.CAP);
+        h.assertTrue(count(none, MeshPart.COLLAR) == 0 && count(none, MeshPart.RING) == 0, "no end pieces");
+        h.assertTrue(count(collar, MeshPart.COLLAR) == 5, "a collar: four sides and its front, got " + count(collar, MeshPart.COLLAR));
+        h.assertTrue(count(ring, MeshPart.RING) == 5, "an extract ring the same way");
+        h.assertTrue(cap.size() == none.size() + 2, "a glass cap on each free end");
+        h.assertTrue(TubeMesh.edge(straight(8), TubeMesh.EndStyle.NONE, TubeMesh.EndStyle.NONE).stream()
+                .anyMatch(q -> q.part() == MeshPart.RING), "a long duct gets a band every 4 points");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void jointIsAClosedSphere(GameTestHelper h) {
+        Vec3d centre = v(1, 2, 3);
+        double r = 0.1875 * Math.sqrt(2);
+        List<MeshQuad> quads = TubeMesh.joint(centre, r, List.of(v(1, 0, 0), v(0, 1, 0), v(0, 0, -1)));
+        h.assertTrue(count(quads, MeshPart.NODE_GLASS) == 8 * 6, "8 × 6 sphere quads");
+        h.assertTrue(count(quads, MeshPart.RING) == 3 * 4, "a band of 4 faces at each of the 3 exits");
+        for (MeshQuad q : quads) {
+            if (q.part() != MeshPart.NODE_GLASS) continue;
+            for (Vec3d p : List.of(q.a(), q.b(), q.c(), q.d())) {
+                h.assertTrue(Math.abs(Math.sqrt(p.distanceSq(centre)) - r) < 1e-9, "sphere point off the radius: " + p);
+            }
+        }
+        h.succeed();
+    }
+}
