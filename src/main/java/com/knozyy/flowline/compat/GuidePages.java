@@ -23,7 +23,7 @@ public final class GuidePages {
         if (ModItems.CHEMICAL_PIPE != null) pipes.add(stack(ModItems.CHEMICAL_PIPE));
         return List.of(
                 page("pipes", pipes, 4),
-                page("universal_pipe", List.of(stack(ModItems.UNIVERSAL_PIPE)), 2),
+                page("universal_pipe", List.of(stack(ModItems.UNIVERSAL_PIPE)), 1),
                 page("wrench", List.of(stack(ModItems.WRENCH)), 4),
                 page("upgrades", ModItems.UPGRADES.stream().map(GuidePages::stack).toList(), 2),
                 page("filter_card", List.of(stack(ModItems.FILTER_CARD)), 2));

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Curved pipes become part of Flowline itself. This release removes the Curvy Pipes integration that came first:
+  Flowline no longer talks to Curvy Pipes, does not need it, and no longer bundles snakeyaml. With Curvy Pipes in the
+  same instance the two mods no longer interact.
+- Until the new curved pipes land, the off-hand mode key stays on Build for me and says so.
+- Network protocol 11: server and clients need the same Flowline version.
+
 ## 0.3.6
 
 - Worlds from before 0.3 open without Forge's missing-entries warning: Configuration Cards become Filter Cards

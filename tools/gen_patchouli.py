@@ -53,7 +53,6 @@ ENTRIES = {
     "upgrades": ("tools", "flowline:knozy_upgrade", 0),
     "cards": ("tools", "flowline:filter_card", 1),
     "build_for_me": ("curved", "flowline:item_pipe", 0),
-    "curvy": ("curved", "flowline:fluid_pipe", 1),
     "mods": ("integration", "minecraft:book", 0),
     "datapacks": ("integration", "minecraft:command_block", 1),
     "config": ("integration", "minecraft:redstone_torch", 2),
@@ -69,7 +68,7 @@ EN = {
         "sides": ("Sides and Modes", "Every side of a pipe is configured on its own."),
         "filters": ("Filters", "Allow and Block rules for items, fluids and chemicals."),
         "tools": ("Upgrades and Tools", "Speed, Stack, Filter and Knozy upgrades, the wrench and the Filter Card."),
-        "curved": ("Curved Pipes", "Build for me and Curvy Pipes."),
+        "curved": ("Curved Pipes", "Build for me; curved placement is coming back."),
         "integration": ("Integrations", "Other mods, data packs, KubeJS and the config."),
     },
     "entries": {
@@ -124,12 +123,8 @@ EN = {
             crafting("filter_card"),
         ]),
         "build_for_me": ("Build for Me", [
-            text("Hold a pipe in your $(thing)off hand$(). Look at a block: the route back to you appears as ghost pipes with the number needed, around obstacles and with as few turns as possible. Right-click to lay it." + BR2 + "The mode key (B by default) switches between Build for me and Curvy."),
+            text("Hold a pipe in your $(thing)off hand$(). Look at a block: the route back to you appears as ghost pipes with the number needed, around obstacles and with as few turns as possible. Right-click to lay it."),
             text("Each pipe is placed normally: protection mods apply, and survival uses up the off-hand stack. A pipe in the main hand always places a block pipe."),
-        ]),
-        "curvy": ("Curvy Pipes", [
-            text("With Curvy Pipes installed, the same Flowline pipes also place curved lines from the off hand. A Curvy line whose end sits on a Flowline pipe connects to that pipe's network." + BR2 + "One end still has to be set to Extract in Curvy's endpoint menu."),
-            text("A curved line carries one thing, so with a $(item)Universal Pipe$() in the off hand the mode key cycles Build for me, Curvy: Items, Curvy: Fluids and Curvy: Energy. The line is laid in the chosen channel and paid for with universal pipes."),
         ]),
         "mods": ("Other Mods", [
             text("$(thing)Mekanism$() 10.4 adds the Chemical Pipe." + BR + "$(thing)JEI$() and $(thing)EMI$(): how-to pages on Flowline's items, and drag an item or fluid onto a filter slot or into the rule editor." + BR + "$(thing)Jade$(), $(thing)The One Probe$() and $(thing)WTHIT$() show the looked-at side's mode, pacing, priority and regulator." + BR2 + "Wrenches tagged $(thing)forge:tools/wrench$() work on pipes."),
@@ -154,7 +149,7 @@ TR = {
         "sides": ("Taraflar ve Modlar", "Borunun her tarafı ayrı ayarlanır."),
         "filters": ("Filtreler", "Eşya, sıvı ve kimyasallar için İzin ve Engel kuralları."),
         "tools": ("Yükseltmeler ve Aletler", "Hız, Yığın, Filtre ve Knozy yükseltmeleri, anahtar ve Filtre Kartı."),
-        "curved": ("Eğriler", "Benim için inşa et ve Curvy Pipes."),
+        "curved": ("Eğriler", "Benim için inşa et; kıvrımlı yerleşim geri geliyor."),
         "integration": ("Entegrasyonlar", "Diğer modlar, veri paketleri, KubeJS ve ayarlar."),
     },
     "entries": {
@@ -209,12 +204,8 @@ TR = {
             crafting("filter_card"),
         ]),
         "build_for_me": ("Benim İçin İnşa Et", [
-            text("$(thing)Sol elinizde$() bir boru tutun. Bir bloka bakın: size geri dönen yol, gereken sayıyla birlikte hayalet borular olarak, engellerin etrafından ve en az dönüşle görünür. Döşemek için sağ tıklayın." + BR2 + "Mod tuşu (varsayılan B) Benim için inşa et ile Curvy arasında geçiş yapar."),
+            text("$(thing)Sol elinizde$() bir boru tutun. Bir bloka bakın: size geri dönen yol, gereken sayıyla birlikte hayalet borular olarak, engellerin etrafından ve en az dönüşle görünür. Döşemek için sağ tıklayın."),
             text("Her boru normal yerleştirilir: koruma modları geçerlidir, hayatta kalma modunda sol eldeki yığın tüketilir. Ana eldeki boru her zaman blok boru yerleştirir."),
-        ]),
-        "curvy": ("Curvy Pipes", [
-            text("Curvy Pipes kuruluysa aynı Flowline boruları sol elden eğri hatlar da yerleştirir. Ucu bir Flowline borusunun üzerinde olan Curvy hattı o borunun ağına bağlanır." + BR2 + "Bir ucun yine de Curvy'nin uç menüsünde Extract'e ayarlanması gerekir."),
-            text("Eğri hat tek bir şey taşır; bu yüzden sol elde $(item)Evrensel Boru$() varken mod tuşu Benim için inşa et, Curvy: Eşya, Curvy: Sıvı ve Curvy: Enerji arasında döner. Hat seçilen kanalda döşenir ve evrensel boruyla ödenir."),
         ]),
         "mods": ("Diğer Modlar", [
             text("$(thing)Mekanism$() 10.4 Kimyasal Boruyu ekler." + BR + "$(thing)JEI$() ve $(thing)EMI$(): Flowline eşyalarında kısa kullanım sayfaları; bir eşyayı ya da sıvıyı filtre yuvasına ya da kural düzenleyiciye sürükleyin." + BR + "$(thing)Jade$(), $(thing)The One Probe$() ve $(thing)WTHIT$() bakılan tarafın modunu, temposunu, önceliğini ve regülatörünü gösterir." + BR2 + "$(thing)forge:tools/wrench$() etiketli anahtarlar borularda çalışır."),
