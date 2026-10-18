@@ -1,6 +1,7 @@
 package com.knozyy.flowline.test;
 
 import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.client.curve.CurveTarget;
 import com.knozyy.flowline.curve.Aabb;
 import com.knozyy.flowline.curve.GridCandidates;
 import com.knozyy.flowline.curve.GridMode;
@@ -63,6 +64,20 @@ public class CurveGridGameTests {
         Optional<Vec3d> pick = GridCandidates.pick(List.of(v(1, 0, 3), v(0.1, 0, 2), v(0, 0, -2)), eye, look);
         h.assertTrue(pick.equals(Optional.of(v(0.1, 0, 2))), "the candidate closest to the crosshair on screen, got " + pick);
         h.assertTrue(GridCandidates.pick(List.of(v(0, 0, -2)), eye, look).isEmpty(), "nothing behind the camera");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void targetPrefersNodesThenEdges(GameTestHelper h) {
+        double none = Double.POSITIVE_INFINITY;
+        h.assertTrue(CurveTarget.choose(2, 2.1, 5, true) == CurveTarget.Kind.NODE, "a node before its edge");
+        h.assertTrue(CurveTarget.choose(2.1, 2, 5, true) == CurveTarget.Kind.NODE, "the node an edge ends at, just behind its hit");
+        h.assertTrue(CurveTarget.choose(4, 2, 5, true) == CurveTarget.Kind.EDGE, "an edge well in front of a node");
+        h.assertTrue(CurveTarget.choose(none, 2, 5, true) == CurveTarget.Kind.EDGE, "an edge before a block");
+        h.assertTrue(CurveTarget.choose(4, 3, 1, true) == CurveTarget.Kind.BLOCK_FACE, "a block in front of both");
+        h.assertTrue(CurveTarget.choose(3, none, 2, true) == CurveTarget.Kind.BLOCK_FACE, "no node through a wall");
+        h.assertTrue(CurveTarget.choose(none, none, none, true) == CurveTarget.Kind.AIR, "nothing: the air");
+        h.assertTrue(CurveTarget.choose(1, 1, 1, false) == CurveTarget.Kind.AIR, "without snapping only the air");
         h.succeed();
     }
 }
