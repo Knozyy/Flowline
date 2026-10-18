@@ -6,6 +6,8 @@ import com.knozyy.flowline.curve.CurveNode;
 import com.knozyy.flowline.curve.EndCondition;
 import com.knozyy.flowline.curve.SolvedSpan;
 import com.knozyy.flowline.curve.Vec3d;
+import com.knozyy.flowline.pipe.PipeBlock;
+import com.knozyy.flowline.pipe.PipeNetwork;
 import com.knozyy.flowline.pipe.PipeType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -48,9 +50,13 @@ public final class CurveData extends SavedData {
     /** Block → nodes fixed to one of its faces. */
     private final Map<BlockPos, Set<Long>> anchoredTo = new HashMap<>();
     private long nextNode = 1, nextEdge = 1;
+    /** The level this data belongs to; null for data made outside a level (tests, loading). */
+    private ServerLevel level;
 
     public static CurveData get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(CurveData::load, CurveData::new, NAME);
+        CurveData data = level.getDataStorage().computeIfAbsent(CurveData::load, CurveData::new, NAME);
+        data.level = level;
+        return data;
     }
 
     // ---- reading ------------------------------------------------------------------------------------------
@@ -106,27 +112,38 @@ public final class CurveData extends SavedData {
         nodeTypes.put(node.id(), type);
         if (!anchor(node.id()).equals(anchor) || !anchors.containsKey(node.id())) setAnchor(node.id(), anchor);
         setDirty();
+        nodeChanged(node.id());
     }
 
     public void putEdge(CurveEdge edge, EdgeInfo info) {
         graph.putEdge(edge);
         infos.put(edge.id(), info);
         setDirty();
+        nodeChanged(edge.from());
+        nodeChanged(edge.to());
     }
 
     public void removeEdge(long id) {
+        Optional<CurveEdge> edge = graph.edge(id);
         graph.removeEdge(id);
         infos.remove(id);
         setDirty();
+        edge.ifPresent(e -> {
+            nodeChanged(e.from());
+            nodeChanged(e.to());
+        });
     }
 
     /** Removes a node without edges; gives back the upgrades of its end, if it had one. */
     public List<ItemStack> removeNode(long id) {
         graph.removeNode(id);
+        Anchor old = anchor(id);
         List<ItemStack> upgrades = unanchor(id);
         anchors.remove(id);
         nodeTypes.remove(id);
         setDirty();
+        if (level != null) PipeNetwork.invalidateNode(level, id);
+        anchorChanged(old);
         return upgrades;
     }
 
@@ -135,6 +152,7 @@ public final class CurveData extends SavedData {
      * on one opens a fresh end.
      */
     public List<ItemStack> setAnchor(long node, Anchor anchor) {
+        Anchor old = anchor(node);
         List<ItemStack> upgrades = unanchor(node);
         anchors.put(node, anchor);
         if (anchor instanceof Anchor.PipeFace face) pipeFaces.put(faceKey(face.pos(), face.face()), node);
@@ -144,7 +162,22 @@ public final class CurveData extends SavedData {
         BlockPos block = blockOf(anchor);
         if (block != null) anchoredTo.computeIfAbsent(block, k -> new LinkedHashSet<>()).add(node);
         setDirty();
+        anchorChanged(old);
+        nodeChanged(node);
         return upgrades;
+    }
+
+    /** Networks through the node are rebuilt, and a block pipe the node sits on redraws that face. */
+    private void nodeChanged(long node) {
+        if (level == null) return;
+        PipeNetwork.invalidateNode(level, node);
+        anchorChanged(anchor(node));
+    }
+
+    private void anchorChanged(Anchor anchor) {
+        if (level == null || !(anchor instanceof Anchor.PipeFace face)) return;
+        PipeNetwork.invalidate(level, face.pos());
+        PipeBlock.updateConnections(level, face.pos());
     }
 
     private List<ItemStack> unanchor(long node) {

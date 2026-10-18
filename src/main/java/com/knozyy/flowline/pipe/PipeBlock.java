@@ -123,6 +123,8 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
             Conn conn;
             if (self != null && self.isDisconnected(dir)) {
                 conn = Conn.NONE;
+            } else if (curvedFace(level, pos, dir, self)) {
+                conn = Conn.PIPE;
             } else if (ns.getBlock() instanceof PipeBlock other && other.type == type) {
                 PipeBlockEntity nb = level.getBlockEntity(neighbor) instanceof PipeBlockEntity be ? be : null;
                 boolean otherCut = nb != null && nb.isDisconnected(dir.getOpposite());
@@ -136,6 +138,20 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
             state = state.setValue(prop(dir), conn);
         }
         return state;
+    }
+
+    /** Whether a curved pipe of this type and a matching colour starts on face {@code dir} of the pipe at {@code pos}. */
+    private boolean curvedFace(Level level, BlockPos pos, Direction dir, @Nullable PipeBlockEntity self) {
+        if (!(level instanceof net.minecraft.server.level.ServerLevel server)) return false;
+        com.knozyy.flowline.curved.CurveData data = com.knozyy.flowline.curved.CurveData.get(server);
+        java.util.OptionalLong node = data.nodeAtPipeFace(pos, dir);
+        if (node.isEmpty()) return false;
+        int color = self == null ? PipeBlockEntity.NO_COLOR : self.color();
+        for (com.knozyy.flowline.curve.CurveEdge edge : data.graph().edgesAt(node.getAsLong())) {
+            com.knozyy.flowline.curved.EdgeInfo info = data.info(edge.id());
+            if (info.type() == type && PipeBlockEntity.colorsMatch(color, info.color())) return true;
+        }
+        return false;
     }
 
     @Override
