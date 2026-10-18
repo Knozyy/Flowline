@@ -888,5 +888,29 @@ tr.update({
     "guide.flowline.filter_card.2": "Yalnızca kurallar kopyalanır; mod, ayarlar ve yükseltmeler yerinde kalır.",
 })
 
+# ---- curved pipes: why a placement or edit was refused (codes follow Curvy Pipes' results)
+en.update({
+    "message.flowline.curve.invalid_shape": "That curve has no valid shape",
+    "message.flowline.curve.invalid_object": "That cannot be connected",
+    "message.flowline.curve.too_costly": "Not enough pipes: %s more needed",
+    "message.flowline.curve.too_far": "Too far away",
+    "message.flowline.curve.intersect_block": "Pipes cannot go through blocks",
+    "message.flowline.curve.intersect_pipe": "Pipes cannot cross",
+    "message.flowline.curve.angle_too_small": "Pipes at a joint are too close together",
+    "message.flowline.curve.node_in_joint": "That point is inside a joint",
+    "message.flowline.curve.denied": "You cannot build here",
+})
+tr.update({
+    "message.flowline.curve.invalid_shape": "Bu kıvrımın geçerli bir şekli yok",
+    "message.flowline.curve.invalid_object": "Buna bağlanamaz",
+    "message.flowline.curve.too_costly": "Boru yetmiyor: %s tane daha gerekli",
+    "message.flowline.curve.too_far": "Çok uzak",
+    "message.flowline.curve.intersect_block": "Boru blokların içinden geçemez",
+    "message.flowline.curve.intersect_pipe": "Borular kesişemez",
+    "message.flowline.curve.angle_too_small": "Birleşmedeki borular birbirine çok yakın",
+    "message.flowline.curve.node_in_joint": "O nokta bir birleşmenin içinde",
+    "message.flowline.curve.denied": "Buraya kuramazsın",
+})
+
 lang("en_us", en)
 lang("tr_tr", tr)

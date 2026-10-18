@@ -63,6 +63,21 @@ final class CurveTestSupport {
         return id;
     }
 
+    /**
+     * Tracks every node inside the curve structure's 9×6×9 box, for nodes made by code under test (placements).
+     * Test structures never overlap, so these belong to this test.
+     */
+    static synchronized void trackArea(GameTestHelper h) {
+        CurveData data = CurveData.get(h.getLevel());
+        List<Long> made = MADE.computeIfAbsent(h, k -> new ArrayList<>());
+        for (CurveNode node : data.graph().nodes()) {
+            Vec3 rel = h.relativeVec(new Vec3(node.pos().x(), node.pos().y(), node.pos().z()));
+            if (rel.x >= 0 && rel.x <= 9 && rel.y >= 0 && rel.y <= 6 && rel.z >= 0 && rel.z <= 9 && !made.contains(node.id())) {
+                made.add(node.id());
+            }
+        }
+    }
+
     /** Removes the nodes the test made and every edge that touches them. */
     static synchronized void clear(GameTestHelper h) {
         CurveData data = CurveData.get(h.getLevel());

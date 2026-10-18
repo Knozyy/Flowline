@@ -415,5 +415,14 @@
   "guide.flowline.upgrades.1": "Her tarafta altı yuva. Hız: işlemler arası bekleme kısalır. Yığın: işlem başına daha fazla. Filtre: daha fazla filtre kuralı. Knozy: üçü birden.",
   "guide.flowline.upgrades.2": "Ekle tarafları yalnızca Filtre yükseltmesi alır.",
   "guide.flowline.filter_card.1": "Bir tarafın filtre kurallarını kopyalamak için Shift + sağ tıkla, başka bir tarafa yapıştırmak için sağ tıkla, temizlemek için Shift ile havada kullan.",
-  "guide.flowline.filter_card.2": "Yalnızca kurallar kopyalanır; mod, ayarlar ve yükseltmeler yerinde kalır."
+  "guide.flowline.filter_card.2": "Yalnızca kurallar kopyalanır; mod, ayarlar ve yükseltmeler yerinde kalır.",
+  "message.flowline.curve.invalid_shape": "Bu kıvrımın geçerli bir şekli yok",
+  "message.flowline.curve.invalid_object": "Buna bağlanamaz",
+  "message.flowline.curve.too_costly": "Boru yetmiyor: %s tane daha gerekli",
+  "message.flowline.curve.too_far": "Çok uzak",
+  "message.flowline.curve.intersect_block": "Boru blokların içinden geçemez",
+  "message.flowline.curve.intersect_pipe": "Borular kesişemez",
+  "message.flowline.curve.angle_too_small": "Birleşmedeki borular birbirine çok yakın",
+  "message.flowline.curve.node_in_joint": "O nokta bir birleşmenin içinde",
+  "message.flowline.curve.denied": "Buraya kuramazsın"
 }

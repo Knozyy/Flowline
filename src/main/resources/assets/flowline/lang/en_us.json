@@ -397,5 +397,14 @@
   "guide.flowline.upgrades.1": "Six slots per side. Speed: shorter waits between operations. Stack: more per operation. Filter: more filter rules. Knozy: all three at once.",
   "guide.flowline.upgrades.2": "Insert sides only take Filter upgrades.",
   "guide.flowline.filter_card.1": "Sneak + right-click a side to copy its filter rules, right-click another side to paste them, sneak + use it in the air to clear it.",
-  "guide.flowline.filter_card.2": "Only the rules are copied; mode, settings and upgrades stay where they are."
+  "guide.flowline.filter_card.2": "Only the rules are copied; mode, settings and upgrades stay where they are.",
+  "message.flowline.curve.invalid_shape": "That curve has no valid shape",
+  "message.flowline.curve.invalid_object": "That cannot be connected",
+  "message.flowline.curve.too_costly": "Not enough pipes: %s more needed",
+  "message.flowline.curve.too_far": "Too far away",
+  "message.flowline.curve.intersect_block": "Pipes cannot go through blocks",
+  "message.flowline.curve.intersect_pipe": "Pipes cannot cross",
+  "message.flowline.curve.angle_too_small": "Pipes at a joint are too close together",
+  "message.flowline.curve.node_in_joint": "That point is inside a joint",
+  "message.flowline.curve.denied": "You cannot build here"
 }
