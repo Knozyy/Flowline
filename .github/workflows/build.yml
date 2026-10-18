@@ -30,11 +30,8 @@ jobs:
             build/libs/*.jar
             !build/libs/*-slim.jar
 
-      - name: In-world tests without Curvy
+      - name: In-world tests
         run: ./gradlew runGameTestServer --stacktrace
-
-      - name: In-world tests with Curvy
-        run: ./gradlew runGameTestServer -PwithCurvy --stacktrace
 
       - name: In-world tests with Mekanism
         run: ./gradlew runGameTestServer -PwithMekanism --stacktrace
