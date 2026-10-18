@@ -4,8 +4,12 @@ import com.knozyy.flowline.Flowline;
 import com.knozyy.flowline.curve.BorderedBandMatrix;
 import com.knozyy.flowline.curve.BorderedBandSolver;
 import com.knozyy.flowline.curve.ChainProblem;
+import com.knozyy.flowline.curve.CurveRules;
+import com.knozyy.flowline.curve.CurveSolver;
 import com.knozyy.flowline.curve.EndCondition;
 import com.knozyy.flowline.curve.PlaceError;
+import com.knozyy.flowline.curve.SolvedChain;
+import com.knozyy.flowline.curve.SolvedSpan;
 import com.knozyy.flowline.curve.SpanLayout;
 import com.knozyy.flowline.curve.Vec3d;
 import net.minecraft.gametest.framework.GameTest;
@@ -223,6 +227,110 @@ public class CurveSolverGameTests {
             for (int c = 0; c < rhs.length; c++) s += m.get(r, c) * x[c];
             h.assertTrue(near(s, rhs[r], 1e-12), "row " + r + " of M·x");
         }
+        h.succeed();
+    }
+
+    // ---- the solver ---------------------------------------------------------------------------------------
+
+    private static Vec3d direction(List<Vec3d> points, int segment) {
+        return points.get(segment + 1).sub(points.get(segment)).normalize();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void solveStraightAcceptsInitialGuess(GameTestHelper h) {
+        SolvedChain chain = CurveSolver.solve(List.of(v(0, 0, 0), v(4, 0, 0)), 0.5, FREE, FREE).orElseThrow();
+        h.assertTrue(chain.spans().size() == 1, "one span");
+        SolvedSpan span = chain.spans().get(0);
+        h.assertTrue(span.segments() == 8 && near(span.step(), 0.5, 1e-12) && span.cost() == 4,
+                "8 segments of 0.5 costing 4, got " + span.segments() + " / " + span.step() + " / " + span.cost());
+        for (Vec3d p : span.points()) h.assertTrue(near(p.y(), 0, 1e-12) && near(p.z(), 0, 1e-12), "straight: " + p);
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void solveRejectsShortSpan(GameTestHelper h) {
+        h.assertTrue(CurveSolver.solve(List.of(v(0, 0, 0), v(0.2, 0, 0)), 0.5, FREE, FREE).isEmpty(),
+                "a span shorter than half the spacing has no shape");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void solveElbowBothEndsFixed(GameTestHelper h) {
+        Vec3d p0 = v(0, 0, 0), p1 = v(2, 2, 0);
+        EndCondition up = dir(0, 1, 0), east = dir(1, 0, 0);
+        SolvedSpan span = CurveSolver.solve(List.of(p0, p1), CurveRules.DIAMETER, up, east).orElseThrow().spans().get(0);
+        int expected = SpanLayout.of(p0, p1, CurveRules.DIAMETER, up, east).orElseThrow().segments();
+        List<Vec3d> pts = span.points();
+        h.assertTrue(span.segments() == expected, "segments " + span.segments() + " vs layout " + expected);
+        h.assertTrue(direction(pts, 0).dot(up.direction()) > 1 - 1e-9, "leaves along the start direction");
+        h.assertTrue(direction(pts, span.segments() - 1).dot(east.direction()) > 1 - 1e-9, "arrives along the end direction");
+        double length = 0;
+        for (int j = 0; j < span.segments(); j++) {
+            Vec3d e = pts.get(j + 1).sub(pts.get(j));
+            length += e.length();
+            h.assertTrue(Math.abs(e.lengthSq() - span.step() * span.step()) < 0.1, "segment " + j + " keeps its length");
+        }
+        h.assertTrue(length > Math.sqrt(8), "a bent pipe is longer than its chord, got " + length);
+        h.assertTrue(span.cost() == (int) Math.ceil(span.segments() * span.step()), "cost is ceil(n·h)");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void solveSmoothThroughInteriorNode(GameTestHelper h) {
+        SolvedChain chain = CurveSolver.solve(List.of(v(0, 0, 0), v(2, 1, 0), v(4, 0, 0)), CurveRules.DIAMETER, FREE, FREE)
+                .orElseThrow();
+        h.assertTrue(chain.spans().size() == 2, "two spans");
+        List<Vec3d> first = chain.spans().get(0).points(), second = chain.spans().get(1).points();
+        h.assertTrue(direction(first, first.size() - 2).dot(direction(second, 0)) > 0.9, "the chain bends smoothly at the node");
+        List<Vec3d> all = new ArrayList<>(first);
+        all.addAll(second);
+        for (Vec3d p : all) {
+            double best = Double.MAX_VALUE;
+            for (Vec3d q : all) best = Math.min(best, q.distanceSq(v(4 - p.x(), p.y(), p.z())));
+            h.assertTrue(best < 1e-6, "the shape is mirror symmetric; no partner for " + p);
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void solveRejectsNonFinite(GameTestHelper h) {
+        h.assertTrue(CurveSolver.solve(List.of(v(0, 0, 0), v(Double.NaN, 0, 0)), 0.5, FREE, FREE).isEmpty(), "NaN node");
+        h.assertTrue(CurveSolver.solve(List.of(v(0, 0, 0), v(2, 0, 0)), 0.5, dir(Double.POSITIVE_INFINITY, 0, 0), FREE)
+                .isEmpty(), "infinite direction");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void solveLongChainIsFast(GameTestHelper h) {
+        List<Vec3d> nodes = new ArrayList<>();
+        for (int i = 0; i <= 8; i++) nodes.add(v(10 * i, i % 2 == 0 ? 0 : 2, 0));
+        long started = System.nanoTime();
+        boolean solved = CurveSolver.solve(nodes, CurveRules.DIAMETER, FREE, FREE).isPresent();
+        long millis = (System.nanoTime() - started) / 1_000_000;
+        h.assertTrue(solved, "an 80 block chain has a shape");
+        h.assertTrue(millis < 1000, "solving 8 spans took " + millis + " ms");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void solverStopRuleMatchesCurvy(GameTestHelper h) {
+        for (int i = 0; i < 4; i++) h.assertTrue(CurveSolver.keepGoing(i, 1, 2), "the first four steps are always taken");
+        h.assertTrue(!CurveSolver.keepGoing(4, 1, 2), "then a step that does not improve stops");
+        h.assertTrue(CurveSolver.keepGoing(4, 2, 1), "an improving step goes on");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void solverRejectsFolds(GameTestHelper h) {
+        h.assertTrue(!CurveSolver.acceptable(List.of(List.of(v(0, 0, 0), v(1, 0, 0), v(0.5, 0, 0))), new double[]{0.5}),
+                "turning back is a fold");
+        h.assertTrue(!CurveSolver.acceptable(List.of(List.of(v(0, 0, 0), v(1, 0, 0), v(1, 1, 0))), new double[]{1}),
+                "a right angle between segments is refused");
+        h.assertTrue(CurveSolver.acceptable(List.of(List.of(v(0, 0, 0), v(1, 0, 0), v(1.01, 1, 0))), new double[]{1}),
+                "just under a right angle passes");
+        h.assertTrue(!CurveSolver.acceptable(List.of(List.of(v(0, 0, 0), v(1, 0, 0))), new double[]{0}), "zero step");
+        h.assertTrue(!CurveSolver.acceptable(List.of(List.of(v(0, 0, 0), v(1, 0, 0)), List.of(v(1, 0, 0), v(0, 0, 0))),
+                new double[]{1, 1}), "folds across a span boundary count too");
         h.succeed();
     }
 
