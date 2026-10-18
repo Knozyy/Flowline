@@ -97,7 +97,7 @@ public class AuditGameTests {
     }
 
     private static PipeNetwork.Target target(PipeBlockEntity pipe, Caps caps) {
-        return new PipeNetwork.Target(pipe.getBlockPos(), Direction.EAST, 0, caps, pipe, List.of());
+        return new PipeNetwork.Target(new com.knozyy.flowline.pipe.PipeSidePort(pipe, Direction.EAST), 0, caps);
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)

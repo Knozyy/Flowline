@@ -335,7 +335,7 @@ public class PipeBlockEntity extends BlockEntity {
      * @return amount moved, or -1 if there is no target and the side went to sleep
      */
     private long operate(ServerLevel level, Direction dir, SideConfig cfg, int elapsed) {
-        List<PipeNetwork.Target> targets = PipeNetwork.targets(level, worldPosition, dir, type, cfg);
+        List<PipeNetwork.Target> targets = PipeNetwork.targets(level, new PipeSidePort(this, dir), cfg);
         if (targets.isEmpty()) {
             cfg.sleeping = true;
             return -1;

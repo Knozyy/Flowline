@@ -526,9 +526,8 @@ public class PipeGameTests {
         source.tank.fill(new FluidStack(Fluids.WATER, 1000), IFluidHandler.FluidAction.EXECUTE);
         PipeBlockEntity pipe = be(helper, FIRST_PIPE);
         Caps sourceCaps = Caps.create(PipeType.FLUID, helper.getLevel(), source.getBlockPos(), Direction.EAST);
-        PipeNetwork.Target target = new PipeNetwork.Target(pipe.getBlockPos(), Direction.EAST, 0,
-                Caps.create(PipeType.FLUID, helper.getLevel(), destination.getBlockPos(), Direction.WEST), pipe,
-                List.of(pipe.getBlockPos()));
+        PipeNetwork.Target target = new PipeNetwork.Target(new com.knozyy.flowline.pipe.PipeSidePort(pipe, Direction.EAST), 0,
+                Caps.create(PipeType.FLUID, helper.getLevel(), destination.getBlockPos(), Direction.WEST));
         SideConfig cfg = new SideConfig(PipeType.FLUID);
         int moved = FluidTransfer.run(helper.getLevel(), sourceCaps, cfg, List.of(target), 1000, false, PipeType.FLUID);
         helper.assertTrue(moved == 1000 && source.tank.isEmpty() && destination.tank.getFluidAmount() == 1000,
@@ -859,6 +858,19 @@ public class PipeGameTests {
         helper.assertTrue(state.use(level, player, net.minecraft.world.InteractionHand.MAIN_HAND, hit)
                 == net.minecraft.world.InteractionResult.PASS, "a pipe in hand keeps laying pipes");
         helper.assertTrue(player.containerMenu == player.inventoryMenu, "a pipe in hand opens no screen");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void pipeSidePortDescribesTheSide(GameTestHelper helper) {
+        PipeBlockEntity first = line(helper, 1);
+        BlockPos pos = first.getBlockPos();
+        com.knozyy.flowline.pipe.PipeSidePort port = new com.knozyy.flowline.pipe.PipeSidePort(first, Direction.WEST);
+        helper.assertTrue(port.block().equals(pos.west()), "the port reaches the block west of the pipe");
+        helper.assertTrue(port.access() == Direction.EAST, "that block is reached through its east face");
+        helper.assertTrue(port.cfg() == first.side(Direction.WEST), "the port carries the side's settings");
+        helper.assertTrue(port.order() == pos.asLong() * 8 + Direction.WEST.ordinal(), "the old ordering key");
+        helper.assertTrue(port.type() == PipeType.ITEM, "the pipe's type");
         helper.succeed();
     }
 
