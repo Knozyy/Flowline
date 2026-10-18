@@ -2,6 +2,7 @@ package com.knozyy.flowline.test;
 
 import com.knozyy.flowline.Flowline;
 import com.knozyy.flowline.curve.BorderedBandMatrix;
+import com.knozyy.flowline.curve.BorderedBandSolver;
 import com.knozyy.flowline.curve.ChainProblem;
 import com.knozyy.flowline.curve.EndCondition;
 import com.knozyy.flowline.curve.PlaceError;
@@ -155,6 +156,80 @@ public class CurveSolverGameTests {
                 }
             }
         }
+        h.succeed();
+    }
+
+    // ---- the bordered band solver ------------------------------------------------------------------------
+
+    /** Dense Gaussian elimination with partial pivoting, to check the band solver against. */
+    private static double[] denseSolve(BorderedBandMatrix m, double[] rhs) {
+        int n = m.size();
+        double[][] a = new double[n][n + 1];
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < n; c++) a[r][c] = m.get(r, c);
+            a[r][n] = rhs[r];
+        }
+        for (int col = 0; col < n; col++) {
+            int pivot = col;
+            for (int r = col + 1; r < n; r++) if (Math.abs(a[r][col]) > Math.abs(a[pivot][col])) pivot = r;
+            double[] t = a[col];
+            a[col] = a[pivot];
+            a[pivot] = t;
+            for (int r = col + 1; r < n; r++) {
+                double f = a[r][col] / a[col][col];
+                for (int c = col; c <= n; c++) a[r][c] -= f * a[col][c];
+            }
+        }
+        double[] x = new double[n];
+        for (int r = n - 1; r >= 0; r--) {
+            double s = a[r][n];
+            for (int c = r + 1; c < n; c++) s -= a[r][c] * x[c];
+            x[r] = s / a[r][r];
+        }
+        return x;
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void borderedSolveMatchesDense(GameTestHelper h) {
+        java.util.Random random = new java.util.Random(7);
+        BorderedBandMatrix m = new BorderedBandMatrix(40, 2, 11);
+        for (int r = 0; r < m.size(); r++) {
+            for (int c = 0; c < m.size(); c++) {
+                if (m.holds(r, c)) m.set(r, c, 2 * random.nextDouble() - 1);
+            }
+            m.set(r, r, (r % 2 == 0 ? 1 : -1) * (3 + random.nextDouble()));
+        }
+        double[] rhs = new double[m.size()];
+        for (int r = 0; r < rhs.length; r++) rhs[r] = 2 * random.nextDouble() - 1;
+        double[] x = BorderedBandSolver.solve(m, rhs);
+        double[] expected = denseSolve(m, rhs);
+        h.assertTrue(x != null, "a regular matrix has a solution");
+        for (int r = 0; r < rhs.length; r++) h.assertTrue(near(x[r], expected[r], 1e-9), "x" + r + ": " + x[r] + " vs " + expected[r]);
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void borderedSolveNeedsPivoting(GameTestHelper h) {
+        BorderedBandMatrix m = new BorderedBandMatrix(6, 1, 11);
+        m.set(0, 1, 1);
+        m.set(1, 0, 1);
+        for (int i = 2; i < 6; i++) m.set(i, i, 2);
+        m.set(6, 6, 5);
+        double[] rhs = {1, 2, 3, 4, 5, 6, 7};
+        double[] x = BorderedBandSolver.solve(m, rhs);
+        h.assertTrue(x != null, "a zero first pivot needs a row swap, not a failure");
+        for (int r = 0; r < rhs.length; r++) {
+            double s = 0;
+            for (int c = 0; c < rhs.length; c++) s += m.get(r, c) * x[c];
+            h.assertTrue(near(s, rhs[r], 1e-12), "row " + r + " of M·x");
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void borderedSolveReportsSingular(GameTestHelper h) {
+        h.assertTrue(BorderedBandSolver.solve(new BorderedBandMatrix(10, 1, 11), new double[11]) == null,
+                "an all-zero matrix has no solution");
         h.succeed();
     }
 }
