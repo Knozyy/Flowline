@@ -1,6 +1,8 @@
 package com.knozyy.flowline.test;
 
 import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.curve.BorderedBandMatrix;
+import com.knozyy.flowline.curve.ChainProblem;
 import com.knozyy.flowline.curve.EndCondition;
 import com.knozyy.flowline.curve.PlaceError;
 import com.knozyy.flowline.curve.SpanLayout;
@@ -10,6 +12,8 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /** The curve solver, step by step: span layout, the KKT system, the linear solver and the Newton loop. */
@@ -76,6 +80,81 @@ public class CurveSolverGameTests {
         }
         h.assertTrue(PlaceError.byCode(9).isEmpty() && PlaceError.byCode(0).isEmpty(), "unknown codes are empty");
         h.assertTrue(PlaceError.TOO_FAR.key().equals("message.flowline.curve.too_far"), "lang key");
+        h.succeed();
+    }
+
+    // ---- the KKT system ----------------------------------------------------------------------------------
+
+    /** The chain problem the solver would build: chain-end conditions on the first and last span only. */
+    private static ChainProblem chain(List<Vec3d> nodes, double spacing, EndCondition start, EndCondition end) {
+        List<SpanLayout> spans = new ArrayList<>();
+        for (int i = 0; i + 1 < nodes.size(); i++) {
+            spans.add(SpanLayout.of(nodes.get(i), nodes.get(i + 1), spacing, i == 0 ? start : FREE,
+                    i + 2 == nodes.size() ? end : FREE).orElseThrow());
+        }
+        return new ChainProblem(nodes, spacing, start, end, spans);
+    }
+
+    private static ChainProblem elbow() {
+        return chain(List.of(v(0, 0, 0), v(2, 2, 0)), 0.5, dir(0, 1, 0), dir(1, 0, 0));
+    }
+
+    /** A point away from the initial guess, with non-zero multipliers, so every term of the system is exercised. */
+    private static double[] disturbed(ChainProblem p) {
+        double[] z = p.initialGuess();
+        for (int k = 0; k < z.length; k++) {
+            z[k] = p.isMultiplier(k) ? 0.1 * Math.cos(k) : z[k] + 0.01 * Math.sin(k + 1);
+        }
+        return z;
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void straightChainHasZeroResidual(GameTestHelper h) {
+        ChainProblem p = chain(List.of(v(0, 0, 0), v(4, 0, 0)), 0.5, FREE, FREE);
+        double[] f = p.residual(p.initialGuess());
+        for (int k = 0; k < f.length; k++) h.assertTrue(Math.abs(f[k]) < 1e-12, "residual " + k + " = " + f[k]);
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void residualIsLagrangianGradient(GameTestHelper h) {
+        ChainProblem p = elbow();
+        double[] z = disturbed(p);
+        double[] f = p.residual(z);
+        double delta = 1e-6;
+        for (int k = 0; k < z.length; k++) {
+            double[] up = z.clone(), down = z.clone();
+            up[k] += delta;
+            down[k] -= delta;
+            double numeric = (p.lagrangian(up) - p.lagrangian(down)) / (2 * delta);
+            h.assertTrue(near(f[k], numeric, 1e-5), "∂L/∂z" + k + ": residual " + f[k] + ", numeric " + numeric);
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void jacobianFitsBandAndIsSymmetric(GameTestHelper h) {
+        ChainProblem p = elbow();
+        double[] z = disturbed(p);
+        int n = p.size();
+        BorderedBandMatrix m = new BorderedBandMatrix(p.bandSize(), p.spans(), ChainProblem.HALF_BAND);
+        p.jacobian(z, m);
+        double delta = 1e-5;
+        for (int c = 0; c < n; c++) {
+            double[] up = z.clone(), down = z.clone();
+            up[c] += delta;
+            down[c] -= delta;
+            double[] fu = p.residual(up), fd = p.residual(down);
+            for (int r = 0; r < n; r++) {
+                double dense = (fu[r] - fd[r]) / (2 * delta);
+                if (!m.holds(r, c)) {
+                    h.assertTrue(Math.abs(dense) < 1e-9, "J[" + r + "][" + c + "] = " + dense + " lies outside the band");
+                } else {
+                    h.assertTrue(near(m.get(r, c), dense, 1e-5), "J[" + r + "][" + c + "]: " + m.get(r, c) + " vs " + dense);
+                    h.assertTrue(near(m.get(r, c), m.get(c, r), 1e-5), "J is symmetric at " + r + "," + c);
+                }
+            }
+        }
         h.succeed();
     }
 }
