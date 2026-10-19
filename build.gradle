@@ -2,6 +2,7 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'net.minecraftforge.gradle' version '[6.0.24,6.2)'
+    id 'org.spongepowered.mixin' version '0.7.38'
 }
 
 version = mod_version
@@ -77,6 +78,8 @@ repositories {
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    // Mixin's annotation processor writes the refmap that turns the mixins' Mojmap targets into SRG names
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
     // Mekanism is optional: -PwithMekanism puts the full mod on the runtime classpath (chemical pipe tests).
     if (project.hasProperty('withMekanism')) {
@@ -91,6 +94,12 @@ dependencies {
     // TOP is compiled against without remapping: its API only uses class names, and its pom pulls in an old Forge
     compileOnly("mcjty.theoneprobe:theoneprobe:${top_version}") { transitive = false }
     compileOnly(fg.deobf("mcp.mobius.waila:wthit-api:${wthit_version}")) { transitive = false }
+}
+
+// Curved pipes hook a few vanilla methods (curved/, mixin/); the config is registered by the runs' --mixin argument and
+// the jar manifest, so only the refmap is set up here.
+mixin {
+    add sourceSets.main, 'flowline.refmap.json'
 }
 
 tasks.named('processResources', ProcessResources).configure {
