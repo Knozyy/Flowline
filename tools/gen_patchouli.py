@@ -53,6 +53,9 @@ ENTRIES = {
     "upgrades": ("tools", "flowline:knozy_upgrade", 0),
     "cards": ("tools", "flowline:filter_card", 1),
     "build_for_me": ("curved", "flowline:item_pipe", 0),
+    "curved_laying": ("curved", "flowline:fluid_pipe", 1),
+    "curved_editing": ("curved", "flowline:energy_pipe", 2),
+    "curved_ends": ("curved", "flowline:wrench", 3),
     "mods": ("integration", "minecraft:book", 0),
     "datapacks": ("integration", "minecraft:command_block", 1),
     "config": ("integration", "minecraft:redstone_torch", 2),
@@ -68,7 +71,7 @@ EN = {
         "sides": ("Sides and Modes", "Every side of a pipe is configured on its own."),
         "filters": ("Filters", "Allow and Block rules for items, fluids and chemicals."),
         "tools": ("Upgrades and Tools", "Speed, Stack, Filter and Knozy upgrades, the wrench and the Filter Card."),
-        "curved": ("Curved Pipes", "Build for me; curved placement is coming back."),
+        "curved": ("Curved Pipes", "The off hand: Build for me, or a curved line of the same pipes."),
         "integration": ("Integrations", "Other mods, data packs, KubeJS and the config."),
     },
     "entries": {
@@ -124,7 +127,19 @@ EN = {
         ]),
         "build_for_me": ("Build for Me", [
             text("Hold a pipe in your $(thing)off hand$(). Look at a block: the route back to you appears as ghost pipes with the number needed, around obstacles and with as few turns as possible. Right-click to lay it."),
-            text("Each pipe is placed normally: protection mods apply, and survival uses up the off-hand stack. A pipe in the main hand always places a block pipe."),
+            text("Each pipe is placed normally: protection mods apply, and survival uses up the off-hand stack. A pipe in the main hand always places a block pipe." + BR2 + "The mode key ($(k:flowline.build)$()) switches the off hand to $(thing)Curved$()."),
+        ]),
+        "curved_laying": ("Laying a Curve", [
+            text("In $(thing)Curved$() mode, right-click to start a line: on a block face, a pipe face, an existing curved node or in the air. Right-click in the air to add points, and on a face or a node to finish. Sneak and right-click to finish in the air."),
+            text("A ghost tube shows the curve; it turns red when it would be refused. The line costs pipes from the off hand, about one per block, and gives them back when broken." + BR2 + "Esc or the mode key drops a half-drawn line."),
+        ]),
+        "curved_editing": ("Editing Curves", [
+            text("Left-click a curved pipe to break it, in any mode. The middle button turns the grid: off, axial, outer or inner corners, outer or inner edges; sneak to turn it back. Hold Ctrl to place freely."),
+            text("Hold $(k:flowline.options)$() and scroll for the option wheel: Remove, Branch, Extend, Move, Force joint and Settings. Let go to use it on the node or curve you look at." + BR2 + "Dye a curved pipe like a block pipe: other colours do not connect."),
+        ]),
+        "curved_ends": ("Ends and Networks", [
+            text("A curved pipe is part of the network it touches. An end on a chest, tank or machine is a pipe side: the same screen, wrench, Filter Card and upgrades. One Extract side drives the whole network, curves included."),
+            text("An end on a block pipe face just carries. An end on any other block only holds the line. Blocks put in a curve's way break it and drop its pipes; entities stand on curves."),
         ]),
         "mods": ("Other Mods", [
             text("$(thing)Mekanism$() 10.4 adds the Chemical Pipe." + BR + "$(thing)JEI$() and $(thing)EMI$(): how-to pages on Flowline's items, and drag an item or fluid onto a filter slot or into the rule editor." + BR + "$(thing)Jade$(), $(thing)The One Probe$() and $(thing)WTHIT$() show the looked-at side's mode, pacing, priority and regulator." + BR2 + "Wrenches tagged $(thing)forge:tools/wrench$() work on pipes."),
@@ -149,7 +164,7 @@ TR = {
         "sides": ("Taraflar ve Modlar", "Borunun her tarafı ayrı ayarlanır."),
         "filters": ("Filtreler", "Eşya, sıvı ve kimyasallar için İzin ve Engel kuralları."),
         "tools": ("Yükseltmeler ve Aletler", "Hız, Yığın, Filtre ve Knozy yükseltmeleri, anahtar ve Filtre Kartı."),
-        "curved": ("Eğriler", "Benim için inşa et; kıvrımlı yerleşim geri geliyor."),
+        "curved": ("Eğriler", "Sol el: Benim için inşa et ya da aynı borulardan kıvrımlı bir hat."),
         "integration": ("Entegrasyonlar", "Diğer modlar, veri paketleri, KubeJS ve ayarlar."),
     },
     "entries": {
@@ -205,7 +220,19 @@ TR = {
         ]),
         "build_for_me": ("Benim İçin İnşa Et", [
             text("$(thing)Sol elinizde$() bir boru tutun. Bir bloka bakın: size geri dönen yol, gereken sayıyla birlikte hayalet borular olarak, engellerin etrafından ve en az dönüşle görünür. Döşemek için sağ tıklayın."),
-            text("Her boru normal yerleştirilir: koruma modları geçerlidir, hayatta kalma modunda sol eldeki yığın tüketilir. Ana eldeki boru her zaman blok boru yerleştirir."),
+            text("Her boru normal yerleştirilir: koruma modları geçerlidir, hayatta kalma modunda sol eldeki yığın tüketilir. Ana eldeki boru her zaman blok boru yerleştirir." + BR2 + "Mod tuşu ($(k:flowline.build)$()) sol eli $(thing)Kıvrımlı$() moda geçirir."),
+        ]),
+        "curved_laying": ("Kıvrım Döşemek", [
+            text("$(thing)Kıvrımlı$() modda hattı başlatmak için sağ tıklayın: bir blok yüzünde, bir boru yüzünde, var olan bir kıvrım düğümünde ya da havada. Havada sağ tık nokta ekler; bir yüzde ya da düğümde bitirir. Havada bitirmek için eğilip sağ tıklayın."),
+            text("Hayalet bir tüp kıvrımı gösterir; reddedilecekse kırmızı olur. Hat sol eldeki borulardan, yaklaşık blok başına bir tane harcar; kırılınca geri verir." + BR2 + "Esc ya da mod tuşu yarım hattı bırakır."),
+        ]),
+        "curved_editing": ("Kıvrımları Düzenlemek", [
+            text("Kıvrımlı boruyu kırmak için sol tıklayın; her modda çalışır. Orta tuş ızgarayı değiştirir: kapalı, eksenler, dış ya da iç köşeler, dış ya da iç kenarlar; geri çevirmek için eğilin. Serbest yerleştirmek için Ctrl'yi basılı tutun."),
+            text("Seçenek çarkı için $(k:flowline.options)$() basılı tutup tekerleği çevirin: Sil, Dallandır, Uzat, Taşı, Birleşme yap, Ayarlar. Bıraktığınızda baktığınız düğüme ya da kıvrıma uygulanır." + BR2 + "Kıvrımlı boru blok boru gibi boyanır: farklı renkler bağlanmaz."),
+        ]),
+        "curved_ends": ("Uçlar ve Ağlar", [
+            text("Kıvrımlı boru değdiği ağın parçasıdır. Sandığa, tanka ya da makineye bağlı uç bir boru tarafıdır: aynı ekran, anahtar, Filtre Kartı ve yükseltmeler. Tek bir Extract tarafı, kıvrımlar dahil bütün ağı çalıştırır."),
+            text("Blok borusu yüzündeki uç yalnızca taşır. Başka bir bloktaki uç yalnızca hattı tutar. Kıvrımın yoluna konan blok onu kırar ve borularını düşürür; varlıklar kıvrımların üstünde durur."),
         ]),
         "mods": ("Diğer Modlar", [
             text("$(thing)Mekanism$() 10.4 Kimyasal Boruyu ekler." + BR + "$(thing)JEI$() ve $(thing)EMI$(): Flowline eşyalarında kısa kullanım sayfaları; bir eşyayı ya da sıvıyı filtre yuvasına ya da kural düzenleyiciye sürükleyin." + BR + "$(thing)Jade$(), $(thing)The One Probe$() ve $(thing)WTHIT$() bakılan tarafın modunu, temposunu, önceliğini ve regülatörünü gösterir." + BR2 + "$(thing)forge:tools/wrench$() etiketli anahtarlar borularda çalışır."),

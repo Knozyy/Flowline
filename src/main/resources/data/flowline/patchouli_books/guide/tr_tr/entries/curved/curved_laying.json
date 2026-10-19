@@ -1,0 +1,16 @@
+{
+  "name": "Kıvrım Döşemek",
+  "category": "flowline:curved",
+  "icon": "flowline:fluid_pipe",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "$(thing)Kıvrımlı$() modda hattı başlatmak için sağ tıklayın: bir blok yüzünde, bir boru yüzünde, var olan bir kıvrım düğümünde ya da havada. Havada sağ tık nokta ekler; bir yüzde ya da düğümde bitirir. Havada bitirmek için eğilip sağ tıklayın."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Hayalet bir tüp kıvrımı gösterir; reddedilecekse kırmızı olur. Hat sol eldeki borulardan, yaklaşık blok başına bir tane harcar; kırılınca geri verir.$(br2)Esc ya da mod tuşu yarım hattı bırakır."
+    }
+  ]
+}

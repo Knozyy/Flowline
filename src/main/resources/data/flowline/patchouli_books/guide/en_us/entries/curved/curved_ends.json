@@ -1,0 +1,16 @@
+{
+  "name": "Ends and Networks",
+  "category": "flowline:curved",
+  "icon": "flowline:wrench",
+  "sortnum": 3,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "A curved pipe is part of the network it touches. An end on a chest, tank or machine is a pipe side: the same screen, wrench, Filter Card and upgrades. One Extract side drives the whole network, curves included."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "An end on a block pipe face just carries. An end on any other block only holds the line. Blocks put in a curve's way break it and drop its pipes; entities stand on curves."
+    }
+  ]
+}

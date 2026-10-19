@@ -1,0 +1,16 @@
+{
+  "name": "Kıvrımları Düzenlemek",
+  "category": "flowline:curved",
+  "icon": "flowline:energy_pipe",
+  "sortnum": 2,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Kıvrımlı boruyu kırmak için sol tıklayın; her modda çalışır. Orta tuş ızgarayı değiştirir: kapalı, eksenler, dış ya da iç köşeler, dış ya da iç kenarlar; geri çevirmek için eğilin. Serbest yerleştirmek için Ctrl'yi basılı tutun."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Seçenek çarkı için $(k:flowline.options)$() basılı tutup tekerleği çevirin: Sil, Dallandır, Uzat, Taşı, Birleşme yap, Ayarlar. Bıraktığınızda baktığınız düğüme ya da kıvrıma uygulanır.$(br2)Kıvrımlı boru blok boru gibi boyanır: farklı renkler bağlanmaz."
+    }
+  ]
+}

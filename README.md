@@ -3,25 +3,18 @@
 Pipez-style transport mod for **Forge 1.20.1** (Java 17): item, fluid, energy and (with Mekanism) chemical pipes,
 plus a universal pipe, with per-side modes, filters, distribution modes and speed upgrades. MIT licensed.
 
-Curved item, fluid and FE pipes use the **actual Curvy Pipes 1.15.8 native engine**: its renderer,
-placement preview, picking, collision, alignment grid, radial editor, endpoint menus, transport and world data.
-Curvy Pipes is optional. When 1.15.8 is installed on client and server, the **same Flowline item/fluid/energy
-pipe items** place curved lines too: a pipe in the **main hand always places a block pipe**; a pipe in the **off
-hand** has two modes, **Build for me** and **Curvy**, switched with the mode key (**B** by default) and shown under
-the crosshair, and right-click does the chosen mode's work. Without Curvy, the off hand only has Build for me.
-The **universal pipe** works in Curvy mode too: a curved line carries one resource, so the mode key cycles Build for
-me → Curvy: Items → Curvy: Fluids → Curvy: Energy, and the line is laid in the chosen channel (paid for with
-universal pipes).
-There are no separate curved items or conversion recipes. The Build for me introduction appears once for eight
-seconds and stays dismissed across restarts. The independent Flowline curve implementation has been removed.
+**Curved pipes** are part of Flowline itself, no other mod needed: the same pipe items lay block pipes or curved
+lines, for every pipe type (item, fluid, energy, universal and chemical). A pipe in the **main hand always places a
+block pipe**; a pipe in the **off hand** has two modes, **Build for me** and **Curved**, switched with the mode key
+(**B** by default) and shown under the crosshair. A curved line is solved into a smooth curve with the rules of Curvy
+Pipes 1.15.8 (bends, joints, collisions, cost; rewritten from its studied behaviour, no code taken), drawn with the
+block pipe's square glass duct, and paid for with pipes from the off hand (given back when it breaks).
 
-A Curvy line whose end sits on a Flowline pipe connects to that pipe's network: Curvy taking from it pulls from the
-network's Extract sides (under their filters and "keep" amounts), Curvy giving to it delivers to the network's
-Insert sides. A line between two Flowline pipes is therefore a bridge between two networks, configured in Flowline's
-screens. One end still has to be set to **Extract** in Curvy's endpoint menu, since Curvy only moves from active
-ends ([requested upstream](https://github.com/cyb0124/CurvyPipes-Issues/issues/27)).
-See [curved-pipe controls and migration](docs/CURVED_PIPES_TR.md) and [Curvy's ID regex research](docs/CURVY_REGEX_TR.md)
-(both in Turkish).
+A curved line belongs to the **same network** as the block pipes it touches: one Extract side on the source chest
+moves things through the whole network, curves included. A curved end on a chest, tank or machine face **is a pipe
+side**, with the same screen, wrench, Filter Card and upgrades; an end on a block pipe face just carries. Curved
+pipes only join pipes of their own type and colour. See the [curved pipe guide](docs/CURVED_PIPES_TR.md) (in
+Turkish).
 
 > This branch is the 1.20.1 Forge backport of the NeoForge 1.21.1 version. Differences: rule "data" matches the
 > stack's NBT tag (1.20.1 has no data components), and the Chemical Pipe moves Mekanism 10.4's gases, infuse types,
@@ -36,9 +29,11 @@ See [curved-pipe controls and migration](docs/CURVED_PIPES_TR.md) and [Curvy's I
 | Chemical Pipe | Only with **Mekanism** installed: moves Mekanism chemicals (gases, infuse types, pigments, slurries), with filters. |
 | Flowline Wrench | **Sneak + right-click** a side to cycle: normal (Insert) → **Extract** → **disconnected** → normal. Right-click a side: open its screen. **Sneak + scroll** on a side: Extract sides cycle their distribution (with Ctrl: their redstone mode), Insert sides change their priority (Ctrl: ±10). Wrenches from other mods (tagged `forge:tools/wrench`: Create, Mekanism, Thermal...) do the same on pipes. |
 | Anything else in hand | Right-click a side: opens its config screen, like a chest. Sneak + right-click to place a block against the pipe instead; a pipe in hand keeps placing pipes. |
-| Pipe in the off hand, Build for me mode | Look at a block (up to `buildRange` = 32 blocks away): the route back to you is shown as **ghost pipes** with the number of pipes needed, around obstacles and with as few turns as possible. **Right-click** lays it. Each pipe is placed normally (protection mods apply, survival uses up the off-hand stack; ghosts past what you carry are drawn faint). The mode key (**B**, changeable in Controls) switches to Curvy. |
+| Pipe in the off hand, Build for me mode | Look at a block (up to `buildRange` = 32 blocks away): the route back to you is shown as **ghost pipes** with the number of pipes needed, around obstacles and with as few turns as possible. **Right-click** lays it. Each pipe is placed normally (protection mods apply, survival uses up the off-hand stack; ghosts past what you carry are drawn faint). The mode key (**B**, changeable in Controls) switches to Curved. |
+| Pipe in the off hand, Curved mode | **Right-click** starts a line on a block face, a pipe face, a curved node or in the air, adds points in the air and finishes on a face or a node; **Shift + right-click** finishes in the air. A ghost tube previews the curve (red when it would be refused) and the line under the crosshair shows the cost and the server's answer. **Middle click** / Shift + middle click turns the grid (off, axial, outer/inner corners, outer/inner edges); hold **left Ctrl** to place freely; hold **left Alt** and scroll for the option wheel (Remove, Branch, Extend, Move, Force joint, Settings); **Esc** or the mode key drops a half-drawn line. All keys are in Controls. |
+| Curved pipe, any mode | **Left-click** breaks the curved pipe you look at (its pipes come back). On a curved end: right-click opens its screen, sneak + right-click with a wrench cycles its mode, a Filter Card copies/pastes rules, like a block pipe side. Entities stand on curved pipes; a block put in a curve's way breaks it and drops its pipes. |
 | Speed / Stack / Filter / Knozy Upgrade | Six upgrade slots per side (GUI, or right-click the side). **Speed** lowers the starting interval, **Stack** multiplies the amount per operation, **Filter** adds filter entries, **Knozy** counts as all three. Insert sides only take Filter upgrades (for more insert rules); the rest is returned when a side goes back to Insert. Everything drops when the pipe is broken. |
-| Dye | Right-click a pipe with a dye: its corner rails and node cage take the colour (the glass and end collars keep the pipe's own colour). Pipes of **two different colours never connect**, undyed pipes connect to every colour. Using the pipe's own colour again washes it off. |
+| Dye | Right-click a pipe with a dye: its corner rails and node cage take the colour (the glass and end collars keep the pipe's own colour). Pipes of **two different colours never connect**, undyed pipes connect to every colour. Using the pipe's own colour again washes it off. Curved pipes are dyed the same way. |
 | Filter Card | Sneak + right-click a side: copy its filter rules. Right-click another side: paste them. Sneak + use in the air: clear. Mode, settings and upgrades are not copied. |
 
 With JEI or EMI installed, the pipes, the wrench, the upgrades and the Filter Card have short how-to pages.
@@ -167,7 +162,7 @@ above (`idleBackoffFactor` = 2), the max network size (`[network]`) and the Buil
 `config/flowline-client.toml` only holds the internal `buildForMeHintSeen` flag, which saves whether the one-time
 Build for me introduction was shown.
 
-The network protocol is version 10: clients and servers need the same Flowline version.
+The network protocol is version 13: clients and servers need the same Flowline version.
 
 Pipes are see-through by default. Players who prefer solid pipes can enable the built-in **Flowline: Solid Pipes**
 resource pack (Options > Resource Packs): it swaps the glass for frosted, opaque panels.
@@ -181,13 +176,12 @@ resource pack (Options > Resource Packs): it swaps the glass for frosted, opaque
 ```
 
 CI (`.github/workflows/build.yml`) builds the jar, uploads it as the `flowline-jar` artifact and runs the in-world tests
-both without Curvy and with `-PwithCurvy`.
+both without Mekanism and with `-PwithMekanism`.
 
-Curvy Pipes 1.15.8 can be installed separately to enable curved pipes. The YAML parser is embedded in the
-distribution jar. Dev runs omit Curvy by default; add `-PwithCurvy` to test its native integration through the
-[official CurseMaven coordinate](https://www.curseforge.com/minecraft/mc-mods/curvy-pipes/files/8822563).
+Curved pipes hook three vanilla methods with Mixin (block changes in a chunk, entity collision, the client's middle
+click); the refmap is built by MixinGradle.
 
-Requires access to `maven.minecraftforge.net`, Mojang's asset/library hosts and, for the optional integration APIs,
+Requires access to `maven.minecraftforge.net`, `repo.spongepowered.org` (MixinGradle), Mojang's asset/library hosts and, for the optional integration APIs,
 `maven.blamejared.com` (JEI), `maven.terraformersmc.com` (EMI), `www.cursemaven.com` (Jade), `modmaven.dev`
 (Mekanism), `maven.k-4u.nl` (The One Probe) and `maven.bai.lol` (WTHIT).
 
@@ -200,4 +194,8 @@ standard library). The Patchouli guide is generated by `python3 tools/gen_patcho
 
 - Fluid transfer notifications are tested with test-only fluid handlers, alongside network endpoint roles and
   packet limits. Rendering needs a manual client check; energy pipes still have no in-world tests.
+- Curved pipes: the geometry, placement rules, network, editing, painting, world changes and entity collision are
+  covered by in-world tests. Transfer through curves is tested with item pipes; fluid, energy, universal and chemical
+  curves use the same network code but have no in-world test yet. Their look, preview, keys and option wheel still
+  need a manual client check. Entity collision on a tilted pipe can reach up to two pixels past its glass.
 - Pipe tiers/materials are not planned.

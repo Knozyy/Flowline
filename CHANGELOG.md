@@ -2,11 +2,21 @@
 
 ## Unreleased
 
-- Curved pipes become part of Flowline itself. This release removes the Curvy Pipes integration that came first:
-  Flowline no longer talks to Curvy Pipes, does not need it, and no longer bundles snakeyaml. With Curvy Pipes in the
-  same instance the two mods no longer interact.
-- Until the new curved pipes land, the off-hand mode key stays on Build for me and says so.
-- Network protocol 11: server and clients need the same Flowline version.
+- **Curved pipes are part of Flowline itself.** The off hand's mode key switches between Build for me and Curved;
+  the same pipe items lay curved lines of every pipe type. Lines follow Curvy Pipes 1.15.8's rules (bends, joints,
+  collisions, cost; rewritten from its studied behaviour) and look like the block pipes: a square glass duct with
+  coloured corner rails, collars and extract rings at the ends, and soft glass joints.
+- A curved line is part of the network it touches: one Extract side drives the whole network, curves included. A
+  curved end on a chest, tank or machine is a pipe side with the same screen, wrench, Filter Card and upgrades.
+- Laying and editing: right-click to start, add points and finish; a ghost tube previews the curve and the HUD shows
+  its cost and the server's answer. Six grid modes on the middle button, left Ctrl to place freely, an option wheel
+  on left Alt (Remove, Branch, Extend, Move, Force joint, Settings), left-click to break, dyes to colour.
+- Curved pipes cost pipes from the off hand and give them back when broken; protection mods are asked. Blocks put in
+  a curve's way break it and drop its pipes; entities stand on curved pipes.
+- The Curvy Pipes integration that came first is gone: Flowline no longer talks to Curvy Pipes, does not need it, and
+  no longer bundles snakeyaml. Curvy lines from older worlds are not carried over.
+- The guide book has three new pages on curved pipes.
+- Network protocol 13: server and clients need the same Flowline version.
 
 ## 0.3.6
 

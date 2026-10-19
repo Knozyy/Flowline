@@ -1,0 +1,16 @@
+{
+  "name": "Editing Curves",
+  "category": "flowline:curved",
+  "icon": "flowline:energy_pipe",
+  "sortnum": 2,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Left-click a curved pipe to break it, in any mode. The middle button turns the grid: off, axial, outer or inner corners, outer or inner edges; sneak to turn it back. Hold Ctrl to place freely."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Hold $(k:flowline.options)$() and scroll for the option wheel: Remove, Branch, Extend, Move, Force joint and Settings. Let go to use it on the node or curve you look at.$(br2)Dye a curved pipe like a block pipe: other colours do not connect."
+    }
+  ]
+}

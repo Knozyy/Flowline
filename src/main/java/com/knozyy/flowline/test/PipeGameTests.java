@@ -894,7 +894,7 @@ public class PipeGameTests {
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 20)
-    public static void curvedModeIsUnavailableUntilTheEngineLands(GameTestHelper helper) {
+    public static void offhandModeStartsInBuildForMe(GameTestHelper helper) {
         helper.assertTrue(com.knozyy.flowline.pipe.OffhandMode.of(helper.makeMockPlayer())
                 == com.knozyy.flowline.pipe.OffhandMode.BUILD, "the off hand starts in Build for me");
         for (var mode : com.knozyy.flowline.pipe.OffhandMode.values()) {
