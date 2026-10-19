@@ -31,6 +31,21 @@ public final class CurveCollisions {
         return level.isClientSide() ? ClientCurves.INSTANCE.graph() : null;
     }
 
+    /**
+     * Whether a curved pipe passes through the block cell at {@code pos}. Build for Me keeps its routes out of such
+     * cells: a block pipe put there would break the curve.
+     */
+    public static boolean occupies(Level level, net.minecraft.core.BlockPos pos) {
+        CurveGraph graph = graph(level);
+        if (graph == null || graph.edges().isEmpty()) return false;
+        Aabb cell = new Aabb(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1)
+                .inflate(-1e-6);
+        for (SegmentBox segment : graph.boxesNear(cell)) {
+            if (segment.box().overlaps(cell)) return true;
+        }
+        return false;
+    }
+
     /** {@code shapes} (the entity's other collisions) with the curved pipe boxes inside {@code area} added. */
     public static List<VoxelShape> with(Level level, AABB area, List<VoxelShape> shapes) {
         CurveGraph graph = graph(level);

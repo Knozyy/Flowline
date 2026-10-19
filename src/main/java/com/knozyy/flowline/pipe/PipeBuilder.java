@@ -128,8 +128,10 @@ public final class PipeBuilder {
         return null;
     }
 
+    /** A cell a pipe may go in: loaded, replaceable, and clear of curved pipes (a block there would break them). */
     private static boolean free(Level level, BlockPos pos) {
-        return level.isLoaded(pos) && !level.isOutsideBuildHeight(pos) && level.getBlockState(pos).canBeReplaced();
+        return level.isLoaded(pos) && !level.isOutsideBuildHeight(pos) && level.getBlockState(pos).canBeReplaced()
+                && !com.knozyy.flowline.curved.CurveCollisions.occupies(level, pos);
     }
 
     /** Steps to the player's feet, minus the one or two the goal ring saves; never more than the real cost. */

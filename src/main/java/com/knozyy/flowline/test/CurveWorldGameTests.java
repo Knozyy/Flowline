@@ -133,4 +133,25 @@ public class CurveWorldGameTests {
                 .thenExecute(() -> CurveTestSupport.clear(h))
                 .thenSucceed();
     }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 60)
+    public static void buildForMeGoesAroundCurvedPipes(GameTestHelper h) {
+        long edge = airLine(h);
+        h.assertTrue(com.knozyy.flowline.curved.CurveCollisions.occupies(h.getLevel(), h.absolutePos(new BlockPos(4, 2, 4))),
+                "the curve passes through its cells");
+        h.assertTrue(!com.knozyy.flowline.curved.CurveCollisions.occupies(h.getLevel(), h.absolutePos(new BlockPos(4, 1, 4))),
+                "and not the ones below");
+        Vec3 feet = h.absoluteVec(new Vec3(4.5, 1, 7.5));
+        AABB player = new AABB(feet.x - 0.3, feet.y, feet.z - 0.3, feet.x + 0.3, feet.y + 1.8, feet.z + 0.3);
+        java.util.List<BlockPos> path = com.knozyy.flowline.pipe.PipeBuilder.path(h.getLevel(),
+                h.absolutePos(new BlockPos(4, 2, 1)), player, 32);
+        h.assertTrue(path != null, "a route around the curve exists");
+        for (BlockPos pos : path) {
+            h.assertTrue(!com.knozyy.flowline.curved.CurveCollisions.occupies(h.getLevel(), pos),
+                    "the route keeps out of the curve, but uses " + h.relativePos(pos));
+        }
+        h.assertTrue(CurveData.get(h.getLevel()).graph().edge(edge).isPresent(), "the curve is untouched");
+        CurveTestSupport.clear(h);
+        h.succeed();
+    }
 }
