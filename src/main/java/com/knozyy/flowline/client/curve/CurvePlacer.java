@@ -76,6 +76,19 @@ public final class CurvePlacer {
         return Action.PASS;
     }
 
+    /** No break yet. */
+    public static final long NEVER = Long.MIN_VALUE;
+    /** Holding attack fires the click every tick; one break per this many ticks. */
+    public static final int BREAK_COOLDOWN = 5;
+
+    /**
+     * Whether a held attack may break again at game time {@code now}, the last break having been at {@code last}
+     * ({@link #NEVER} before the first): never compares by subtracting from {@code NEVER}, which overflows.
+     */
+    public static boolean breakReady(long now, long last) {
+        return last == NEVER || now < last || now - last >= BREAK_COOLDOWN;
+    }
+
     public static HeldKind held(ItemStack stack) {
         if (stack.isEmpty()) return HeldKind.EMPTY;
         if (PipeBlock.isPipe(stack)) return HeldKind.PIPE;

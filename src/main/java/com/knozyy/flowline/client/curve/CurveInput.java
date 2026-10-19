@@ -37,9 +37,7 @@ import org.jetbrains.annotations.Nullable;
  */
 @Mod.EventBusSubscriber(modid = Flowline.MODID, value = Dist.CLIENT)
 public final class CurveInput {
-    /** Holding attack fires the event every tick; one break per this many ticks. */
-    private static final int BREAK_COOLDOWN = 5;
-    private static long lastBreak = Long.MIN_VALUE;
+    private static long lastBreak = CurvePlacer.NEVER;
 
     private CurveInput() {}
 
@@ -119,7 +117,7 @@ public final class CurveInput {
             case FINISH -> CurvePlacer.finish(target);
             case BREAK -> {
                 long now = mc.level.getGameTime();
-                if (now - lastBreak < BREAK_COOLDOWN && now >= lastBreak) return;
+                if (!CurvePlacer.breakReady(now, lastBreak)) return;
                 lastBreak = now;
                 event.setSwingHand(true);
                 ModNetwork.sendToServer(target.kind == CurveTarget.Kind.NODE

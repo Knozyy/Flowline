@@ -190,4 +190,14 @@ public class CurveGridGameTests {
         h.assertTrue(above.error().isEmpty() && above.cost() == 4, "a free 4 block run costs 4, got " + above);
         h.succeed();
     }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void firstLeftClickBreaks(GameTestHelper h) {
+        h.assertTrue(CurvePlacer.breakReady(0, CurvePlacer.NEVER) && CurvePlacer.breakReady(123456, CurvePlacer.NEVER),
+                "the first click breaks, whatever the game time");
+        h.assertTrue(!CurvePlacer.breakReady(12, 10), "holding the button waits a little");
+        h.assertTrue(CurvePlacer.breakReady(15, 10), "then breaks again");
+        h.assertTrue(CurvePlacer.breakReady(3, 10), "a world with an earlier time does not lock it");
+        h.succeed();
+    }
 }
