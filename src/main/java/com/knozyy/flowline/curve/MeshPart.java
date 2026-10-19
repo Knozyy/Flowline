@@ -10,8 +10,10 @@ public enum MeshPart {
     GLASS_INNER,
     /** The collar where an inserting end meets its block. */
     COLLAR,
-    /** Metal bands: an extracting end's ring, the bands along a duct and at a joint's mouths. */
+    /** Metal bands: an extracting end's ring and the bands along a duct. */
     RING,
-    /** A joint's glass node. */
-    NODE_GLASS
+    /** A joint's round metal body, like a valve where the pipes meet. */
+    JOINT,
+    /** The metal flange where a pipe goes into a joint. */
+    FLANGE
 }

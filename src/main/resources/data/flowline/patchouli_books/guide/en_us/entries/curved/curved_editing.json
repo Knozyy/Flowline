@@ -6,7 +6,7 @@
   "pages": [
     {
       "type": "patchouli:text",
-      "text": "Left-click a curved pipe to break it, in any mode. The middle button turns the grid: off, axial, outer or inner corners, outer or inner edges; sneak to turn it back. Hold Ctrl to place freely."
+      "text": "Hold left-click on a curved pipe to break it like a block; in survival its pipes drop. The middle button turns the grid: off, axial, outer or inner corners, outer or inner edges; sneak to turn it back. Hold Ctrl to place freely."
     },
     {
       "type": "patchouli:text",

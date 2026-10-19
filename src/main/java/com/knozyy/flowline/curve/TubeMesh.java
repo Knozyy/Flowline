@@ -7,11 +7,11 @@ import java.util.List;
  * The look of a curved pipe as quads: the block pipe's 6x6 px glass duct (tools/gen/models.py) carried along the
  * solved points. Four 1 px corner rails 2-3 px from the middle, glass panels 2.5 px out (seen from both sides), a 1 px
  * band every fourth point, and at the ends a collar (inserting end on a block), an extract ring, or a glass cap (free
- * end). A joint is a soft glass node with a band at each mouth.
+ * end). A joint is a round metal body, like a valve, with a flange where each pipe goes in.
  */
 public final class TubeMesh {
     private static final double PX = 1 / 16.0;
-    private static final double RAIL_OUT = 3 * PX, RAIL_IN = 2 * PX, GLASS = 2.5 * PX, BAND = 3.5 * PX;
+    private static final double RAIL_OUT = 3 * PX, RAIL_IN = 2 * PX, GLASS = 2.5 * PX, BAND = 3.5 * PX, FLANGE = 4.5 * PX;
     private static final int BAND_EVERY = 4;
     private static final int SLICES = 8, STACKS = 6;
 
@@ -146,22 +146,25 @@ public final class TubeMesh {
         return lid.normal().dot(at.t()) * facing < 0 ? lid.flipped() : lid;
     }
 
-    /** A soft glass node of {@code radius} at {@code centre}, with a band at each exit direction. */
+    /**
+     * A round metal body of {@code radius} at {@code centre}, like a valve, with a square flange (the duct's collar,
+     * a little wider) where each pipe goes in along {@code exits}.
+     */
     public static List<MeshQuad> joint(Vec3d centre, double radius, List<Vec3d> exits) {
         List<MeshQuad> q = new ArrayList<>();
         for (int s = 0; s < STACKS; s++) {
             double t0 = Math.PI * s / STACKS, t1 = Math.PI * (s + 1) / STACKS;
             for (int k = 0; k < SLICES; k++) {
                 double p0 = 2 * Math.PI * k / SLICES, p1 = 2 * Math.PI * (k + 1) / SLICES;
-                q.add(MeshQuad.of(MeshPart.NODE_GLASS, sphere(centre, radius, t0, p0), sphere(centre, radius, t0, p1),
+                q.add(MeshQuad.of(MeshPart.JOINT, sphere(centre, radius, t0, p0), sphere(centre, radius, t0, p1),
                         sphere(centre, radius, t1, p1), sphere(centre, radius, t1, p0),
-                        16f * k / SLICES, 16f * s / STACKS, 16f * (k + 1) / SLICES, 16f * (s + 1) / STACKS));
+                        0, 16f * s / STACKS, 1, 16f * (s + 1) / STACKS));
             }
         }
         for (Vec3d exit : exits) {
             Vec3d t = exit.normalize();
             Vec3d n = Frames.blockNormal(t);
-            band(q, new Frame(centre.addScaled(t, radius), t, n, t.cross(n)));
+            collar(q, new Frame(centre.addScaled(t, radius - PX), t, n, t.cross(n)), 1, MeshPart.FLANGE, FLANGE, 2 * PX);
         }
         return q;
     }

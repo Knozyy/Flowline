@@ -99,10 +99,10 @@ public class CurveMeshGameTests {
         Vec3d centre = v(1, 2, 3);
         double r = 0.1875 * Math.sqrt(2);
         List<MeshQuad> quads = TubeMesh.joint(centre, r, List.of(v(1, 0, 0), v(0, 1, 0), v(0, 0, -1)));
-        h.assertTrue(count(quads, MeshPart.NODE_GLASS) == 8 * 6, "8 × 6 sphere quads");
-        h.assertTrue(count(quads, MeshPart.RING) == 3 * 4, "a band of 4 faces at each of the 3 exits");
+        h.assertTrue(count(quads, MeshPart.JOINT) == 8 * 6, "8 × 6 quads of round metal body");
+        h.assertTrue(count(quads, MeshPart.FLANGE) == 3 * 5, "a flange (4 sides and its face) at each of the 3 exits");
         for (MeshQuad q : quads) {
-            if (q.part() != MeshPart.NODE_GLASS) continue;
+            if (q.part() != MeshPart.JOINT) continue;
             for (Vec3d p : List.of(q.a(), q.b(), q.c(), q.d())) {
                 h.assertTrue(Math.abs(Math.sqrt(p.distanceSq(centre)) - r) < 1e-9, "sphere point off the radius: " + p);
             }

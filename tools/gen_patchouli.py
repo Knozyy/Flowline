@@ -134,7 +134,7 @@ EN = {
             text("A ghost tube shows the curve; it turns red when it would be refused. The line costs pipes from the off hand, about one per block, and gives them back when broken." + BR2 + "Esc or the mode key drops a half-drawn line."),
         ]),
         "curved_editing": ("Editing Curves", [
-            text("Left-click a curved pipe to break it, in any mode. The middle button turns the grid: off, axial, outer or inner corners, outer or inner edges; sneak to turn it back. Hold Ctrl to place freely."),
+            text("Hold left-click on a curved pipe to break it like a block; in survival its pipes drop. The middle button turns the grid: off, axial, outer or inner corners, outer or inner edges; sneak to turn it back. Hold Ctrl to place freely."),
             text("Hold $(k:flowline.options)$() and scroll for the option wheel: Remove, Branch, Extend, Move, Force joint and Settings. Let go to use it on the node or curve you look at." + BR2 + "Dye a curved pipe like a block pipe: other colours do not connect."),
         ]),
         "curved_ends": ("Ends and Networks", [
@@ -227,7 +227,7 @@ TR = {
             text("Hayalet bir tüp kıvrımı gösterir; reddedilecekse kırmızı olur. Hat sol eldeki borulardan, yaklaşık blok başına bir tane harcar; kırılınca geri verir." + BR2 + "Esc ya da mod tuşu yarım hattı bırakır."),
         ]),
         "curved_editing": ("Kıvrımları Düzenlemek", [
-            text("Kıvrımlı boruyu kırmak için sol tıklayın; her modda çalışır. Orta tuş ızgarayı değiştirir: kapalı, eksenler, dış ya da iç köşeler, dış ya da iç kenarlar; geri çevirmek için eğilin. Serbest yerleştirmek için Ctrl'yi basılı tutun."),
+            text("Kıvrımlı boruyu blok gibi kırmak için sol tıkı basılı tutun; survival'da boruları yere düşer. Orta tuş ızgarayı değiştirir: kapalı, eksenler, dış ya da iç köşeler, dış ya da iç kenarlar; geri çevirmek için eğilin. Serbest yerleştirmek için Ctrl'yi basılı tutun."),
             text("Seçenek çarkı için $(k:flowline.options)$() basılı tutup tekerleği çevirin: Sil, Dallandır, Uzat, Taşı, Birleşme yap, Ayarlar. Bıraktığınızda baktığınız düğüme ya da kıvrıma uygulanır." + BR2 + "Kıvrımlı boru blok boru gibi boyanır: farklı renkler bağlanmaz."),
         ]),
         "curved_ends": ("Uçlar ve Ağlar", [

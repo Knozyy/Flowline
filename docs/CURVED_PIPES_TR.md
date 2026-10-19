@@ -21,7 +21,7 @@ Kıvrımlı modda (hepsi Controls'tan değiştirilebilir):
 | --- | --- |
 | Sağ tık | Hattı başlat (blok yüzü, boru yüzü, var olan düğüm, var olan kıvrımlı boru ya da hava), havada nokta ekle, yüzde, düğümde ya da kıvrımlı boruda bitir. Kıvrımlı borunun ortasına bağlanınca boru orada bölünür ve üç kenarlı bir birleşme olur |
 | Shift + sağ tık | Havada bitir |
-| Sol tık | Bakılan kıvrımlı kenarı ya da düğümü kır (her modda); borular geri gelir |
+| Sol tık (basılı) | Bakılan kıvrımlı kenarı ya da düğümü blok gibi kır (her modda): survival'da borunun kazma süresi kadar basılı tutulur ve borular yere düşer; creative'de anında kırılır, bir şey düşmez |
 | Orta tık / Shift + orta tık | Izgara modu ileri / geri: kapalı, eksenler, dış köşeler, iç köşeler, dış kenarlar, iç kenarlar |
 | Sol Ctrl basılı | Düğüm/kenar/yüze yapışmayı kapat; yalnız havadaki ızgara |
 | Sol Alt basılı + tekerlek | Seçenek çarkı: Sil, Dallandır, Uzat, Taşı, Birleşme yap (force joint), Ayarlar; bırakınca bakılan düğüme/kenara uygulanır |
@@ -43,7 +43,7 @@ Kıvrımlı modda (hepsi Controls'tan değiştirilebilir):
     değiştirir), Filter Card ve upgrade'ler. Ekranda yan sekmeler yoktur.
   - **Blok borusu yüzü:** o yüz bağlantı olur, uç yalnız taşır.
   - **Başka bir blok yüzü:** uç yalnız hattı tutar.
-  - **Hava:** serbest düğüm ya da üç ve daha fazla kenarın birleştiği cam düğüm.
+  - **Hava:** serbest düğüm ya da üç ve daha fazla kenarın birleştiği (ya da keskin dönen) metal gövdeli birleşme; her boru girişinde bir flanş.
 - Kıvrımlı boru yalnız kendi türündeki ve uyumlu renkteki borulara bağlanır. Boya blok borusundaki gibidir: aynı boya
   ikinci kez silerek kaldırır.
 - Hedef sıralamasında kıvrımlı kenarın mesafesi `max(1, maliyet)` adımdır.
@@ -73,6 +73,6 @@ Kıvrımlı modda (hepsi Controls'tan değiştirilebilir):
 - Eşya, sıvı ve enerji aktarımı kıvrımdan iki yönde test edilir (blok boru kıvrım üzerinden çeker; kıvrımlı uç blok
   borulara çeker); universal kıvrım üçünü birlikte taşır. Kimyasal kıvrımlar aynı ağ kodunu kullanır ama ayrı oyun
   içi testi yoktur.
-- **Gözle doğrulanmadı:** görünüm (cam kanal, raylar, yaka/halka, cam düğüm), blok–kıvrım geçişi, önizleme, HUD,
+- **Gözle doğrulanmadı:** görünüm (cam kanal, raylar, yaka/halka, metal birleşme ve flanşlar), blok–kıvrım geçişi, önizleme, HUD,
   tuşlar, seçenek çarkı, havada orta tık, istemcide varlık çarpışması, shader uyumu ve FPS. Bunlar grafik istemcide
   kontrol edilmeli.

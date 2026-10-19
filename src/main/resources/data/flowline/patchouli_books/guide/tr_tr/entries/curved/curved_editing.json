@@ -6,7 +6,7 @@
   "pages": [
     {
       "type": "patchouli:text",
-      "text": "Kıvrımlı boruyu kırmak için sol tıklayın; her modda çalışır. Orta tuş ızgarayı değiştirir: kapalı, eksenler, dış ya da iç köşeler, dış ya da iç kenarlar; geri çevirmek için eğilin. Serbest yerleştirmek için Ctrl'yi basılı tutun."
+      "text": "Kıvrımlı boruyu blok gibi kırmak için sol tıkı basılı tutun; survival'da boruları yere düşer. Orta tuş ızgarayı değiştirir: kapalı, eksenler, dış ya da iç köşeler, dış ya da iç kenarlar; geri çevirmek için eğilin. Serbest yerleştirmek için Ctrl'yi basılı tutun."
     },
     {
       "type": "patchouli:text",

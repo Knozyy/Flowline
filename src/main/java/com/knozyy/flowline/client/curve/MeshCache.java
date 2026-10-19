@@ -132,8 +132,9 @@ public final class MeshCache {
             diameters[i++] = e.diameter();
         }
         // a two-edge bend gets the size of a forced joint: the plain radius would leave the duct's corners outside
-        List<MeshQuad> quads = TubeMesh.joint(node.pos(), JointRules.jointRadius(diameters, node.force() || ids.size() == 2),
-                exits);
+        // one pixel over the joint radius, so the low-poly body hides the ducts' corners
+        List<MeshQuad> quads = TubeMesh.joint(node.pos(),
+                JointRules.jointRadius(diameters, node.force() || ids.size() == 2) + 1 / 16.0, exits);
         joints.put(nodeId, new JointEntry(node, ids, quads));
         return quads;
     }
