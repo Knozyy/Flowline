@@ -30,8 +30,12 @@ public final class TubeMesh {
         }
     }
 
-    /** Frames at the points: tangents and normals averaged over the segments on either side, so joins don't crack. */
-    private static List<Frame> frames(List<Vec3d> points) {
+    /**
+     * Frames at the points: tangents and normals averaged over the segments on either side, so joins don't crack. An
+     * end given a {@code startTangent}/{@code endTangent} (where the edge meets the next one through a node) uses that
+     * direction and the square section of {@link #section}, which the neighbour uses too.
+     */
+    private static List<Frame> frames(List<Vec3d> points, Vec3d startTangent, Vec3d endTangent) {
         List<Vec3d> segmentNormals = Frames.normals(points);
         int last = points.size() - 1;
         List<Frame> frames = new ArrayList<>(points.size());
@@ -41,7 +45,13 @@ public final class TubeMesh {
             Vec3d t = before == null ? after : after == null ? before : before.add(after).normalize();
             Vec3d n = i == 0 ? segmentNormals.get(0) : i == last ? segmentNormals.get(last - 1)
                     : segmentNormals.get(i - 1).add(segmentNormals.get(i));
-            n = n.addScaled(t, -n.dot(t)).normalize();
+            Vec3d shared = i == 0 ? startTangent : i == last ? endTangent : null;
+            if (shared != null) {
+                t = shared;
+                n = section(t, n);
+            } else {
+                n = n.addScaled(t, -n.dot(t)).normalize();
+            }
             frames.add(new Frame(points.get(i), t, n, t.cross(n)));
         }
         return frames;
@@ -49,7 +59,16 @@ public final class TubeMesh {
 
     /** The duct along {@code points}, with the given pieces at its first and last point. */
     public static List<MeshQuad> edge(List<Vec3d> points, EndStyle start, EndStyle end) {
-        List<Frame> f = frames(points);
+        return edge(points, start, end, null, null);
+    }
+
+    /**
+     * The duct, its first and/or last cross-section square to the given unit direction instead of its own end segment
+     * (null keeps its own): two edges meeting at a node pass the same direction, so their sections coincide.
+     */
+    public static List<MeshQuad> edge(List<Vec3d> points, EndStyle start, EndStyle end, Vec3d startTangent,
+                                      Vec3d endTangent) {
+        List<Frame> f = frames(points, startTangent, endTangent);
         List<MeshQuad> quads = new ArrayList<>();
         for (int i = 0; i + 1 < f.size(); i++) {
             Frame a = f.get(i), b = f.get(i + 1);
@@ -67,6 +86,16 @@ public final class TubeMesh {
         endPiece(quads, f.get(0), 1, start);
         endPiece(quads, f.get(f.size() - 1), -1, end);
         return quads;
+    }
+
+    /**
+     * The grid-aligned square section square to {@code t}, turned by the quarter turn closest to {@code near}: every
+     * quarter turn is the same square, so neighbours agree on it, and {@code near} keeps the rails from crossing over.
+     */
+    static Vec3d section(Vec3d t, Vec3d near) {
+        Vec3d n = Frames.blockNormal(t), b = t.cross(n), best = n;
+        for (Vec3d c : new Vec3d[]{b, n.scale(-1), b.scale(-1)}) if (c.dot(near) > best.dot(near)) best = c;
+        return best;
     }
 
     /** The four long faces of a rail from frame {@code a} to {@code b} spanning u0..u1 x w0..w1, facing out. */

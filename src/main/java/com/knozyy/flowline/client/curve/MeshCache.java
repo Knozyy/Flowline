@@ -23,7 +23,10 @@ import java.util.Map;
  */
 public final class MeshCache {
     private record EdgeEntry(CurveEdgesPayload.EdgeSync sync, TubeMesh.EndStyle start, TubeMesh.EndStyle end,
-                             List<MeshQuad> quads, Aabb bounds) {}
+                             Vec3d startTangent, Vec3d endTangent, List<MeshQuad> quads, Aabb bounds) {}
+
+    /** Two edges meeting at a node bend by more than this (cosine, about 18 degrees): drawn as a joint instead. */
+    private static final double SMOOTH = 0.95;
 
     private record JointEntry(CurveEdgesPayload.NodeSync sync, List<Long> edges, List<MeshQuad> quads) {}
 
@@ -55,20 +58,54 @@ public final class MeshCache {
             return null;
         }
         TubeMesh.EndStyle start = style(sync.from()), end = style(sync.to());
+        Vec3d startTangent = shared(id, sync.from(), true), endTangent = shared(id, sync.to(), false);
         EdgeEntry entry = edges.get(id);
-        if (entry != null && entry.sync() == sync && entry.start() == start && entry.end() == end) return entry;
+        if (entry != null && entry.sync() == sync && entry.start() == start && entry.end() == end
+                && java.util.Objects.equals(entry.startTangent(), startTangent)
+                && java.util.Objects.equals(entry.endTangent(), endTangent)) {
+            return entry;
+        }
         builds++;
         List<Vec3d> points = sync.points();
-        entry = new EdgeEntry(sync, start, end, TubeMesh.edge(points, start, end),
+        entry = new EdgeEntry(sync, start, end, startTangent, endTangent,
+                TubeMesh.edge(points, start, end, startTangent, endTangent),
                 Aabb.of(points.toArray(new Vec3d[0])).inflate(CurveRules.DIAMETER));
         edges.put(id, entry);
         return entry;
     }
 
-    /** Whether the node is drawn as a glass joint: three or more edges meet there, or it is forced. */
+    /**
+     * Whether the node is drawn as a glass joint: three or more edges meet there, it is forced, or two edges meet at a
+     * sharp bend (their ends would not line up).
+     */
     public boolean isJoint(long nodeId) {
         CurveEdgesPayload.NodeSync node = curves.node(nodeId);
-        return node != null && (node.force() || curves.graph().edgesAt(nodeId).size() >= 3);
+        if (node == null) return false;
+        List<CurveEdge> at = curves.graph().edgesAt(nodeId);
+        return node.force() || at.size() >= 3 || at.size() == 2 && bend(nodeId, at) < SMOOTH;
+    }
+
+    /** The cosine of the bend between the two edges at a node: 1 when one carries straight on into the other. */
+    private static double bend(long nodeId, List<CurveEdge> at) {
+        return -CurveGraph.exitDirection(at.get(0), nodeId).dot(CurveGraph.exitDirection(at.get(1), nodeId));
+    }
+
+    /**
+     * Where edge {@code id} meets one other edge through node {@code nodeId} smoothly, the direction both ends take
+     * there (the middle of the two, pointing the way this edge runs) so their sections meet without a gap; else null.
+     * The solver keeps the direction through a node only to a few degrees (Curvy's loose tolerance).
+     */
+    private Vec3d shared(long id, long nodeId, boolean leaving) {
+        List<CurveEdge> at = curves.graph().edgesAt(nodeId);
+        CurveEdgesPayload.NodeSync node = curves.node(nodeId);
+        if (node == null || node.force() || node.anchorKind() != 0 || at.size() != 2 || bend(nodeId, at) < SMOOTH) {
+            return null;
+        }
+        CurveEdge self = at.get(0).id() == id ? at.get(0) : at.get(1), other = self == at.get(0) ? at.get(1) : at.get(0);
+        Vec3d mine = CurveGraph.exitDirection(self, nodeId), theirs = CurveGraph.exitDirection(other, nodeId);
+        // the way this edge runs at the node: out of it when leaving, into it when arriving
+        Vec3d along = mine.sub(theirs).normalize();
+        return leaving ? along : along.scale(-1);
     }
 
     /** The joint's quads, empty unless {@link #isJoint}. */
@@ -94,7 +131,9 @@ public final class MeshCache {
             exits.add(CurveGraph.exitDirection(e, nodeId));
             diameters[i++] = e.diameter();
         }
-        List<MeshQuad> quads = TubeMesh.joint(node.pos(), JointRules.jointRadius(diameters, node.force()), exits);
+        // a two-edge bend gets the size of a forced joint: the plain radius would leave the duct's corners outside
+        List<MeshQuad> quads = TubeMesh.joint(node.pos(), JointRules.jointRadius(diameters, node.force() || ids.size() == 2),
+                exits);
         joints.put(nodeId, new JointEntry(node, ids, quads));
         return quads;
     }

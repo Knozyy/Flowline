@@ -143,4 +143,61 @@ public class CurveMeshGameTests {
                 "a lone free end gets a cap: 2 segments of 4 panels plus 1");
         h.succeed();
     }
+
+    /** The vertices of {@code quads} that lie on the cross-section through {@code at} square to {@code tangent}. */
+    private static List<Vec3d> ring(List<MeshQuad> quads, MeshPart part, Vec3d at, Vec3d tangent) {
+        List<Vec3d> ring = new ArrayList<>();
+        for (MeshQuad q : quads) {
+            if (q.part() != part) continue;
+            for (Vec3d p : List.of(q.a(), q.b(), q.c(), q.d())) {
+                if (Math.abs(p.sub(at).dot(tangent)) < 1e-9 && p.distanceSq(at) < 0.1) ring.add(p);
+            }
+        }
+        return ring;
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void chainPiecesMeetAtTheirNode(GameTestHelper h) {
+        List<com.knozyy.flowline.curve.SolvedSpan> spans = CurveSolver.solve(List.of(v(0, 0, 0), v(2, 2, 0.5), v(4, 0, 1.5)),
+                CurveRules.DIAMETER, new EndCondition(v(0, 1, 0)), new EndCondition(v(0, -1, 0))).orElseThrow().spans();
+        List<Vec3d> a = spans.get(0).points(), b = spans.get(1).points();
+        Vec3d node = a.get(a.size() - 1);
+        Vec3d inA = node.sub(a.get(a.size() - 2)).normalize(), outB = b.get(1).sub(b.get(0)).normalize();
+        // Curvy's solver keeps the direction through a node only to a few degrees, so the pieces share the middle one
+        h.assertTrue(inA.dot(outB) < 0.9999, "this chain does bend at its node, else the test proves nothing");
+        Vec3d middle = inA.add(outB).normalize();
+        List<MeshQuad> qa = TubeMesh.edge(a, TubeMesh.EndStyle.NONE, TubeMesh.EndStyle.NONE, null, middle);
+        List<MeshQuad> qb = TubeMesh.edge(b, TubeMesh.EndStyle.NONE, TubeMesh.EndStyle.NONE, middle, null);
+        for (MeshPart part : List.of(MeshPart.RAIL, MeshPart.GLASS)) {
+            List<Vec3d> endA = ring(qa, part, node, middle), startB = ring(qb, part, node, middle);
+            h.assertTrue(!endA.isEmpty(), "the first piece has an end ring of " + part);
+            for (Vec3d p : endA) {
+                h.assertTrue(startB.stream().anyMatch(q -> q.distanceSq(p) < 1e-10),
+                        part + " corner " + p + " of the first piece has no match on the second");
+            }
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void meshCacheJoinsBentEdges(GameTestHelper h) {
+        ClientCurves curves = new ClientCurves();
+        CurveEdgesPayload.EdgeSync slight = new CurveEdgesPayload.EdgeSync(2, 11, 12, PipeType.ITEM, -1, 0.5,
+                List.of(v(1, 0, 0), v(1.5, 0, 0.06), v(2, 0, 0.18)));
+        CurveEdgesPayload.EdgeSync sharp = new CurveEdgesPayload.EdgeSync(3, 12, 13, PipeType.ITEM, -1, 0.5,
+                List.of(v(2, 0, 0.18), v(2, 0.5, 0.18), v(2, 1, 0.18)));
+        curves.apply(new CurveEdgesPayload(new ChunkPos(0, 0), List.of(syncEdge(1, 10, 0, 11, 1), slight, sharp),
+                List.of(syncNode(10, 0), syncNode(11, 1), new CurveEdgesPayload.NodeSync(12, v(2, 0, 0.18), false, (byte) 0, false),
+                        new CurveEdgesPayload.NodeSync(13, v(2, 1, 0.18), false, (byte) 0, false)), List.of(), List.of()));
+        MeshCache cache = new MeshCache(curves);
+        h.assertTrue(!cache.isJoint(11), "a slight bend is no joint");
+        Vec3d node = v(1, 0, 0);
+        List<MeshQuad> a = cache.edge(1), b = cache.edge(2);
+        Vec3d middle = v(1, 0, 0).add(v(0.5, 0, 0.06).normalize()).normalize();
+        List<Vec3d> endA = ring(a, MeshPart.RAIL, node, middle), startB = ring(b, MeshPart.RAIL, node, middle);
+        h.assertTrue(!endA.isEmpty() && endA.stream().allMatch(p -> startB.stream().anyMatch(q -> q.distanceSq(p) < 1e-10)),
+                "both edges end on the same section at their node");
+        h.assertTrue(cache.isJoint(12) && !cache.joint(12).isEmpty(), "a right-angle bend gets a glass joint");
+        h.succeed();
+    }
 }
