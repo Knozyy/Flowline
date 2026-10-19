@@ -67,11 +67,12 @@ Kıvrımlı modda (hepsi Controls'tan değiştirilebilir):
 
 ## Doğrulama
 
-- 189 GameTest (normal ve `-PwithMekanism`): geometri ve çözücü, yerleşim kuralları ve hata kodları, maliyet ve
+- 194 GameTest (normal ve `-PwithMekanism`): geometri ve çözücü, yerleşim kuralları ve hata kodları, maliyet ve
   iade, koruma reddi, kayıt/yeniden yükleme, ağ (tek Extract, mesafe, ayrılma, redstone, yüklenmemiş chunk), kıvrımlı uç
   ekranı/wrench/Filter Card, boyama, dünya değişimleri, varlık çarpışması, istemci karar fonksiyonları.
-- Aktarım testleri eşya borusuyla yapılır; sıvı, enerji, universal ve kimyasal kıvrımlar aynı ağ kodunu kullanır ama
-  ayrı oyun içi testi yoktur.
+- Eşya, sıvı ve enerji aktarımı kıvrımdan iki yönde test edilir (blok boru kıvrım üzerinden çeker; kıvrımlı uç blok
+  borulara çeker); universal kıvrım üçünü birlikte taşır. Kimyasal kıvrımlar aynı ağ kodunu kullanır ama ayrı oyun
+  içi testi yoktur.
 - **Gözle doğrulanmadı:** görünüm (cam kanal, raylar, yaka/halka, cam düğüm), blok–kıvrım geçişi, önizleme, HUD,
   tuşlar, seçenek çarkı, havada orta tık, istemcide varlık çarpışması, shader uyumu ve FPS. Bunlar grafik istemcide
   kontrol edilmeli.

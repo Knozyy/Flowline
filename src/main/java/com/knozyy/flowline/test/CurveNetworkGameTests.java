@@ -18,11 +18,22 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.energy.EnergyStorage;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+import net.minecraftforge.items.ItemStackHandler;
+
+import java.util.Iterator;
+import java.util.List;
+import java.util.function.Consumer;
 
 /** Block pipe networks that run through curved pipes, and curved pipe ends that work like pipe sides. */
 @GameTestHolder(Flowline.MODID)
@@ -53,16 +64,24 @@ public class CurveNetworkGameTests {
      * chest B's west face at (7,1,z). Returns the edge id.
      */
     static long line(GameTestHelper h, int z) {
-        h.setBlock(new BlockPos(0, 1, z), Blocks.CHEST);
-        h.setBlock(new BlockPos(7, 1, z), Blocks.CHEST);
-        h.setBlock(new BlockPos(1, 1, z), ModBlocks.ITEM_PIPE.get());
+        return line(h, z, PipeType.ITEM, ModBlocks.ITEM_PIPE.get(), p -> h.setBlock(p, Blocks.CHEST));
+    }
+
+    /**
+     * {@link #line(GameTestHelper, int)} for any pipe type: {@code endpoint} places A at (0,1,z), then B at (7,1,z),
+     * before the pipe looks at its neighbours.
+     */
+    static long line(GameTestHelper h, int z, PipeType type, Block pipeBlock, Consumer<BlockPos> endpoint) {
+        endpoint.accept(new BlockPos(0, 1, z));
+        endpoint.accept(new BlockPos(7, 1, z));
+        h.setBlock(new BlockPos(1, 1, z), pipeBlock);
         PipeBlock.updateConnections(h.getLevel(), h.absolutePos(new BlockPos(1, 1, z)));
         pipe(h, new BlockPos(1, 1, z)).side(Direction.WEST).mode = SideMode.EXTRACT;
         long start = CurveTestSupport.node(h, new Vec3(2, 1.5, z + 0.5), new Anchor.PipeFace(new BlockPos(1, 1, z), Direction.EAST),
-                PipeType.ITEM);
+                type);
         long end = CurveTestSupport.node(h, new Vec3(7, 1.5, z + 0.5), new Anchor.BlockFace(new BlockPos(7, 1, z), Direction.WEST),
-                PipeType.ITEM);
-        return CurveTestSupport.edge(h, start, end, PipeType.ITEM, EAST, EAST);
+                type);
+        return CurveTestSupport.edge(h, start, end, type, EAST, EAST);
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 300)
@@ -138,15 +157,20 @@ public class CurveNetworkGameTests {
      * item pipe at (6,1,z), and chest B behind the pipe at (7,1,z). Returns the end's node id.
      */
     static long extractingEnd(GameTestHelper h, int z) {
-        h.setBlock(new BlockPos(0, 1, z), Blocks.CHEST);
-        h.setBlock(new BlockPos(7, 1, z), Blocks.CHEST);
-        h.setBlock(new BlockPos(6, 1, z), ModBlocks.ITEM_PIPE.get());
+        return extractingEnd(h, z, PipeType.ITEM, ModBlocks.ITEM_PIPE.get(), p -> h.setBlock(p, Blocks.CHEST));
+    }
+
+    /** {@link #extractingEnd(GameTestHelper, int)} for any pipe type, with {@code endpoint} placing A, then B. */
+    static long extractingEnd(GameTestHelper h, int z, PipeType type, Block pipeBlock, Consumer<BlockPos> endpoint) {
+        endpoint.accept(new BlockPos(0, 1, z));
+        endpoint.accept(new BlockPos(7, 1, z));
+        h.setBlock(new BlockPos(6, 1, z), pipeBlock);
         PipeBlock.updateConnections(h.getLevel(), h.absolutePos(new BlockPos(6, 1, z)));
         long end = CurveTestSupport.node(h, new Vec3(1, 1.5, z + 0.5), new Anchor.BlockFace(new BlockPos(0, 1, z), Direction.EAST),
-                PipeType.ITEM);
+                type);
         long pipeFace = CurveTestSupport.node(h, new Vec3(6, 1.5, z + 0.5), new Anchor.PipeFace(new BlockPos(6, 1, z), Direction.WEST),
-                PipeType.ITEM);
-        CurveTestSupport.edge(h, end, pipeFace, PipeType.ITEM, EAST, EAST);
+                type);
+        CurveTestSupport.edge(h, end, pipeFace, type, EAST, EAST);
         CurveData.get(h.getLevel()).end(end).orElseThrow().cfg().mode = SideMode.EXTRACT;
         return end;
     }
@@ -157,6 +181,93 @@ public class CurveNetworkGameTests {
         chest(h, new BlockPos(0, 1, 4)).setItem(0, new ItemStack(Items.DIAMOND, 8));
         h.succeedWhen(() -> {
             h.assertTrue(count(h, new BlockPos(7, 1, 4), Items.DIAMOND) == 8, "the curved end pulls into the block pipe");
+            CurveTestSupport.clear(h);
+        });
+    }
+
+    /** Places A, then B, as {@link AuditGameTests.ResourceChest}s with these tanks. */
+    private static Consumer<BlockPos> tanks(GameTestHelper h, FluidTank a, FluidTank b) {
+        Iterator<FluidTank> next = List.of(a, b).iterator();
+        return p -> AuditGameTests.ResourceChest.place(h, p, null, next.next(), null);
+    }
+
+    /** Places A, then B, as {@link AuditGameTests.ResourceChest}s with these batteries. */
+    private static Consumer<BlockPos> batteries(GameTestHelper h, EnergyStorage a, EnergyStorage b) {
+        Iterator<EnergyStorage> next = List.of(a, b).iterator();
+        return p -> AuditGameTests.ResourceChest.place(h, p, null, null, next.next());
+    }
+
+    private static FluidTank water(int amount) {
+        FluidTank tank = new FluidTank(4000);
+        if (amount > 0) tank.fill(new FluidStack(Fluids.WATER, amount), IFluidHandler.FluidAction.EXECUTE);
+        return tank;
+    }
+
+    private static EnergyStorage charged(int amount) {
+        EnergyStorage battery = new EnergyStorage(100_000);
+        battery.receiveEnergy(amount, false);
+        return battery;
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void fluidFlowsThroughTheCurvedLine(GameTestHelper h) {
+        FluidTank a = water(3000), b = water(0);
+        line(h, 4, PipeType.FLUID, ModBlocks.FLUID_PIPE.get(), tanks(h, a, b));
+        h.succeedWhen(() -> {
+            h.assertTrue(b.getFluidAmount() == 3000 && a.isEmpty(), "the curved fluid line carries the water; "
+                    + a.getFluidAmount() + " -> " + b.getFluidAmount());
+            CurveTestSupport.clear(h);
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void curvedEndExtractsFluidIntoBlockPipes(GameTestHelper h) {
+        FluidTank a = water(3000), b = water(0);
+        extractingEnd(h, 4, PipeType.FLUID, ModBlocks.FLUID_PIPE.get(), tanks(h, a, b));
+        h.succeedWhen(() -> {
+            h.assertTrue(b.getFluidAmount() == 3000 && a.isEmpty(), "the curved end pulls water into the block pipe; "
+                    + a.getFluidAmount() + " -> " + b.getFluidAmount());
+            CurveTestSupport.clear(h);
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void energyFlowsThroughTheCurvedLine(GameTestHelper h) {
+        EnergyStorage a = charged(50_000), b = charged(0);
+        line(h, 4, PipeType.ENERGY, ModBlocks.ENERGY_PIPE.get(), batteries(h, a, b));
+        h.succeedWhen(() -> {
+            h.assertTrue(b.getEnergyStored() == 50_000 && a.getEnergyStored() == 0, "the curved energy line carries the FE; "
+                    + a.getEnergyStored() + " -> " + b.getEnergyStored());
+            CurveTestSupport.clear(h);
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void curvedEndExtractsEnergyIntoBlockPipes(GameTestHelper h) {
+        EnergyStorage a = charged(50_000), b = charged(0);
+        extractingEnd(h, 4, PipeType.ENERGY, ModBlocks.ENERGY_PIPE.get(), batteries(h, a, b));
+        h.succeedWhen(() -> {
+            h.assertTrue(b.getEnergyStored() == 50_000 && a.getEnergyStored() == 0, "the curved end pulls FE into the block pipe; "
+                    + a.getEnergyStored() + " -> " + b.getEnergyStored());
+            CurveTestSupport.clear(h);
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 300)
+    public static void universalCurveCarriesItemsFluidAndEnergy(GameTestHelper h) {
+        ItemStackHandler itemsA = new ItemStackHandler(1), itemsB = new ItemStackHandler(1);
+        itemsA.setStackInSlot(0, new ItemStack(Items.DIAMOND, 8));
+        FluidTank fluidA = water(3000), fluidB = water(0);
+        EnergyStorage energyA = charged(50_000), energyB = charged(0);
+        Iterator<Integer> side = List.of(0, 1).iterator();
+        line(h, 4, PipeType.UNIVERSAL, ModBlocks.UNIVERSAL_PIPE.get(), p -> {
+            boolean a = side.next() == 0;
+            AuditGameTests.ResourceChest.place(h, p, a ? itemsA : itemsB, a ? fluidA : fluidB, a ? energyA : energyB);
+        });
+        h.succeedWhen(() -> {
+            h.assertTrue(itemsB.getStackInSlot(0).getCount() == 8, "the universal curve carries the diamonds");
+            h.assertTrue(fluidB.getFluidAmount() == 3000, "and the water; " + fluidB.getFluidAmount());
+            h.assertTrue(energyB.getEnergyStored() == 50_000, "and the FE; " + energyB.getEnergyStored());
             CurveTestSupport.clear(h);
         });
     }

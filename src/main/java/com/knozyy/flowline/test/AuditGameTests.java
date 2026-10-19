@@ -49,7 +49,8 @@ public class AuditGameTests {
     private static final BlockPos PIPE = new BlockPos(1, 1, 1);
     private static final BlockPos DESTINATION = new BlockPos(2, 1, 1);
 
-    private static final class ResourceChest extends ChestBlockEntity {
+    /** A chest whose item, fluid and energy capabilities are the given handlers (null = none). */
+    static final class ResourceChest extends ChestBlockEntity {
         private final LazyOptional<IItemHandler> items;
         private final LazyOptional<IFluidHandler> fluids;
         private final LazyOptional<IEnergyStorage> energy;
@@ -59,6 +60,14 @@ public class AuditGameTests {
             this.items = items == null ? LazyOptional.empty() : LazyOptional.of(() -> items);
             this.fluids = fluids == null ? LazyOptional.empty() : LazyOptional.of(() -> fluids);
             this.energy = energy == null ? LazyOptional.empty() : LazyOptional.of(() -> energy);
+        }
+
+        /** Puts a chest at the test-relative {@code pos} and swaps its block entity for one with these handlers. */
+        static void place(GameTestHelper h, BlockPos pos, IItemHandler items, IFluidHandler fluids, IEnergyStorage energy) {
+            h.setBlock(pos, Blocks.CHEST);
+            BlockPos absolute = h.absolutePos(pos);
+            h.getLevel().removeBlockEntity(absolute);
+            h.getLevel().setBlockEntity(new ResourceChest(absolute, items, fluids, energy));
         }
 
         @Override
@@ -80,11 +89,8 @@ public class AuditGameTests {
 
     private static Caps resources(GameTestHelper h, BlockPos pos, PipeType type,
                                   IItemHandler items, IFluidHandler fluids, IEnergyStorage energy) {
-        h.setBlock(pos, Blocks.CHEST);
-        BlockPos absolute = h.absolutePos(pos);
-        h.getLevel().removeBlockEntity(absolute);
-        h.getLevel().setBlockEntity(new ResourceChest(absolute, items, fluids, energy));
-        return Caps.create(type, h.getLevel(), absolute, Direction.UP);
+        ResourceChest.place(h, pos, items, fluids, energy);
+        return Caps.create(type, h.getLevel(), h.absolutePos(pos), Direction.UP);
     }
 
     private static PipeBlockEntity pipe(GameTestHelper h) {
