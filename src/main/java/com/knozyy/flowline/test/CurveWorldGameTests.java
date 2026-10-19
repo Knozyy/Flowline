@@ -55,6 +55,18 @@ public class CurveWorldGameTests {
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 60)
+    public static void silentBlockChangeBreaksCurves(GameTestHelper h) {
+        long edge = airLine(h);
+        CurveData data = CurveData.get(h.getLevel());
+        // flag 2 only: the change tells no neighbour, like a piston's moving block
+        h.getLevel().setBlock(h.absolutePos(new BlockPos(3, 2, 4)), Blocks.STONE.defaultBlockState(), 2);
+        h.succeedWhen(() -> {
+            h.assertTrue(data.graph().edge(edge).isEmpty(), "a quiet block change in the curve's path breaks it too");
+            CurveTestSupport.clear(h);
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 60)
     public static void blockBesideTheCurveKeepsIt(GameTestHelper h) {
         long edge = airLine(h);
         h.setBlock(new BlockPos(4, 1, 4), Blocks.STONE);

@@ -267,6 +267,13 @@ public final class CurveData extends SavedData {
         dirty.add(pos.immutable());
     }
 
+    /** A block changed (LevelChunkMixin): noted for the next tick when the level has curved pipes at all. */
+    public static void blockChanged(net.minecraft.world.level.Level level, BlockPos pos) {
+        if (!(level instanceof ServerLevel server)) return;
+        CurveData data = get(server);
+        if (!data.graph().edges().isEmpty()) data.markDirty(pos);
+    }
+
     /**
      * Curvy Pipes' answer to changed blocks (curvy-behaviour-addendum-re.md, B4): an edge whose boxes now overlap a
      * changed block's collision shape breaks, its pipes drop where it met the block, and nodes left without edges go.
