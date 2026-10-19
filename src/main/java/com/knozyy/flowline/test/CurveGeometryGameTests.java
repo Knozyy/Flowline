@@ -2,6 +2,7 @@ package com.knozyy.flowline.test;
 
 import com.knozyy.flowline.Flowline;
 import com.knozyy.flowline.curve.Aabb;
+import com.knozyy.flowline.curve.CurveVoxels;
 import com.knozyy.flowline.curve.CurveRules;
 import com.knozyy.flowline.curve.CurveSolver;
 import com.knozyy.flowline.curve.EdgeShape;
@@ -178,6 +179,38 @@ public class CurveGeometryGameTests {
                 h.assertTrue(!bytes.contains(banned), file.getFileName() + " refers to " + banned);
             }
         }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void obbVoxelsCoverTheBox(GameTestHelper h) {
+        double px = 1 / 16.0;
+        for (Obb box : List.of(Obb.segment(v(0, 0, 0), v(0.4, 0.3, 0.2), v(0, 1, 0), 3 * px),
+                Obb.segment(v(0, 0, 0), v(0.5, 0, 0), v(0, 1, 0), 3 * px))) {
+            List<Aabb> boxes = CurveVoxels.boxes(box, px / 2);
+            h.assertTrue(boxes.size() <= 200, "a handful of boxes per segment, got " + boxes.size());
+            for (double a = -0.95; a <= 0.95; a += 0.19) {
+                for (double b = -0.95; b <= 0.95; b += 0.19) {
+                    for (double c = -0.95; c <= 0.95; c += 0.19) {
+                        Vec3d p = box.center().addScaled(box.u(), a * box.hu()).addScaled(box.v(), b * box.hv())
+                                .addScaled(box.w(), c * box.hw());
+                        h.assertTrue(boxes.stream().anyMatch(x -> x.contains(p)), "a point of the box is covered: " + p);
+                    }
+                }
+            }
+            for (Aabb x : boxes) {
+                for (int i = 0; i < 8; i++) {
+                    Vec3d corner = new Vec3d((i & 1) == 0 ? x.minX() : x.maxX(), (i & 2) == 0 ? x.minY() : x.maxY(),
+                            (i & 4) == 0 ? x.minZ() : x.maxZ());
+                    Vec3d d = corner.sub(box.center());
+                    double out = 2 * px + 1e-9;
+                    h.assertTrue(Math.abs(d.dot(box.u())) <= box.hu() + out && Math.abs(d.dot(box.v())) <= box.hv() + out
+                            && Math.abs(d.dot(box.w())) <= box.hw() + out, "a box corner stays within two pixels: " + corner);
+                }
+            }
+        }
+        h.assertTrue(CurveVoxels.boxes(Obb.segment(v(0, 0, 0), v(0.5, 0, 0), v(0, 1, 0), 3 * px), px / 2).size() == 16,
+                "a straight run along x needs no cut across");
         h.succeed();
     }
 }

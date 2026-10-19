@@ -66,6 +66,19 @@ public class CurveWorldGameTests {
         });
     }
 
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void itemsLandOnCurvedPipes(GameTestHelper h) {
+        airLine(h);
+        ItemEntity item = h.spawnItem(Items.STONE, 4f, 4f, 4.5f);
+        double top = h.absoluteVec(new Vec3(0, 2.5 + 3 / 16.0, 0)).y;
+        h.succeedWhen(() -> {
+            h.assertTrue(item.onGround() && Math.abs(item.getY() - top) < 0.05,
+                    "the item rests on the pipe's top at " + top + ", it is at " + item.getY());
+            item.discard();
+            CurveTestSupport.clear(h);
+        });
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 60)
     public static void blockBesideTheCurveKeepsIt(GameTestHelper h) {
         long edge = airLine(h);
