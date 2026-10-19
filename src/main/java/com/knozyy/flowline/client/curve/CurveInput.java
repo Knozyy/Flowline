@@ -64,10 +64,26 @@ public final class CurveInput {
         return InputConstants.isKeyDown(mc.getWindow().getWindow(), bound.getValue());
     }
 
+    /** The middle button (MinecraftMixin, before vanilla picks a block): true when it turned the grid. */
+    public static boolean pickBlock() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null || mc.screen != null || !active(mc)) return false;
+        CurveTarget target = CurveHighlight.current();
+        CurvePlacer.Action action = CurvePlacer.decide(true, CurvePlacer.drawing(),
+                target == null ? CurveTarget.Kind.AIR : target.kind, mc.player.isShiftKeyDown(), CurvePlacer.Click.PICK,
+                CurvePlacer.held(mc.player.getMainHandItem()));
+        if (action != CurvePlacer.Action.GRID_NEXT && action != CurvePlacer.Action.GRID_PREVIOUS) return false;
+        CurvePlacer.cycleGrid(action == CurvePlacer.Action.GRID_NEXT);
+        mc.player.displayClientMessage(Component.translatable("hud.flowline.grid.changed",
+                Component.translatable(CurvePlacer.grid().key())), true);
+        return true;
+    }
+
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onClick(InputEvent.InteractionKeyMappingTriggered event) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null || mc.player.isSpectator()) return;
+        // the middle button is handled before vanilla's pick (pickBlock above)
+        if (mc.player == null || mc.level == null || mc.player.isSpectator() || event.isPickBlock()) return;
         boolean curved = active(mc);
         if (event.isUseItem() && event.getHand() == InteractionHand.OFF_HAND) {
             // the off-hand pipe never places a block while curved mode draws
@@ -76,9 +92,8 @@ public final class CurveInput {
         }
         CurveTarget target = CurveHighlight.current();
         if (target == null) return;
-        CurvePlacer.Click click = event.isAttack() ? CurvePlacer.Click.ATTACK
-                : event.isPickBlock() ? CurvePlacer.Click.PICK : CurvePlacer.Click.USE;
-        if (CurvePlacer.moving() >= 0 && curved && click != CurvePlacer.Click.PICK) {
+        CurvePlacer.Click click = event.isAttack() ? CurvePlacer.Click.ATTACK : CurvePlacer.Click.USE;
+        if (CurvePlacer.moving() >= 0 && curved) {
             // moving a node: right-click puts it at the target, left-click gives up
             event.setCanceled(true);
             event.setSwingHand(false);
@@ -118,11 +133,6 @@ public final class CurveInput {
             case OPEN_END -> end(target, CurveEndPayload.Action.OPEN);
             case CYCLE_END -> end(target, CurveEndPayload.Action.CYCLE);
             case CARD_END -> end(target, CurveEndPayload.Action.CARD);
-            case GRID_NEXT, GRID_PREVIOUS -> {
-                CurvePlacer.cycleGrid(action == CurvePlacer.Action.GRID_NEXT);
-                mc.player.displayClientMessage(Component.translatable("hud.flowline.grid.changed",
-                        Component.translatable(CurvePlacer.grid().key())), true);
-            }
             default -> {}
         }
     }
