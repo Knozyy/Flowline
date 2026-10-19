@@ -37,6 +37,8 @@ public final class CurvePlacer {
     private static PlaceRequest.End start;
     private static final List<Vec3d> internals = new ArrayList<>();
     private static PipeType drawingType = PipeType.ITEM;
+    /** The node the option wheel's Move picked: the next right-click puts it there; -1 when none. */
+    private static long moving = -1;
     private static int nextRequest = 1;
 
     private CurvePlacer() {}
@@ -115,6 +117,24 @@ public final class CurvePlacer {
 
     public static PipeType drawingType() {
         return drawingType;
+    }
+
+    /** The type being drawn, else {@code fallback} (the off-hand pipe), else item pipes; for colours. */
+    public static PipeType drawingTypeOr(@Nullable PipeType fallback) {
+        return drawing() || fallback == null ? drawingType : fallback;
+    }
+
+    public static long moving() {
+        return moving;
+    }
+
+    public static void startMoving(long node) {
+        cancel();
+        moving = node;
+    }
+
+    public static void stopMoving() {
+        moving = -1;
     }
 
     public static void cancel() {

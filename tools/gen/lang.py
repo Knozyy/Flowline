@@ -810,7 +810,7 @@ tr.update({
 # ---- off-hand modes: Build for me and curved
 en.update({
     "key.flowline.build": "Off-hand pipe mode (Build for me / Curved)",
-    "tooltip.flowline.curvy.hands": "Main hand: block pipe | Off hand: Build for me (curved placement is coming back)",
+    "tooltip.flowline.curvy.hands": "Main hand: block pipe | Off hand: Build for me or curved ([%s] switches)",
     "hud.flowline.build.ready": "Off hand: right-click lays pipes from that block to you",
     "hud.flowline.build.offhand": "Build for me: hold a pipe in your off hand, look at a block and right-click",
     "message.flowline.offhand.no_pipe": "Put a pipe in your off hand first",
@@ -827,7 +827,7 @@ en.update({
 })
 tr.update({
     "key.flowline.build": "Sol el boru modu (Build for Me / Kıvrımlı)",
-    "tooltip.flowline.curvy.hands": "Sağ el: blok boru | Sol el: Build for Me (kıvrımlı yerleşim geri geliyor)",
+    "tooltip.flowline.curvy.hands": "Sağ el: blok boru | Sol el: Build for Me ya da kıvrımlı ([%s] değiştirir)",
     "hud.flowline.build.ready": "Sol el: sağ tık o bloktan sana boru döşer",
     "hud.flowline.build.offhand": "Build for Me: boruyu sol eline al, bir bloğa bak ve sağ tıkla",
     "message.flowline.offhand.no_pipe": "Önce sol eline bir boru al",
@@ -910,6 +910,62 @@ tr.update({
     "message.flowline.curve.angle_too_small": "Birleşmedeki borular birbirine çok yakın",
     "message.flowline.curve.node_in_joint": "O nokta bir birleşmenin içinde",
     "message.flowline.curve.denied": "Buraya kuramazsın",
+})
+
+# ---- curved pipes: placing them (HUD, grid, option wheel, keys, the end's screen)
+en.update({
+    "key.flowline.options": "Curved pipe options (hold, scroll, let go)",
+    "key.flowline.no_snap": "Curved pipe: hold to place freely",
+    "hud.flowline.curve.start": "Right-click: start a curved pipe",
+    "hud.flowline.curve.add": "Right-click: add a point · Shift: finish here",
+    "hud.flowline.curve.finish": "Right-click: finish here",
+    "hud.flowline.curve.finish_air": "Shift + right-click: finish in the air",
+    "hud.flowline.curve.moving": "Right-click: move the node here · left-click: cancel",
+    "hud.flowline.curve.cost": "%s pipes",
+    "hud.flowline.curve.keys": "[%s] mode · hold [%s] options · Esc cancels",
+    "hud.flowline.grid": "Grid: %s",
+    "hud.flowline.grid.changed": "Grid: %s",
+    "hud.flowline.grid.off": "off",
+    "hud.flowline.grid.axial": "axial",
+    "hud.flowline.grid.corner_p": "outer corners",
+    "hud.flowline.grid.corner_n": "inner corners",
+    "hud.flowline.grid.edge_p": "outer edges",
+    "hud.flowline.grid.edge_n": "inner edges",
+    "hud.flowline.wheel.remove": "Remove",
+    "hud.flowline.wheel.branch": "Branch",
+    "hud.flowline.wheel.extend": "Extend",
+    "hud.flowline.wheel.move": "Move",
+    "hud.flowline.wheel.force_joint": "Force joint",
+    "hud.flowline.wheel.settings": "Settings",
+    "gui.flowline.curved_end": "Curved %s end",
+    "gui.flowline.curved_end.tabs": "The end of a curved pipe: these settings are its own",
+})
+tr.update({
+    "key.flowline.options": "Kıvrımlı boru seçenekleri (basılı tut, kaydır, bırak)",
+    "key.flowline.no_snap": "Kıvrımlı boru: serbest yerleştirmek için basılı tut",
+    "hud.flowline.curve.start": "Sağ tık: kıvrımlı boruya başla",
+    "hud.flowline.curve.add": "Sağ tık: nokta ekle · Shift: burada bitir",
+    "hud.flowline.curve.finish": "Sağ tık: burada bitir",
+    "hud.flowline.curve.finish_air": "Shift + sağ tık: havada bitir",
+    "hud.flowline.curve.moving": "Sağ tık: düğümü buraya taşı · sol tık: vazgeç",
+    "hud.flowline.curve.cost": "%s boru",
+    "hud.flowline.curve.keys": "[%s] mod · [%s] basılı: seçenekler · Esc iptal",
+    "hud.flowline.grid": "Izgara: %s",
+    "hud.flowline.grid.changed": "Izgara: %s",
+    "hud.flowline.grid.off": "kapalı",
+    "hud.flowline.grid.axial": "eksenler",
+    "hud.flowline.grid.corner_p": "dış köşeler",
+    "hud.flowline.grid.corner_n": "iç köşeler",
+    "hud.flowline.grid.edge_p": "dış kenarlar",
+    "hud.flowline.grid.edge_n": "iç kenarlar",
+    "hud.flowline.wheel.remove": "Sil",
+    "hud.flowline.wheel.branch": "Dallandır",
+    "hud.flowline.wheel.extend": "Uzat",
+    "hud.flowline.wheel.move": "Taşı",
+    "hud.flowline.wheel.force_joint": "Birleşme yap",
+    "hud.flowline.wheel.settings": "Ayarlar",
+    "gui.flowline.curved_end": "Kıvrımlı %s ucu",
+    "gui.flowline.curved_end.tabs": "Kıvrımlı borunun ucu: bu ayarlar yalnız onun",
 })
 
 lang("en_us", en)

@@ -194,6 +194,8 @@ public final class OffhandPipe {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen != null || mc.options.hideGui || !holding(mc.player)
                 || PipeBlock.isPipe(mc.player.getMainHandItem()) || !FlowlineConfig.isLoaded()) return;
+        // curved mode has its own lines (CurveHudOverlay)
+        if (mode() == OffhandMode.CURVY) return;
         Component main;
         if (mode() == OffhandMode.CURVY) {
             main = Component.translatable("hud.flowline.curvy.ready");

@@ -3,18 +3,21 @@ package com.knozyy.flowline.curved;
 import com.knozyy.flowline.curve.Aabb;
 import com.knozyy.flowline.curve.BlockShapes;
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/** The level's block shapes for the curve validator, in world coordinates; unloaded cells are empty. */
+/**
+ * The level's block shapes for the curve validator, in world coordinates; unloaded cells are empty. The server checks
+ * edits with it, the client its preview.
+ */
 public final class WorldShapes implements BlockShapes {
-    private final ServerLevel level;
+    private final Level level;
 
-    public WorldShapes(ServerLevel level) {
+    public WorldShapes(Level level) {
         this.level = level;
     }
 

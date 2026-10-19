@@ -39,17 +39,16 @@ public final class CurveHighlight {
     public static void tick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null || mc.player.isSpectator()) {
+        if (mc.player == null || mc.level == null || mc.player.isSpectator()
+                || ClientCurves.INSTANCE.graph().nodes().isEmpty() && !CurveInput.active(mc)) {
             current = null;
-            return;
-        }
-        if (ClientCurves.INSTANCE.graph().nodes().isEmpty() && !CurveInput.active(mc)) {
-            current = null;
+            CurvePreview.update(mc, null);
             return;
         }
         Vec3 eye = mc.player.getEyePosition(1f), look = mc.player.getViewVector(1f);
         current = CurveTarget.find(mc.level, ClientCurves.INSTANCE, mc.player, new Vec3d(eye.x, eye.y, eye.z),
                 new Vec3d(look.x, look.y, look.z), mc.player.getBlockReach(), CurvePlacer.grid(), CurvePlacer.snapping());
+        CurvePreview.update(mc, current);
     }
 
     private static boolean outlinesCurve() {

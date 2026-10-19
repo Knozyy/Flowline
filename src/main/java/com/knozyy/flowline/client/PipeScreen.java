@@ -420,8 +420,14 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
 
     // ---- side tabs ----------------------------------------------------------------------------------------
 
+    /** A curved pipe's end has no neighbouring sides to switch to. */
+    private boolean curvedEnd() {
+        return menu.curvedNode >= 0;
+    }
+
     @Nullable
     private Direction tabAt(double mouseX, double mouseY) {
+        if (curvedEnd()) return null;
         for (int i = 0; i < TAB_ORDER.length; i++) {
             int x = leftPos + 40 + i * 16;
             if (Ui.in(mouseX, mouseY, x, topPos + TABS_Y, x + 13, topPos + TABS_Y + 13)) return TAB_ORDER[i];
@@ -440,6 +446,11 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     }
 
     private void renderTabs(GuiGraphics g, int mouseX, int mouseY) {
+        if (curvedEnd()) {
+            Ui.text(g, font, Ui.fit(font, Component.translatable("gui.flowline.curved_end.tabs").getString(), W - 16),
+                    leftPos + 8, topPos + TABS_Y + 3, Theme.MUTED);
+            return;
+        }
         Ui.text(g, font, Component.translatable("gui.flowline.tabs"), leftPos + 8, topPos + TABS_Y + 3, Theme.MUTED);
         for (int i = 0; i < TAB_ORDER.length; i++) {
             Direction dir = TAB_ORDER[i];
@@ -573,7 +584,8 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         Ui.text(g, font, Ui.fit(font, reason.getString(), 120), W - 8 - reasonW, 17, Theme.MUTED);
 
         int textW = Math.min(badgeX, W - 8 - reasonW) - 34;
-        Component name = Component.translatable("block.flowline." + menu.type.getSerializedName() + "_pipe");
+        Component pipe = Component.translatable("block.flowline." + menu.type.getSerializedName() + "_pipe");
+        Component name = curvedEnd() ? Component.translatable("gui.flowline.curved_end", pipe) : pipe;
         Ui.text(g, font, Ui.fit(font, name.getString(), textW), 28, 5, Theme.TEXT);
         Component sub = Component.translatable("gui.flowline.side_line",
                 Component.translatable("direction.flowline." + menu.side.getName()))

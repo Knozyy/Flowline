@@ -1,9 +1,16 @@
 package com.knozyy.flowline.test;
 
 import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.client.curve.CurveHud;
 import com.knozyy.flowline.client.curve.CurvePlacer;
 import com.knozyy.flowline.client.curve.CurveTarget;
 import com.knozyy.flowline.curve.Aabb;
+import com.knozyy.flowline.curve.BlockShapes;
+import com.knozyy.flowline.curve.ChainPreview;
+import com.knozyy.flowline.curve.CurveGraph;
+import com.knozyy.flowline.curve.EndCondition;
+import com.knozyy.flowline.curve.PlaceError;
+import com.knozyy.flowline.network.curve.CurveResultPayload;
 import com.knozyy.flowline.curve.GridCandidates;
 import com.knozyy.flowline.curve.GridMode;
 import com.knozyy.flowline.curve.Vec3d;
@@ -141,6 +148,42 @@ public class CurveGridGameTests {
                 "a Filter Card applies, even in curved mode");
         h.assertTrue(use(false, false, CurveTarget.Kind.EDGE, false, CurvePlacer.HeldKind.DYE) == CurvePlacer.Action.PAINT,
                 "a dye paints the edge");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void resultTextFollowsTheServer(GameTestHelper h) {
+        h.assertTrue(CurveHud.resultKey(new CurveResultPayload(1, 0, false, 0)) == null, "success says nothing");
+        h.assertTrue("message.flowline.curve.too_far".equals(CurveHud.resultKey(new CurveResultPayload(2, 4, false, 0))),
+                "code 4 is too far");
+        h.assertTrue("message.flowline.curve.denied".equals(CurveHud.resultKey(new CurveResultPayload(3, 0, true, 0))),
+                "a protected area is denied");
+        h.assertTrue("message.flowline.curve.too_costly".equals(CurveHud.resultKey(new CurveResultPayload(4, 3, false, 5))),
+                "code 3 is too costly");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void previewFlagsWhatTheServerWould(GameTestHelper h) {
+        Aabb stone = new Aabb(2, 0, 0, 3, 1, 1);
+        BlockShapes world = new BlockShapes() {
+            @Override
+            public List<Aabb> collision(int x, int y, int z) {
+                return x == 2 && y == 0 && z == 0 ? List.of(stone) : List.of();
+            }
+
+            @Override
+            public List<Aabb> outline(int x, int y, int z) {
+                return collision(x, y, z);
+            }
+        };
+        ChainPreview.End from = new ChainPreview.End(v(0.5, 0.5, 0.5), -1, EndCondition.FREE, null);
+        ChainPreview through = ChainPreview.of(new CurveGraph(), world, from, List.of(),
+                new ChainPreview.End(v(4.5, 0.5, 0.5), -1, EndCondition.FREE, null));
+        h.assertTrue(through.error().equals(Optional.of(PlaceError.INTERSECT_BLOCK)), "through stone, got " + through.error());
+        ChainPreview above = ChainPreview.of(new CurveGraph(), world, from, List.of(),
+                new ChainPreview.End(v(0.5, 0.5, 4.5), -1, EndCondition.FREE, null));
+        h.assertTrue(above.error().isEmpty() && above.cost() == 4, "a free 4 block run costs 4, got " + above);
         h.succeed();
     }
 }

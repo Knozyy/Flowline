@@ -9,6 +9,7 @@ import com.knozyy.flowline.network.curve.CurveBreakPayload;
 import com.knozyy.flowline.network.curve.CurveEndPayload;
 import com.knozyy.flowline.network.curve.CurvePaintPayload;
 import com.knozyy.flowline.network.curve.CurveRemovePayload;
+import com.knozyy.flowline.network.curve.CurveTranslatePayload;
 import com.knozyy.flowline.pipe.OffhandMode;
 import com.knozyy.flowline.pipe.PipeBlock;
 import com.knozyy.flowline.pipe.PipeType;
@@ -77,6 +78,17 @@ public final class CurveInput {
         if (target == null) return;
         CurvePlacer.Click click = event.isAttack() ? CurvePlacer.Click.ATTACK
                 : event.isPickBlock() ? CurvePlacer.Click.PICK : CurvePlacer.Click.USE;
+        if (CurvePlacer.moving() >= 0 && curved && click != CurvePlacer.Click.PICK) {
+            // moving a node: right-click puts it at the target, left-click gives up
+            event.setCanceled(true);
+            event.setSwingHand(false);
+            if (click == CurvePlacer.Click.USE && target.kind != CurveTarget.Kind.EDGE && target.kind != CurveTarget.Kind.NODE) {
+                var to = CurvePlacer.end(target);
+                ModNetwork.sendToServer(new CurveTranslatePayload(CurvePlacer.nextRequest(), CurvePlacer.moving(), to.pos(), to.face()));
+            }
+            CurvePlacer.stopMoving();
+            return;
+        }
         boolean shift = mc.player.isShiftKeyDown();
         CurvePlacer.Action action = CurvePlacer.decide(curved, CurvePlacer.drawing(), target.kind, shift, click,
                 CurvePlacer.held(mc.player.getMainHandItem()));
@@ -125,13 +137,15 @@ public final class CurveInput {
         Minecraft mc = Minecraft.getInstance();
         CurvePlacer.setNoSnap(mc.screen == null && held(mc, Keys.NO_SNAP));
         if (CurvePlacer.drawing() && (!active(mc) || offhandType(mc) != CurvePlacer.drawingType())) CurvePlacer.cancel();
+        if (CurvePlacer.moving() >= 0 && !active(mc)) CurvePlacer.stopMoving();
     }
 
     /** Escape while drawing drops the half-drawn chain instead of opening the pause menu. */
     @SubscribeEvent
     public static void onScreen(ScreenEvent.Opening event) {
-        if (CurvePlacer.drawing() && event.getNewScreen() instanceof PauseScreen) {
+        if ((CurvePlacer.drawing() || CurvePlacer.moving() >= 0) && event.getNewScreen() instanceof PauseScreen) {
             CurvePlacer.cancel();
+            CurvePlacer.stopMoving();
             event.setCanceled(true);
         }
     }
@@ -139,6 +153,7 @@ public final class CurveInput {
     @SubscribeEvent
     public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         CurvePlacer.cancel();
+        CurvePlacer.stopMoving();
         ClientCurves.INSTANCE.reset();
     }
 }

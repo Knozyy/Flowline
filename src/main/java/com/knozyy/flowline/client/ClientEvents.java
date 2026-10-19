@@ -31,7 +31,7 @@ public final class ClientEvents {
     @SubscribeEvent
     public static void onTooltip(ItemTooltipEvent event) {
         if (PipeBlock.isPipe(event.getItemStack())) {
-            event.getToolTip().add(Component.translatable("tooltip.flowline.curvy.hands").withStyle(ChatFormatting.GRAY));
+            event.getToolTip().add(Component.translatable("tooltip.flowline.curvy.hands", Keys.BUILD.getTranslatedKeyMessage()).withStyle(ChatFormatting.GRAY));
         }
     }
 
@@ -61,6 +61,8 @@ public final class ClientEvents {
     public static void onHud(RenderGuiEvent.Post event) {
         BuildHint.render(event.getGuiGraphics());
         OffhandPipe.hud(event.getGuiGraphics());
+        com.knozyy.flowline.client.curve.CurveHudOverlay.render(event.getGuiGraphics());
+        com.knozyy.flowline.client.curve.OptionWheel.render(event.getGuiGraphics());
     }
 
     /**
