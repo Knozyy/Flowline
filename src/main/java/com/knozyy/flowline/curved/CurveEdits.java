@@ -154,6 +154,7 @@ public final class CurveEdits {
         if (breakDenied(player, level, List.of(edge))) return EditResult.DENIED;
         PipeType type = data.info(edgeId).type();
         data.removeEdge(edgeId);
+        CurveEffects.broken(level, edge, type);
         CurveCost.give(player, type, edge.shape().cost());
         dropLonely(level, data, edge.from());
         dropLonely(level, data, edge.to());

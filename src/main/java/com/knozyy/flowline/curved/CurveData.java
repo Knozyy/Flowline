@@ -313,6 +313,7 @@ public final class CurveData extends SavedData {
                 if (edge == null) continue;
                 EdgeInfo info = infos.get(edge.id());
                 removeEdge(edge.id());
+                CurveEffects.broken(level, edge, info.type());
                 int cost = edge.shape().cost();
                 net.minecraft.world.item.Item item = CurveCost.item(info.type());
                 while (cost > 0) {
