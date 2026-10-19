@@ -116,6 +116,12 @@ public final class CurveInput {
             case ADD -> CurvePlacer.add(target);
             case FINISH -> CurvePlacer.finish(target);
             case BREAK -> {
+                if (!mc.player.getAbilities().instabuild) {
+                    // survival: held like mining a block (CurveBreaking); the click itself only starts it
+                    event.setSwingHand(true);
+                    CurveBreaking.start(target);
+                    return;
+                }
                 long now = mc.level.getGameTime();
                 if (!CurvePlacer.breakReady(now, lastBreak)) return;
                 lastBreak = now;

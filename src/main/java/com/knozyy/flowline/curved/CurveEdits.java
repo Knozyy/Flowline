@@ -144,7 +144,10 @@ public final class CurveEdits {
 
     // ---- breaking and removing ----------------------------------------------------------------------------
 
-    /** Breaks one curved edge: its pipes come back, nodes left without edges go (their upgrades drop). */
+    /**
+     * Breaks one curved edge: in survival its pipes drop where it was, like a broken block (creative gives nothing,
+     * like vanilla); nodes left without edges go and their upgrades drop.
+     */
     public static EditResult breakEdge(ServerPlayer player, long edgeId) {
         ServerLevel level = player.serverLevel();
         CurveData data = CurveData.get(level);
@@ -155,7 +158,7 @@ public final class CurveEdits {
         PipeType type = data.info(edgeId).type();
         data.removeEdge(edgeId);
         CurveEffects.broken(level, edge, type);
-        CurveCost.give(player, type, edge.shape().cost());
+        if (!player.getAbilities().instabuild) dropPipes(level, middle(edge), type, edge.shape().cost());
         dropLonely(level, data, edge.from());
         dropLonely(level, data, edge.to());
         return EditResult.OK;
@@ -432,6 +435,24 @@ public final class CurveEdits {
     static void dropLonely(ServerLevel level, CurveData data, long nodeId) {
         CurveNode node = data.graph().node(nodeId).orElse(null);
         if (node != null && data.graph().edgesAt(nodeId).isEmpty()) drop(level, node.pos(), data.removeNode(nodeId));
+    }
+
+    /** The point halfway along an edge's solved points. */
+    static Vec3d middle(CurveEdge edge) {
+        List<Vec3d> points = edge.shape().points();
+        return points.get(points.size() / 2);
+    }
+
+    /** {@code count} pipes of {@code type} as item stacks dropped at {@code at}. */
+    static void dropPipes(ServerLevel level, Vec3d at, PipeType type, int count) {
+        net.minecraft.world.item.Item item = CurveCost.item(type);
+        List<ItemStack> stacks = new ArrayList<>();
+        while (count > 0) {
+            int part = Math.min(count, item.getMaxStackSize());
+            stacks.add(new ItemStack(item, part));
+            count -= part;
+        }
+        drop(level, at, stacks);
     }
 
     static void drop(ServerLevel level, Vec3d at, List<ItemStack> stacks) {

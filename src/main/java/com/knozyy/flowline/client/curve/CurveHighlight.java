@@ -80,13 +80,15 @@ public final class CurveHighlight {
             pose.popPose();
         } else {
             Vec3d origin = new Vec3d(cam.x, cam.y, cam.z);
-            for (Obb box : ClientCurves.INSTANCE.graph().boxes(current.edgeId)) obb(pose, lines, origin, box);
+            float darkness = 0.4f + 0.6f * CurveBreaking.progress();
+            for (Obb box : ClientCurves.INSTANCE.graph().boxes(current.edgeId)) obb(pose, lines, origin, box, darkness);
         }
         buffers.endBatch(RenderType.lines());
     }
 
     /** The twelve edges of a box, relative to the camera. */
-    private static void obb(PoseStack pose, VertexConsumer out, Vec3d origin, Obb box) {
+    /** The outline darkens as a break goes on ({@code alpha} 0.4 to 1). */
+    private static void obb(PoseStack pose, VertexConsumer out, Vec3d origin, Obb box, float alpha) {
         Vec3d[] corners = new Vec3d[8];
         for (int i = 0; i < 8; i++) {
             corners[i] = box.center().sub(origin)
@@ -100,9 +102,9 @@ public final class CurveHighlight {
             for (int bit = 1; bit < 8; bit <<= 1) {
                 if ((i & bit) != 0) continue;
                 Vec3d a = corners[i], b = corners[i | bit], d = b.sub(a).normalize();
-                out.vertex(m, (float) a.x(), (float) a.y(), (float) a.z()).color(0, 0, 0, 0.4f)
+                out.vertex(m, (float) a.x(), (float) a.y(), (float) a.z()).color(0, 0, 0, alpha)
                         .normal(n, (float) d.x(), (float) d.y(), (float) d.z()).endVertex();
-                out.vertex(m, (float) b.x(), (float) b.y(), (float) b.z()).color(0, 0, 0, 0.4f)
+                out.vertex(m, (float) b.x(), (float) b.y(), (float) b.z()).color(0, 0, 0, alpha)
                         .normal(n, (float) d.x(), (float) d.y(), (float) d.z()).endVertex();
             }
         }

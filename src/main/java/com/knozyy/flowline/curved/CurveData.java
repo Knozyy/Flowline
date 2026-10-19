@@ -314,13 +314,7 @@ public final class CurveData extends SavedData {
                 EdgeInfo info = infos.get(edge.id());
                 removeEdge(edge.id());
                 CurveEffects.broken(level, edge, info.type());
-                int cost = edge.shape().cost();
-                net.minecraft.world.item.Item item = CurveCost.item(info.type());
-                while (cost > 0) {
-                    int part = Math.min(cost, item.getMaxStackSize());
-                    CurveEdits.drop(level, entry.getValue(), List.of(new ItemStack(item, part)));
-                    cost -= part;
-                }
+                CurveEdits.dropPipes(level, entry.getValue(), info.type(), edge.shape().cost());
                 CurveEdits.dropLonely(level, this, edge.from());
                 CurveEdits.dropLonely(level, this, edge.to());
             }

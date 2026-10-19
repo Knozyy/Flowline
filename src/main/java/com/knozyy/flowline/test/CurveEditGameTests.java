@@ -203,13 +203,26 @@ public class CurveEditGameTests {
         return CurveData.get(h.getLevel()).graph().edgesAt(nodeAt(h, relNode).id()).get(0).id();
     }
 
+    /** Pipe items lying in the test area; they are removed. */
+    static int droppedPipes(GameTestHelper h) {
+        int count = 0;
+        for (var item : h.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                new net.minecraft.world.phys.AABB(h.absolutePos(BlockPos.ZERO)).expandTowards(9, 6, 9))) {
+            if (item.getItem().is(ModItems.ITEM_PIPE.get())) count += item.getItem().getCount();
+            item.discard();
+        }
+        return count;
+    }
+
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
-    public static void breakRefundsTheCost(GameTestHelper h) {
+    public static void breakDropsThePipes(GameTestHelper h) {
         ServerPlayer player = player(h, 16);
         h.assertTrue(CurveEdits.place(player, chestToPipe(h)).ok(), "placed");
         EditResult result = CurveEdits.breakEdge(player, onlyEdge(h, new Vec3(CHEST_FACE_X, 1.5, 4.5)));
         h.assertTrue(result.ok(), "broken, got " + result);
-        h.assertTrue(pipesHeld(player) == 16, "every pipe comes back, held " + pipesHeld(player));
+        h.assertTrue(pipesHeld(player) == 9, "nothing goes straight to the inventory, held " + pipesHeld(player));
+        int dropped = droppedPipes(h);
+        h.assertTrue(dropped == 7, "the curve's 7 pipes drop like a broken block's, found " + dropped);
         h.assertTrue(edges(h) == 0 && CurveData.get(h.getLevel()).graph().nodes().stream()
                 .noneMatch(n -> n.pos().distanceSq(new Vec3d(h.absoluteVec(new Vec3(7, 1.5, 4.5)).x,
                         h.absoluteVec(new Vec3(7, 1.5, 4.5)).y, h.absoluteVec(new Vec3(7, 1.5, 4.5)).z)) < 1e-12),
@@ -243,7 +256,7 @@ public class CurveEditGameTests {
         h.assertTrue(CurveEdits.place(player, chestToPipe(h)).ok(), "creative places for free");
         h.assertTrue(pipesHeld(player) == 1, "nothing taken");
         h.assertTrue(CurveEdits.breakEdge(player, onlyEdge(h, new Vec3(CHEST_FACE_X, 1.5, 4.5))).ok(), "broken");
-        h.assertTrue(pipesHeld(player) == 1, "and nothing given back");
+        h.assertTrue(pipesHeld(player) == 1 && droppedPipes(h) == 0, "and nothing given back or dropped");
         done(h, player);
     }
 
