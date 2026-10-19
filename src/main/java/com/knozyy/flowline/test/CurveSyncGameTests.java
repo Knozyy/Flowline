@@ -64,7 +64,8 @@ public class CurveSyncGameTests {
         PlaceRequest request = new PlaceRequest(PipeType.ITEM,
                 new PlaceRequest.End(new Vec3(1.25, 2, 3), OptionalLong.empty(),
                         Optional.of(new PlaceRequest.Face(new BlockPos(1, 2, 3), Direction.EAST))),
-                new PlaceRequest.End(new Vec3(-5, 64.5, 1e-3), OptionalLong.of(7), Optional.empty()),
+                new PlaceRequest.End(new Vec3(-5, 64.5, 1e-3), OptionalLong.empty(), Optional.empty(),
+                        Optional.of(new PlaceRequest.Split(1L << 33, 5, 0.3125))),
                 List.of(new Vec3(0.5, 0.25, 0.125)));
         List<Object> payloads = List.of(
                 new CurvePlacePayload(3, request), new CurveBreakPayload(4, 99), new CurveInsertPayload(5, 12, 3, 0.75),

@@ -100,6 +100,8 @@ public class CurveGridGameTests {
                 "curved mode starts a chain on the block instead of using it");
         h.assertTrue(use(true, false, CurveTarget.Kind.AIR, false, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.START,
                 "or in the air");
+        h.assertTrue(use(true, false, CurveTarget.Kind.EDGE, false, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.START,
+                "or on a curved edge, branching off it");
         h.assertTrue(use(false, false, CurveTarget.Kind.BLOCK_FACE, false, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.PASS,
                 "Build for me leaves the click alone");
         h.assertTrue(use(true, false, CurveTarget.Kind.BLOCK_FACE, false, CurvePlacer.HeldKind.OTHER) == CurvePlacer.Action.PASS,
@@ -118,6 +120,8 @@ public class CurveGridGameTests {
                 "and a node");
         h.assertTrue(use(true, true, CurveTarget.Kind.AIR, true, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.FINISH,
                 "shift finishes in the air");
+        h.assertTrue(use(true, true, CurveTarget.Kind.EDGE, false, CurvePlacer.HeldKind.EMPTY) == CurvePlacer.Action.FINISH,
+                "a curved edge finishes too: the server splits it there");
         h.succeed();
     }
 

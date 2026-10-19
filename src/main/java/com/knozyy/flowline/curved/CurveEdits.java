@@ -61,6 +61,12 @@ public final class CurveEdits {
     /** What the edit would put into the data, kept apart until every check passed. */
     private record Plan(List<CurveNode> nodes, Map<Long, Anchor> anchors, List<CurveEdge> edges, List<EdgeInfo> infos) {}
 
+    /** A curved edge cut in two at a new node, which a chain end then uses (Curvy's split). */
+    private record SplitPlan(long oldEdge, CurveNode middle, CurveEdge first, CurveEdge second, EdgeInfo firstInfo,
+                             EdgeInfo secondInfo) {}
+
+    private record SplitOutcome(@Nullable SplitPlan plan, @Nullable PlaceError error) {}
+
     // ---- placing ------------------------------------------------------------------------------------------
 
     public static EditResult place(ServerPlayer player, PlaceRequest request) {
@@ -68,7 +74,24 @@ public final class CurveEdits {
         CurveData data = CurveData.get(level);
         PipeType type = request.type();
         if (pipeType(player.getOffhandItem()) != type) return EditResult.error(PlaceError.INVALID_OBJECT);
-        Resolved start = resolve(level, data, request.start(), type), end = resolve(level, data, request.end(), type);
+        List<SplitPlan> splits = new ArrayList<>();
+        Resolved[] resolved = new Resolved[2];
+        PlaceRequest.End[] ends = {request.start(), request.end()};
+        for (int i = 0; i < 2; i++) {
+            if (ends[i].split().isEmpty()) {
+                resolved[i] = resolve(level, data, ends[i], type);
+                continue;
+            }
+            PlaceRequest.Split split = ends[i].split().get();
+            if (splits.stream().anyMatch(sp -> sp.oldEdge() == split.edge())) return EditResult.error(PlaceError.INVALID_OBJECT);
+            SplitOutcome outcome = split(player, data, split, type);
+            if (outcome.error() != null) return EditResult.error(outcome.error());
+            SplitPlan plan = outcome.plan();
+            splits.add(plan);
+            resolved[i] = new Resolved(plan.middle().pos(), plan.middle().id(), Anchor.FREE, EndCondition.FREE,
+                    EndCondition.FREE, null);
+        }
+        Resolved start = resolved[0], end = resolved[1];
         if (start == null || end == null || start.existing() >= 0 && start.existing() == end.existing()) {
             return EditResult.error(PlaceError.INVALID_OBJECT);
         }
@@ -88,16 +111,33 @@ public final class CurveEdits {
         long startId = plan.edges().get(0).from(), endId = plan.edges().get(plan.edges().size() - 1).to();
         if (start.attachment() != null) attachments.put(startId, start.attachment());
         if (end.attachment() != null) attachments.put(endId, end.attachment());
+        List<CurveNode> nodes = new ArrayList<>(plan.nodes());
+        List<CurveEdge> edges = new ArrayList<>(plan.edges());
+        Set<Long> replaced = new java.util.HashSet<>();
+        List<SolvedSpan> removed = new ArrayList<>();
+        for (SplitPlan split : splits) {
+            nodes.add(split.middle());
+            edges.add(split.first());
+            edges.add(split.second());
+            replaced.add(split.oldEdge());
+            removed.add(data.graph().edge(split.oldEdge()).orElseThrow().shape());
+        }
         PlaceError error = PlacementValidator.validate(data.graph(),
-                new PlacementCandidate(plan.nodes(), plan.edges(), Set.of(), attachments), new WorldShapes(level)).orElse(null);
+                new PlacementCandidate(nodes, edges, replaced, attachments), new WorldShapes(level)).orElse(null);
         if (error != null) return EditResult.error(error);
-        if (denied(player, level, plan.edges())) return EditResult.DENIED;
+        if (denied(player, level, edges)) return EditResult.DENIED;
 
-        int required = CostPlan.required(spans(plan.edges()), List.of());
+        int required = CostPlan.required(spans(edges), removed);
         int available = CurveCost.available(player, type);
         if (!CostPlan.affordable(required, available, false)) return EditResult.missing(required - available);
 
-        CurveCost.take(player, type, required);
+        settle(player, type, required);
+        for (SplitPlan split : splits) {
+            data.removeEdge(split.oldEdge());
+            data.putNode(split.middle(), Anchor.FREE, type);
+            data.putEdge(split.first(), split.firstInfo());
+            data.putEdge(split.second(), split.secondInfo());
+        }
         apply(data, type, plan);
         return EditResult.OK;
     }
@@ -164,6 +204,28 @@ public final class CurveEdits {
     }
 
     // ---- inserting, moving, forcing ------------------------------------------------------------------------
+
+    /** The two halves of an edge split for a chain end, or why it cannot be split. Nothing is written. */
+    private static SplitOutcome split(ServerPlayer player, CurveData data, PlaceRequest.Split split, PipeType type) {
+        CurveEdge edge = data.graph().edge(split.edge()).orElse(null);
+        if (edge == null || data.info(edge.id()).type() != type || split.segment() < 0
+                || split.segment() >= edge.shape().segments() || !(split.along() >= 0 && split.along() <= 1)) {
+            return new SplitOutcome(null, PlaceError.INVALID_OBJECT);
+        }
+        List<Vec3d> p = edge.shape().points();
+        Vec3d point = p.get(split.segment()).add(p.get(split.segment() + 1).sub(p.get(split.segment())).scale(split.along()));
+        if (tooFar(player, point)) return new SplitOutcome(null, PlaceError.TOO_FAR);
+        EdgeInfo info = data.info(edge.id());
+        Vec3d a = data.graph().node(edge.from()).orElseThrow().pos(), b = data.graph().node(edge.to()).orElseThrow().pos();
+        SolvedChain chain = CurveSolver.solve(List.of(a, point, b), CurveRules.DIAMETER, info.start(), info.end()).orElse(null);
+        if (chain == null) return new SplitOutcome(null, PlaceError.INVALID_SHAPE);
+        CurveNode middle = new CurveNode(data.newNodeId(), point, false);
+        CurveEdge first = new CurveEdge(data.newEdgeId(), edge.from(), middle.id(), edge.diameter(), chain.spans().get(0));
+        CurveEdge second = new CurveEdge(data.newEdgeId(), middle.id(), edge.to(), edge.diameter(), chain.spans().get(1));
+        return new SplitOutcome(new SplitPlan(edge.id(), middle, first, second,
+                new EdgeInfo(info.type(), info.color(), info.start(), EndCondition.FREE),
+                new EdgeInfo(info.type(), info.color(), EndCondition.FREE, info.end())), null);
+    }
 
     /** Splits an edge with a new node {@code along} (0–1) its segment {@code segment}; both halves are re-solved. */
     public static EditResult insert(ServerPlayer player, long edgeId, int segment, double along) {

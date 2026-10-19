@@ -16,8 +16,15 @@ public record ChainPreview(List<SolvedSpan> spans, Optional<PlaceError> error, i
         spans = List.copyOf(spans);
     }
 
-    /** One end of the chain: an existing node to continue ({@code node >= 0}), or a new one, maybe on a block face. */
-    public record End(Vec3d pos, long node, EndCondition condition, FaceAttachment face) {}
+    /**
+     * One end of the chain: an existing node to continue ({@code node >= 0}), or a new one, maybe on a block face, or
+     * on an existing edge that is split there ({@code splitEdge >= 0}; the halves are taken as the old edge).
+     */
+    public record End(Vec3d pos, long node, EndCondition condition, FaceAttachment face, long splitEdge) {
+        public End(Vec3d pos, long node, EndCondition condition, FaceAttachment face) {
+            this(pos, node, condition, face, -1);
+        }
+    }
 
     /** Stand-in ids below every real id. */
     private static final long FIRST_ID = -2;
@@ -46,8 +53,11 @@ public record ChainPreview(List<SolvedSpan> spans, Optional<PlaceError> error, i
         Map<Long, FaceAttachment> faces = new HashMap<>();
         if (start.face() != null) faces.put(ids[0], start.face());
         if (end.face() != null) faces.put(ids[ids.length - 1], end.face());
+        Set<Long> split = new java.util.HashSet<>();
+        if (start.splitEdge() >= 0) split.add(start.splitEdge());
+        if (end.splitEdge() >= 0) split.add(end.splitEdge());
         Optional<PlaceError> error = PlacementValidator.validate(graph,
-                new PlacementCandidate(nodes, edges, Set.of(), faces), world);
+                new PlacementCandidate(nodes, edges, split, faces), world);
         return new ChainPreview(spans, error, CostPlan.required(spans, List.of()));
     }
 }

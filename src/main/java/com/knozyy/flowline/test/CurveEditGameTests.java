@@ -112,6 +112,36 @@ public class CurveEditGameTests {
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void placeEndingOnAnEdgeSplitsIt(GameTestHelper h) {
+        ServerPlayer player = player(h, 64);
+        h.assertTrue(CurveEdits.place(player, chestToPipe(h)).ok(), "the first line");
+        CurveData data = CurveData.get(h.getLevel());
+        long old = onlyEdge(h, new Vec3(CHEST_FACE_X, 1.5, 4.5));
+        CurveEdge edge = data.graph().edge(old).orElseThrow();
+        int segment = edge.shape().segments() / 2;
+        Vec3d a = edge.shape().points().get(segment), b = edge.shape().points().get(segment + 1);
+        Vec3d middle = a.add(b).scale(0.5);
+        Vec3 above = new Vec3(middle.x(), middle.y() + 2, middle.z());
+        int held = pipesHeld(player);
+        PlaceRequest branch = new PlaceRequest(PipeType.ITEM,
+                new PlaceRequest.End(above, OptionalLong.empty(), Optional.empty()),
+                new PlaceRequest.End(new Vec3(middle.x(), middle.y(), middle.z()), OptionalLong.empty(), Optional.empty(),
+                        Optional.of(new PlaceRequest.Split(old, segment, 0.5))), List.of());
+        EditResult result = CurveEdits.place(player, branch);
+        h.assertTrue(result.ok(), "a line ending on the first one, got " + result);
+        h.assertTrue(data.graph().edge(old).isEmpty(), "the first line is split");
+        CurveNode joint = data.graph().nodes().stream().filter(n -> n.pos().distanceSq(middle) < 1e-12).findFirst().orElse(null);
+        h.assertTrue(joint != null && data.graph().edgesAt(joint.id()).size() == 3, "into a joint of three edges");
+        int cost = data.graph().edgesAt(joint.id()).stream().mapToInt(e -> e.shape().cost()).sum() - edge.shape().cost();
+        h.assertTrue(pipesHeld(player) == held - cost, "the new pipes and the split's difference are paid, held " + pipesHeld(player));
+        h.assertTrue(CurveEdits.place(player, new PlaceRequest(PipeType.ITEM,
+                new PlaceRequest.End(new Vec3(above.x + 1, above.y, above.z), OptionalLong.empty(), Optional.empty()),
+                new PlaceRequest.End(above, OptionalLong.empty(), Optional.empty(), Optional.of(new PlaceRequest.Split(old, 0, 0.5))),
+                List.of())).error() == PlaceError.INVALID_OBJECT, "a gone edge cannot be split");
+        done(h, player);
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
     public static void placeWithoutEnoughPipesTakesNothing(GameTestHelper h) {
         ServerPlayer player = player(h, 1);
         EditResult result = CurveEdits.place(player, chestToPipe(h));

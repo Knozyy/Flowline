@@ -51,11 +51,20 @@ final class CurveCodec {
         buf.writeBoolean(end.node().isPresent());
         if (end.node().isPresent()) buf.writeVarLong(end.node().getAsLong());
         face(buf, end.face());
+        buf.writeBoolean(end.split().isPresent());
+        end.split().ifPresent(s -> {
+            buf.writeVarLong(s.edge());
+            buf.writeVarInt(s.segment());
+            buf.writeDouble(s.along());
+        });
     }
 
     static PlaceRequest.End end(FriendlyByteBuf buf) {
         Vec3 pos = vec(buf);
         OptionalLong node = buf.readBoolean() ? OptionalLong.of(buf.readVarLong()) : OptionalLong.empty();
-        return new PlaceRequest.End(pos, node, face(buf));
+        Optional<PlaceRequest.Face> face = face(buf);
+        Optional<PlaceRequest.Split> split = buf.readBoolean()
+                ? Optional.of(new PlaceRequest.Split(buf.readVarLong(), buf.readVarInt(), buf.readDouble())) : Optional.empty();
+        return new PlaceRequest.End(pos, node, face, split);
     }
 }

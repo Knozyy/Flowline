@@ -8,7 +8,7 @@
   coloured corner rails, collars and extract rings at the ends, and soft glass joints.
 - A curved line is part of the network it touches: one Extract side drives the whole network, curves included. A
   curved end on a chest, tank or machine is a pipe side with the same screen, wrench, Filter Card and upgrades.
-- Laying and editing: right-click to start, add points and finish; a ghost tube previews the curve and the HUD shows
+- Laying and editing: right-click to start, add points and finish, also on another curved pipe (it splits into a joint there); a ghost tube previews the curve and the HUD shows
   its cost and the server's answer. Six grid modes on the middle button, left Ctrl to place freely, an option wheel
   on left Alt (Remove, Branch, Extend, Move, Force joint, Settings), left-click to break, dyes to colour.
 - Curved pipes cost pipes from the off hand and give them back when broken; protection mods are asked. Blocks put in

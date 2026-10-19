@@ -19,7 +19,7 @@ Kıvrımlı modda (hepsi Controls'tan değiştirilebilir):
 
 | Tuş | İş |
 | --- | --- |
-| Sağ tık | Hattı başlat (blok yüzü, boru yüzü, var olan düğüm ya da hava), havada nokta ekle, yüzde ya da düğümde bitir |
+| Sağ tık | Hattı başlat (blok yüzü, boru yüzü, var olan düğüm, var olan kıvrımlı boru ya da hava), havada nokta ekle, yüzde, düğümde ya da kıvrımlı boruda bitir. Kıvrımlı borunun ortasına bağlanınca boru orada bölünür ve üç kenarlı bir birleşme olur |
 | Shift + sağ tık | Havada bitir |
 | Sol tık | Bakılan kıvrımlı kenarı ya da düğümü kır (her modda); borular geri gelir |
 | Orta tık / Shift + orta tık | Izgara modu ileri / geri: kapalı, eksenler, dış köşeler, iç köşeler, dış kenarlar, iç kenarlar |

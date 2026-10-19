@@ -95,6 +95,14 @@ public final class CurvePreview {
     /** A chain end as the server will read it (CurveEdits.resolve), from what the client knows. */
     static ChainPreview.End resolve(Level level, CurveGraph graph, PlaceRequest.End end, boolean isStart) {
         Vec3d pos = new Vec3d(end.pos().x, end.pos().y, end.pos().z);
+        if (end.split().isPresent()) {
+            PlaceRequest.Split split = end.split().get();
+            CurveEdge edge = graph.edge(split.edge()).orElse(null);
+            if (edge != null && split.segment() >= 0 && split.segment() + 1 < edge.shape().points().size()) {
+                Vec3d a = edge.shape().points().get(split.segment()), b = edge.shape().points().get(split.segment() + 1);
+                return new ChainPreview.End(a.add(b.sub(a).scale(split.along())), -1, EndCondition.FREE, null, edge.id());
+            }
+        }
         if (end.node().isPresent()) {
             long id = end.node().getAsLong();
             CurveNode node = graph.node(id).orElse(null);

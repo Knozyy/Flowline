@@ -62,7 +62,8 @@ public final class CurvePlacer {
             return switch (target) {
                 case NODE, PIPE_FACE, BLOCK_FACE -> Action.FINISH;
                 case AIR -> shift ? Action.FINISH : Action.ADD;
-                case EDGE -> Action.IGNORE;
+                // finishing on an edge splits it there and branches off the new node
+                case EDGE -> Action.FINISH;
             };
         }
         if (held == HeldKind.DYE && target == CurveTarget.Kind.EDGE) return Action.PAINT;
@@ -71,9 +72,7 @@ public final class CurvePlacer {
             if (held == HeldKind.CARD) return Action.CARD_END;
             if (held == HeldKind.EMPTY && !curvedMode) return Action.OPEN_END;
         }
-        if (curvedMode && held == HeldKind.EMPTY) {
-            return target == CurveTarget.Kind.EDGE ? Action.IGNORE : Action.START;
-        }
+        if (curvedMode && held == HeldKind.EMPTY) return Action.START;
         return Action.PASS;
     }
 
@@ -167,13 +166,15 @@ public final class CurvePlacer {
         return nextRequest++;
     }
 
-    /** A chain end for {@code target}: a node to continue, a face to fix to, or a free point. */
+    /** A chain end for {@code target}: a node to continue, a face to fix to, an edge to split, or a free point. */
     public static PlaceRequest.End end(CurveTarget target) {
         Vec3 pos = new Vec3(target.pos.x(), target.pos.y(), target.pos.z());
         OptionalLong node = target.kind == CurveTarget.Kind.NODE ? OptionalLong.of(target.nodeId) : OptionalLong.empty();
         Optional<PlaceRequest.Face> face = target.blockPos != null && target.face != null
                 && (target.kind == CurveTarget.Kind.BLOCK_FACE || target.kind == CurveTarget.Kind.PIPE_FACE)
                 ? Optional.of(new PlaceRequest.Face(target.blockPos, target.face)) : Optional.empty();
-        return new PlaceRequest.End(pos, node, face);
+        Optional<PlaceRequest.Split> split = target.kind == CurveTarget.Kind.EDGE
+                ? Optional.of(new PlaceRequest.Split(target.edgeId, target.segment, target.along)) : Optional.empty();
+        return new PlaceRequest.End(pos, node, face, split);
     }
 }
