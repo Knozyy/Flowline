@@ -2,7 +2,6 @@ package com.knozyy.flowline.client;
 
 import com.knozyy.flowline.FlowlineConfig;
 import com.knozyy.flowline.client.ui.Theme;
-import com.knozyy.flowline.compat.CurvyPipesCompat;
 import com.knozyy.flowline.network.ModNetwork;
 import com.knozyy.flowline.network.OffhandModePayload;
 import com.knozyy.flowline.pipe.OffhandMode;
@@ -31,14 +30,12 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 /**
- * Client side of a pipe in the off hand: the mode key switches between Build for me and Curvy, and in Build for me
+ * Client side of a pipe in the off hand: the mode key switches between Build for me and curved, and in Build for me
  * mode the route that a right-click would lay is shown as ghost pipes, with a short line under the crosshair.
  */
 public final class OffhandPipe {
     private static final double CORE = 5 / 16.0;
     private static OffhandMode mode = OffhandMode.BUILD;
-    /** Which native Curvy channel a universal pipe lays (index into {@link CurvyPipesCompat#CHANNELS}). */
-    private static int channel;
     /** The planned route and what it was planned for; replanned when the target or the player's block changes. */
     private static List<BlockPos> route = List.of();
     @Nullable
@@ -50,21 +47,17 @@ public final class OffhandPipe {
 
     private OffhandPipe() {}
 
-    /** Curvy mode only exists with Curvy Pipes installed. */
+    /** Whether curved placement exists; kept as a switch so the mode key can be turned off again if needed. */
+    public static boolean curvedAvailable() {
+        return true;
+    }
+
     public static OffhandMode mode() {
-        return CurvyPipesCompat.available() ? mode : OffhandMode.BUILD;
-    }
-
-    public static int channel() {
-        return channel;
-    }
-
-    private static boolean universal(Player player) {
-        return player != null && CurvyPipesCompat.universal(player.getOffhandItem());
+        return curvedAvailable() ? mode : OffhandMode.BUILD;
     }
 
     public static boolean holding(@Nullable Player player) {
-        return player != null && CurvyPipesCompat.pipe(player.getOffhandItem());
+        return player != null && PipeBlock.isPipe(player.getOffhandItem());
     }
 
     /** The mode key: switch modes while a pipe is in the off hand. */
@@ -74,17 +67,12 @@ public final class OffhandPipe {
             mc.player.displayClientMessage(Component.translatable("message.flowline.offhand.no_pipe"), true);
             return;
         }
-        if (!CurvyPipesCompat.available()) {
-            mc.player.displayClientMessage(Component.translatable("message.flowline.offhand.no_curvy"), true);
+        if (!curvedAvailable()) {
+            mc.player.displayClientMessage(Component.translatable("message.flowline.offhand.curved_soon"), true);
             return;
         }
-        // a universal pipe has three Curvy channels: Build for me -> Curvy item -> Curvy fluid -> Curvy energy -> back
-        if (mode() == OffhandMode.CURVY && universal(mc.player) && channel < CurvyPipesCompat.CHANNELS.size() - 1) {
-            channel++;
-        } else {
-            mode = mode.next();
-            channel = 0;
-        }
+        mode = mode.next();
+        com.knozyy.flowline.client.curve.CurvePlacer.cancel();
         sync();
         clearRoute();
         mc.player.displayClientMessage(Component.translatable("message.flowline.offhand.switched", modeName()), true);
@@ -92,22 +80,18 @@ public final class OffhandPipe {
 
     /** Tells the server the current mode, e.g. after joining a world. */
     public static void sync() {
-        ModNetwork.sendToServer(new OffhandModePayload(mode(), channel));
+        ModNetwork.sendToServer(new OffhandModePayload(mode()));
     }
 
     private static Component modeName() {
-        if (mode() != OffhandMode.CURVY) return Component.translatable("hud.flowline.mode.build");
-        Minecraft mc = Minecraft.getInstance();
-        if (!universal(mc.player)) return Component.translatable("hud.flowline.mode.curvy");
-        return Component.translatable("hud.flowline.mode.curvy_channel",
-                Component.translatable("hud.flowline.channel." + CurvyPipesCompat.CHANNELS.get(channel)));
+        return Component.translatable(mode() == OffhandMode.CURVY ? "hud.flowline.mode.curvy" : "hud.flowline.mode.build");
     }
 
     /** Whether the route preview applies right now: off-hand pipe, Build for me mode, no pipe in the main hand. */
     private static boolean previewing(Minecraft mc) {
         return mc.player != null && mc.level != null && mc.screen == null && !mc.player.isSpectator()
                 && holding(mc.player) && mode() == OffhandMode.BUILD
-                && !CurvyPipesCompat.pipe(mc.player.getMainHandItem()) && FlowlineConfig.isLoaded();
+                && !PipeBlock.isPipe(mc.player.getMainHandItem()) && FlowlineConfig.isLoaded();
     }
 
     private static void clearRoute() {
@@ -143,9 +127,8 @@ public final class OffhandPipe {
     }
 
     private static int accent(ItemStack stack) {
-        PipeBlock block = stack.getItem() instanceof BlockItem item && item.getBlock() instanceof PipeBlock pipe ? pipe
-                : CurvyPipesCompat.block(stack.getItem());
-        return Theme.accent(block == null ? PipeType.ITEM : block.type());
+        return Theme.accent(stack.getItem() instanceof BlockItem item && item.getBlock() instanceof PipeBlock pipe
+                ? pipe.type() : PipeType.ITEM);
     }
 
     /** Ghost pipes along the route: a core per block and arms joining it to its neighbours on the route. */
@@ -210,7 +193,9 @@ public final class OffhandPipe {
     public static void hud(GuiGraphics g) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen != null || mc.options.hideGui || !holding(mc.player)
-                || CurvyPipesCompat.pipe(mc.player.getMainHandItem()) || !FlowlineConfig.isLoaded()) return;
+                || PipeBlock.isPipe(mc.player.getMainHandItem()) || !FlowlineConfig.isLoaded()) return;
+        // curved mode has its own lines (CurveHudOverlay)
+        if (mode() == OffhandMode.CURVY) return;
         Component main;
         if (mode() == OffhandMode.CURVY) {
             main = Component.translatable("hud.flowline.curvy.ready");

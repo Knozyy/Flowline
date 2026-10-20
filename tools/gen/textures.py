@@ -1,4 +1,4 @@
-"""Block and item textures: pipe rails, glass, collars, Curvy atlases, wrench, upgrade modules."""
+"""Block and item textures: pipe rails, glass, collars, wrench, upgrade modules."""
 from gen.common import *  # noqa: F401,F403
 
 
@@ -83,42 +83,6 @@ for idx, (name, base) in enumerate(TYPES.items()):
     write_png(f"assets/{MODID}/textures/block/{name}_pipe_collar.png", pipe_collar(base, acc))
     write_png(f"assets/{MODID}/textures/block/{name}_pipe_extract.png", pipe_extract(base, acc))
 
-
-# Curvy uses its own native mesh and transparency toggle with Flowline materials.
-def curvy_atlas(name, base, stripe=None):
-    """Curvy's 32x32 pipe atlas: the top 32x16 strip wraps around the tube (x along it, y around it), the
-    bottom-left 16x16 square caps its ends. Same material as the block pipes: four coloured rails along a pale glass
-    tube, a dark joint once per repeat, and the block pipes' collar as the end cap. A universal pipe's channels add a
-    stripe in the channel's colour."""
-    acc = ACCENTS[name]
-    glass = mix(GLASS, base, 0.22)
-    px = [[CLEAR] * 32 for _ in range(32)]
-    for y in range(16):
-        for x in range(32):
-            c = shade(glass, 1.0 if (x + y) % 9 else 1.06)
-            if y in (0, 4, 8, 12):
-                c = shade(base, 0.9)                       # rail
-            elif y in (1, 5, 9, 13):
-                c = mixa(base, acc, 0.4)                   # lit side of the rail
-            if stripe and y in (2, 10):
-                c = shade(stripe, 1.0)
-            if x <= 1:
-                c = mixa(DARK, base, 0.12)
-            elif x == 2:
-                c = mixa(base, acc, 0.3)
-            px[y][x] = c
-    cap = pipe_collar(base, acc)
-    for y in range(16):
-        for x in range(16):
-            px[16 + y][x] = cap[y][x]
-    return px
-
-
-for name in ("item", "fluid", "energy"):
-    write_png(f"assets/{MODID}/textures/block/curvy_{name}_pipe.png", curvy_atlas(name, TYPES[name]), 32, 32)
-    # the universal pipe's Curvy channels: its own colour with a stripe in the channel's colour
-    write_png(f"assets/{MODID}/textures/block/curvy_universal_{name}_pipe.png",
-              curvy_atlas("universal", TYPES["universal"], stripe=TYPES[name]), 32, 32)
 
 # node cage: greyscale metal, tinted in game with the pipe's dye colour (or its own colour when undyed)
 cage = [[shade((0xF2, 0xF2, 0xF2), 1.0 if (x + y) % 2 else 0.9) for x in range(16)] for y in range(16)]

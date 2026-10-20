@@ -91,7 +91,10 @@ public class PipeMenu extends AbstractContainerMenu {
     public final PipeType type;
 
     /** Null on the client. */
-    private final PipeBlockEntity pipe;
+    @Nullable
+    private final SideHost host;
+    /** The curved node whose end this screen configures, or -1 for a block pipe side. */
+    public final long curvedNode;
     private final SideConfig cfg;
 
     /** Server: the player to send filter changes to. */
@@ -133,34 +136,46 @@ public class PipeMenu extends AbstractContainerMenu {
     private final IntSupplier fluidData;
     private final IntSupplier chemicalData;
 
-    /** Client constructor, fed by the extra data written in {@code PipeBlock}. */
+    /** Client constructor, fed by {@link SideHost#writeOpenData} and the type and mode {@link #open} adds. */
     public PipeMenu(int id, Inventory inventory, FriendlyByteBuf buf) {
-        this(id, inventory, buf.readBlockPos(), buf.readEnum(Direction.class), buf.readEnum(PipeType.class),
-                buf.readEnum(SideMode.class), null);
+        this(id, inventory, buf, buf.readByte());
+    }
+
+    private PipeMenu(int id, Inventory inventory, FriendlyByteBuf buf, byte kind) {
+        this(id, inventory, kind == PipeSideHost.KIND ? -1 : buf.readVarLong(), buf.readBlockPos(), buf.readEnum(Direction.class),
+                buf.readEnum(PipeType.class), buf.readEnum(SideMode.class), null);
+    }
+
+    /** Server constructor for a block pipe's side. */
+    public PipeMenu(int id, Inventory inventory, PipeBlockEntity pipe, Direction side) {
+        this(id, inventory, new PipeSideHost(pipe, side));
     }
 
     /** Server constructor. */
-    public PipeMenu(int id, Inventory inventory, PipeBlockEntity pipe, Direction side) {
-        this(id, inventory, pipe.getBlockPos(), side, pipe.type(), pipe.side(side).mode, pipe);
+    public PipeMenu(int id, Inventory inventory, SideHost host) {
+        this(id, inventory, host instanceof PipeSideHost ? -1 : ((com.knozyy.flowline.curved.CurvedEnd) host.port()).nodeId(),
+                host.pos(), host.side(), host.port().type(), host.port().cfg().mode, host);
     }
 
-    private PipeMenu(int id, Inventory inventory, BlockPos pos, Direction side, PipeType type, SideMode mode,
-                     PipeBlockEntity pipe) {
+    private PipeMenu(int id, Inventory inventory, long curvedNode, BlockPos pos, Direction side, PipeType type, SideMode mode,
+                     @Nullable SideHost host) {
         super(ModMenus.PIPE.get(), id);
         this.pos = pos;
         this.side = side;
         this.type = type;
-        this.pipe = pipe;
-        this.cfg = pipe == null ? null : pipe.side(side);
+        this.host = host;
+        this.curvedNode = curvedNode;
+        this.cfg = host == null ? null : host.port().cfg();
         this.player = inventory.player instanceof ServerPlayer serverPlayer ? serverPlayer : null;
         this.registries = inventory.player.level().registryAccess();
         this.openedMode = mode;
 
         // The client mirrors the whole upgrade container so slot indices match the server's.
-        Container upgrades = pipe != null ? pipe.upgrades() : new SimpleContainer(6 * UPGRADES);
+        Container upgrades = host != null ? host.upgrades()
+                : new SimpleContainer(curvedNode < 0 ? 6 * UPGRADES : UPGRADES);
         for (int i = 0; i < UPGRADES; i++) {
-            addSlot(new UpgradeSlot(upgrades, PipeBlockEntity.upgradeSlot(side, i),
-                    UPGRADE_X + (i % 3) * 18, UPGRADE_Y + (i / 3) * 18));
+            int slot = host != null ? host.upgradeSlot(i) : curvedNode < 0 ? PipeBlockEntity.upgradeSlot(side, i) : i;
+            addSlot(new UpgradeSlot(upgrades, slot, UPGRADE_X + (i % 3) * 18, UPGRADE_Y + (i / 3) * 18));
         }
         inventoryStart = slots.size();
         for (int row = 0; row < 3; row++) {
@@ -394,7 +409,9 @@ public class PipeMenu extends AbstractContainerMenu {
                 if (cfg.mode != SideMode.EXTRACT) return false;
                 cfg.signal = id == BTN_SIGNAL ? cfg.signal.next() : cfg.signal.previous();
                 // redstone dust next to the pipe reconsiders whether it points at it
-                pipe.getBlockState().updateNeighbourShapes(pipe.getLevel(), pipe.getBlockPos(), 3);
+                if (host instanceof PipeSideHost side) {
+                    side.pipe().getBlockState().updateNeighbourShapes(side.pipe().getLevel(), side.pipe().getBlockPos(), 3);
+                }
             }
             case BTN_OVERFLOW -> {
                 if (cfg.mode != SideMode.INSERT) return false;
@@ -408,7 +425,7 @@ public class PipeMenu extends AbstractContainerMenu {
                 return false;
             }
         }
-        pipe.setChanged();
+        host.changed();
         return true;
     }
 
@@ -419,6 +436,8 @@ public class PipeMenu extends AbstractContainerMenu {
 
     /** Server: replace this menu by the one of another side of the same pipe, without closing the screen first. */
     private boolean openSide(Player player, Direction dir) {
+        if (!(host instanceof PipeSideHost sideHost)) return false;
+        PipeBlockEntity pipe = sideHost.pipe();
         if (dir == side || !(player instanceof ServerPlayer serverPlayer) || serverPlayer.containerMenu != this
                 || !pipe.menuValid(player) || pipe.getLevel() == null) {
             return false;
@@ -444,7 +463,7 @@ public class PipeMenu extends AbstractContainerMenu {
             }
         }
         cfg.wake();
-        pipe.setChanged();
+        host.changed();
     }
 
     // ---- filter rules -------------------------------------------------------------------------------------
@@ -479,7 +498,7 @@ public class PipeMenu extends AbstractContainerMenu {
             }
         }
         cfg.setEntry(index, entry);
-        pipe.setChanged();
+        host.changed();
     }
 
     /** Server: turn the carried stack into a rule at {@code index} (-1: first free position). */
@@ -578,11 +597,11 @@ public class PipeMenu extends AbstractContainerMenu {
 
     /** Whether the source holds something this side would move; looked up at most once a second. */
     private boolean sourceHasWork() {
-        if (!(pipe.getLevel() instanceof ServerLevel level)) return false;
+        if (host == null || !(host.level() instanceof ServerLevel level)) return false;
         long now = level.getGameTime();
         if (now - hasWorkCheckedAt >= 20) {
             hasWorkCheckedAt = now;
-            if (cfg.sourceCaps == null) cfg.sourceCaps = Caps.create(type, level, pos.relative(side), side.getOpposite());
+            if (cfg.sourceCaps == null) cfg.sourceCaps = Caps.create(type, level, host.port().block(), host.port().access());
             hasWork = type.hasWork(cfg.sourceCaps, cfg);
         }
         return hasWork;
@@ -621,10 +640,21 @@ public class PipeMenu extends AbstractContainerMenu {
         return original;
     }
 
+    /** Server: opens the screen of {@code host} for {@code player} under {@code title}. */
+    public static void open(ServerPlayer player, SideHost host, net.minecraft.network.chat.Component title) {
+        net.minecraftforge.network.NetworkHooks.openScreen(player,
+                new net.minecraft.world.SimpleMenuProvider((id, inventory, p) -> new PipeMenu(id, inventory, host), title),
+                buf -> {
+                    host.writeOpenData(buf);
+                    buf.writeEnum(host.port().type());
+                    buf.writeEnum(host.port().cfg().mode);
+                });
+    }
+
     @Override
     public boolean stillValid(Player player) {
-        if (pipe == null) return true;
-        return pipe.menuValid(player) && cfg.mode == openedMode;
+        if (host == null) return true;
+        return host.stillValid(player) && cfg.mode == openedMode;
     }
 
     /** Holds one upgrade item. */
@@ -635,7 +665,7 @@ public class PipeMenu extends AbstractContainerMenu {
 
         @Override
         public boolean mayPlace(ItemStack stack) {
-            if (pipe != null) return pipe.accepts(side, stack);
+            if (host != null) return host.accepts(stack);
             return stack.getItem() instanceof UpgradeItem
                     && (extracting() || UpgradeItem.typeOf(stack) == com.knozyy.flowline.item.UpgradeType.FILTER);
         }

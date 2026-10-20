@@ -549,13 +549,13 @@ en.update({
 tr.update({
 })
 en.update({
-    "message.flowline.curvy.legacy": "This world contains old Flowline curved pipes. Their data is preserved, but they do not render or transfer in this version. Recover the pipes/upgrades with the previous Flowline version, then rebuild using Curvy pipes.",
+    "message.flowline.curvy.legacy": "This world contains old Flowline curved pipes. Their data is preserved, but they do not render or transfer in this version. Recover the pipes/upgrades with the previous Flowline version, then rebuild them with Flowline's curved placement.",
     "hud.flowline.build.ready": "[%s] Build for Me — lay pipes from that block to you",
     "hud.flowline.build.offhand": "Build for Me: put a pipe in your off hand, then press [%s]",
     "tooltip.flowline.curvy.hands": "Main hand: Curvy placement | Off hand: normal block placement",
 })
 tr.update({
-    "message.flowline.curvy.legacy": "Bu dünyada eski Flowline kıvrımlı boruları var. Kayıtları korunuyor fakat bu sürümde görünmezler ve aktarım yapmazlar. Önceki Flowline sürümüyle boruları/upgrade’leri geri alıp Curvy borularıyla yeniden kur.",
+    "message.flowline.curvy.legacy": "Bu dünyada eski Flowline kıvrımlı boruları var. Kayıtları korunuyor fakat bu sürümde görünmezler ve aktarım yapmazlar. Önceki Flowline sürümüyle boruları/upgrade’leri geri alıp sonra Flowline'ın kıvrımlı yerleşimiyle yeniden kur.",
     "hud.flowline.build.ready": "[%s] Build for Me — o bloktan sana kadar boru döşe",
     "hud.flowline.build.offhand": "Build for Me: boruyu sol eline al, sonra [%s] tuşuna bas",
     "tooltip.flowline.curvy.hands": "Sağ el: Curvy yerleşimi | Sol el: normal blok yerleşimi",
@@ -807,21 +807,17 @@ tr.update({
     "gui.flowline.library.data_short": "Veri",
     "gui.flowline.library.preview_short": "Eşyaları için etikete gel",
 })
-# ---- off-hand modes: Build for me and Curvy
+# ---- off-hand modes: Build for me and curved
 en.update({
-    "key.flowline.build": "Off-hand pipe mode (Build for me / Curvy)",
-    "tooltip.flowline.curvy.hands": "Main hand: block pipe | Off hand: Build for me or Curvy (mode key switches), right-click builds",
-    "hud.flowline.build.ready": "Off hand: right-click lays pipes from that block to you · [%s] switches to Curvy",
+    "key.flowline.build": "Off-hand pipe mode (Build for me / Curved)",
+    "tooltip.flowline.curvy.hands": "Main hand: block pipe | Off hand: Build for me or curved ([%s] switches)",
+    "hud.flowline.build.ready": "Off hand: right-click lays pipes from that block to you",
     "hud.flowline.build.offhand": "Build for me: hold a pipe in your off hand, look at a block and right-click",
     "message.flowline.offhand.no_pipe": "Put a pipe in your off hand first",
-    "message.flowline.offhand.no_curvy": "Curvy Pipes is not installed: the off hand only has Build for me",
+    "message.flowline.offhand.curved_soon": "Curved placement is being rebuilt into Flowline itself",
     "message.flowline.offhand.switched": "Off hand: %s",
     "hud.flowline.mode.build": "Build for me",
-    "hud.flowline.mode.curvy": "Curvy",
-    "hud.flowline.mode.curvy_channel": "Curvy: %s",
-    "hud.flowline.channel.item": "Items",
-    "hud.flowline.channel.fluid": "Fluids",
-    "hud.flowline.channel.energy": "Energy",
+    "hud.flowline.mode.curvy": "Curved",
     "hud.flowline.mode.key": "[%s] switch mode",
     "hud.flowline.curvy.ready": "Right-click: lay a curved pipe",
     "hud.flowline.build.route": "%s pipes · right-click: build",
@@ -830,19 +826,15 @@ en.update({
     "hud.flowline.build.aim": "Look at a block within %s blocks",
 })
 tr.update({
-    "key.flowline.build": "Sol el boru modu (Build for Me / Curvy)",
-    "tooltip.flowline.curvy.hands": "Sağ el: blok boru | Sol el: Build for Me ya da Curvy (mod tuşu değiştirir), sağ tık kurar",
-    "hud.flowline.build.ready": "Sol el: sağ tık o bloktan sana boru döşer · [%s] Curvy'ye geçer",
+    "key.flowline.build": "Sol el boru modu (Build for Me / Kıvrımlı)",
+    "tooltip.flowline.curvy.hands": "Sağ el: blok boru | Sol el: Build for Me ya da kıvrımlı ([%s] değiştirir)",
+    "hud.flowline.build.ready": "Sol el: sağ tık o bloktan sana boru döşer",
     "hud.flowline.build.offhand": "Build for Me: boruyu sol eline al, bir bloğa bak ve sağ tıkla",
     "message.flowline.offhand.no_pipe": "Önce sol eline bir boru al",
-    "message.flowline.offhand.no_curvy": "Curvy Pipes kurulu değil: sol elde yalnız Build for Me var",
+    "message.flowline.offhand.curved_soon": "Kıvrımlı yerleşim Flowline'ın kendi özelliği olarak yeniden yapılıyor",
     "message.flowline.offhand.switched": "Sol el: %s",
     "hud.flowline.mode.build": "Build for Me",
-    "hud.flowline.mode.curvy": "Curvy",
-    "hud.flowline.mode.curvy_channel": "Curvy: %s",
-    "hud.flowline.channel.item": "Eşya",
-    "hud.flowline.channel.fluid": "Sıvı",
-    "hud.flowline.channel.energy": "Enerji",
+    "hud.flowline.mode.curvy": "Kıvrımlı",
     "hud.flowline.mode.key": "[%s] mod değiştir",
     "hud.flowline.curvy.ready": "Sağ tık: kıvrımlı boru döşe",
     "hud.flowline.build.route": "%s boru · sağ tık: kur",
@@ -861,8 +853,6 @@ en.update({
                               "hand lays a whole route (Build for me); the mode key, B by default, switches modes.",
     "guide.flowline.universal_pipe.1": "Moves items, fluids and energy at once. Each side can switch its channels on "
                                        "and off in its screen.",
-    "guide.flowline.universal_pipe.2": "With Curvy Pipes installed, the mode key cycles Build for me, Curvy: Items, "
-                                       "Curvy: Fluids and Curvy: Energy; a curved line carries the chosen one.",
     "guide.flowline.wrench.1": "Sneak + right-click a side: Insert, then Extract, then disconnected, then Insert again.",
     "guide.flowline.wrench.2": "Right-click a side: open its screen.",
     "guide.flowline.wrench.3": "Sneak + scroll on a side: Extract sides change their distribution (with Ctrl: their "
@@ -885,8 +875,6 @@ tr.update({
                               "bir yolu döşer (Benim için döşe); mod tuşu, varsayılan B, modu değiştirir.",
     "guide.flowline.universal_pipe.1": "Eşya, sıvı ve enerjiyi aynı anda taşır. Her taraf kanallarını kendi ekranından "
                                        "açıp kapatabilir.",
-    "guide.flowline.universal_pipe.2": "Curvy Pipes kuruluysa mod tuşu Benim için döşe, Curvy: Eşya, Curvy: Sıvı ve "
-                                       "Curvy: Enerji arasında döner; kıvrımlı hat seçilen kanalı taşır.",
     "guide.flowline.wrench.1": "Bir tarafa Shift + sağ tık: Ekle, sonra Çek, sonra bağlantısız, sonra yine Ekle.",
     "guide.flowline.wrench.2": "Bir tarafa sağ tık: ekranını açar.",
     "guide.flowline.wrench.3": "Bir tarafta Shift + tekerlek: Çek tarafları dağıtımı (Ctrl ile redstone modunu), Ekle "
@@ -898,6 +886,86 @@ tr.update({
     "guide.flowline.filter_card.1": "Bir tarafın filtre kurallarını kopyalamak için Shift + sağ tıkla, başka bir tarafa "
                                     "yapıştırmak için sağ tıkla, temizlemek için Shift ile havada kullan.",
     "guide.flowline.filter_card.2": "Yalnızca kurallar kopyalanır; mod, ayarlar ve yükseltmeler yerinde kalır.",
+})
+
+# ---- curved pipes: why a placement or edit was refused (codes follow Curvy Pipes' results)
+en.update({
+    "message.flowline.curve.invalid_shape": "That curve has no valid shape",
+    "message.flowline.curve.invalid_object": "That cannot be connected",
+    "message.flowline.curve.too_costly": "Not enough pipes: %s more needed",
+    "message.flowline.curve.too_far": "Too far away",
+    "message.flowline.curve.intersect_block": "Pipes cannot go through blocks",
+    "message.flowline.curve.intersect_pipe": "Pipes cannot cross",
+    "message.flowline.curve.angle_too_small": "Pipes at a joint are too close together",
+    "message.flowline.curve.node_in_joint": "That point is inside a joint",
+    "message.flowline.curve.denied": "You cannot build here",
+})
+tr.update({
+    "message.flowline.curve.invalid_shape": "Bu kıvrımın geçerli bir şekli yok",
+    "message.flowline.curve.invalid_object": "Buna bağlanamaz",
+    "message.flowline.curve.too_costly": "Boru yetmiyor: %s tane daha gerekli",
+    "message.flowline.curve.too_far": "Çok uzak",
+    "message.flowline.curve.intersect_block": "Boru blokların içinden geçemez",
+    "message.flowline.curve.intersect_pipe": "Borular kesişemez",
+    "message.flowline.curve.angle_too_small": "Birleşmedeki borular birbirine çok yakın",
+    "message.flowline.curve.node_in_joint": "O nokta bir birleşmenin içinde",
+    "message.flowline.curve.denied": "Buraya kuramazsın",
+})
+
+# ---- curved pipes: placing them (HUD, grid, option wheel, keys, the end's screen)
+en.update({
+    "key.flowline.options": "Curved pipe options (hold, scroll, let go)",
+    "key.flowline.no_snap": "Curved pipe: hold to place freely",
+    "hud.flowline.curve.start": "Right-click: start a curved pipe",
+    "hud.flowline.curve.add": "Right-click: add a point · Shift: finish here",
+    "hud.flowline.curve.finish": "Right-click: finish here",
+    "hud.flowline.curve.finish_air": "Shift + right-click: finish in the air",
+    "hud.flowline.curve.moving": "Right-click: move the node here · left-click: cancel",
+    "hud.flowline.curve.cost": "%s pipes",
+    "hud.flowline.curve.keys": "[%s] mode · hold [%s] options · Esc cancels",
+    "hud.flowline.grid": "Grid: %s",
+    "hud.flowline.grid.changed": "Grid: %s",
+    "hud.flowline.grid.off": "off",
+    "hud.flowline.grid.axial": "axial",
+    "hud.flowline.grid.corner_p": "outer corners",
+    "hud.flowline.grid.corner_n": "inner corners",
+    "hud.flowline.grid.edge_p": "outer edges",
+    "hud.flowline.grid.edge_n": "inner edges",
+    "hud.flowline.wheel.remove": "Remove",
+    "hud.flowline.wheel.branch": "Branch",
+    "hud.flowline.wheel.extend": "Extend",
+    "hud.flowline.wheel.move": "Move",
+    "hud.flowline.wheel.force_joint": "Force joint",
+    "hud.flowline.wheel.settings": "Settings",
+    "gui.flowline.curved_end": "Curved %s end",
+    "gui.flowline.curved_end.tabs": "The end of a curved pipe: these settings are its own",
+})
+tr.update({
+    "key.flowline.options": "Kıvrımlı boru seçenekleri (basılı tut, kaydır, bırak)",
+    "key.flowline.no_snap": "Kıvrımlı boru: serbest yerleştirmek için basılı tut",
+    "hud.flowline.curve.start": "Sağ tık: kıvrımlı boruya başla",
+    "hud.flowline.curve.add": "Sağ tık: nokta ekle · Shift: burada bitir",
+    "hud.flowline.curve.finish": "Sağ tık: burada bitir",
+    "hud.flowline.curve.finish_air": "Shift + sağ tık: havada bitir",
+    "hud.flowline.curve.moving": "Sağ tık: düğümü buraya taşı · sol tık: vazgeç",
+    "hud.flowline.curve.cost": "%s boru",
+    "hud.flowline.curve.keys": "[%s] mod · [%s] basılı: seçenekler · Esc iptal",
+    "hud.flowline.grid": "Izgara: %s",
+    "hud.flowline.grid.changed": "Izgara: %s",
+    "hud.flowline.grid.off": "kapalı",
+    "hud.flowline.grid.axial": "eksenler",
+    "hud.flowline.grid.corner_p": "dış köşeler",
+    "hud.flowline.grid.corner_n": "iç köşeler",
+    "hud.flowline.grid.edge_p": "dış kenarlar",
+    "hud.flowline.grid.edge_n": "iç kenarlar",
+    "hud.flowline.wheel.remove": "Sil",
+    "hud.flowline.wheel.branch": "Dallandır",
+    "hud.flowline.wheel.extend": "Uzat",
+    "hud.flowline.wheel.move": "Taşı",
+    "hud.flowline.wheel.force_joint": "Birleşme yap",
+    "hud.flowline.wheel.settings": "Ayarlar",
+    "gui.flowline.curved_end": "Kıvrımlı %s ucu",
+    "gui.flowline.curved_end.tabs": "Kıvrımlı borunun ucu: bu ayarlar yalnız onun",
 })
 
 lang("en_us", en)

@@ -88,6 +88,11 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
         return PROPS.get(dir);
     }
 
+    /** True for the item of any Flowline pipe. */
+    public static boolean isPipe(ItemStack stack) {
+        return stack.getItem() instanceof net.minecraft.world.item.BlockItem item && item.getBlock() instanceof PipeBlock;
+    }
+
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         for (Direction d : Direction.values()) builder.add(prop(d));
@@ -118,6 +123,8 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
             Conn conn;
             if (self != null && self.isDisconnected(dir)) {
                 conn = Conn.NONE;
+            } else if (curvedFace(level, pos, dir, self)) {
+                conn = Conn.PIPE;
             } else if (ns.getBlock() instanceof PipeBlock other && other.type == type) {
                 PipeBlockEntity nb = level.getBlockEntity(neighbor) instanceof PipeBlockEntity be ? be : null;
                 boolean otherCut = nb != null && nb.isDisconnected(dir.getOpposite());
@@ -131,6 +138,20 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
             state = state.setValue(prop(dir), conn);
         }
         return state;
+    }
+
+    /** Whether a curved pipe of this type and a matching colour starts on face {@code dir} of the pipe at {@code pos}. */
+    private boolean curvedFace(Level level, BlockPos pos, Direction dir, @Nullable PipeBlockEntity self) {
+        if (!(level instanceof net.minecraft.server.level.ServerLevel server)) return false;
+        com.knozyy.flowline.curved.CurveData data = com.knozyy.flowline.curved.CurveData.get(server);
+        java.util.OptionalLong node = data.nodeAtPipeFace(pos, dir);
+        if (node.isEmpty()) return false;
+        int color = self == null ? PipeBlockEntity.NO_COLOR : self.color();
+        for (com.knozyy.flowline.curve.CurveEdge edge : data.graph().edgesAt(node.getAsLong())) {
+            com.knozyy.flowline.curved.EdgeInfo info = data.info(edge.id());
+            if (info.type() == type && PipeBlockEntity.colorsMatch(color, info.color())) return true;
+        }
+        return false;
     }
 
     @Override
@@ -280,7 +301,7 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
             if (!level.isClientSide && level.getBlockEntity(pos) instanceof PipeBlockEntity be) paint(be, dye.getDyeColor(), player, stack);
             return InteractionResult.sidedSuccess(level.isClientSide);
         }
-        if (hand != InteractionHand.MAIN_HAND || com.knozyy.flowline.compat.CurvyPipesCompat.pipe(stack)) {
+        if (hand != InteractionHand.MAIN_HAND || isPipe(stack)) {
             return InteractionResult.PASS;
         }
         return openSide(state, level, pos, player, hit);
@@ -334,15 +355,7 @@ public class PipeBlock extends Block implements EntityBlock, SimpleWaterloggedBl
         if (!(player instanceof ServerPlayer serverPlayer)) return;
         Component title = Component.translatable("gui.flowline.pipe_config", be.getBlockState().getBlock().getName(),
                 Component.translatable("direction.flowline." + side.getName()));
-        BlockPos pos = be.getBlockPos();
-        NetworkHooks.openScreen(serverPlayer,
-                new SimpleMenuProvider((id, inventory, p) -> new PipeMenu(id, inventory, be, side), title),
-                buf -> {
-                    buf.writeBlockPos(pos);
-                    buf.writeEnum(side);
-                    buf.writeEnum(be.type());
-                    buf.writeEnum(be.side(side).mode);
-                });
+        PipeMenu.open(serverPlayer, new com.knozyy.flowline.menu.PipeSideHost(be, side), title);
     }
 
     /**

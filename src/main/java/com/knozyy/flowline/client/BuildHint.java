@@ -1,7 +1,6 @@
 package com.knozyy.flowline.client;
 
 import com.knozyy.flowline.FlowlineConfig;
-import com.knozyy.flowline.compat.CurvyPipesCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -18,8 +17,8 @@ public final class BuildHint {
         if (firstShownAt == 0 && FlowlineConfig.Client.BUILD_HINT_SEEN.get()) return;
         long now = System.nanoTime();
         if (firstShownAt != 0 && now - firstShownAt >= DISPLAY_NANOS) return;
-        boolean off=CurvyPipesCompat.pipe(mc.player.getOffhandItem());
-        boolean main=CurvyPipesCompat.pipe(mc.player.getMainHandItem());
+        boolean off=com.knozyy.flowline.pipe.PipeBlock.isPipe(mc.player.getOffhandItem());
+        boolean main=com.knozyy.flowline.pipe.PipeBlock.isPipe(mc.player.getMainHandItem());
         if(!off&&!main)return;
         HitResult hit=mc.player.pick(FlowlineConfig.BUILD_RANGE.get(),1,false);
         if(hit.getType()!=HitResult.Type.BLOCK||hit.getLocation().distanceTo(mc.player.getEyePosition())<5)return;

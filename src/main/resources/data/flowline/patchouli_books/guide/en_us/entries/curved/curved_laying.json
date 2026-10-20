@@ -1,0 +1,16 @@
+{
+  "name": "Laying a Curve",
+  "category": "flowline:curved",
+  "icon": "flowline:fluid_pipe",
+  "sortnum": 1,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "In $(thing)Curved$() mode, right-click to start a line: on a block face, a pipe face, an existing curved node or in the air. Right-click in the air to add points, and on a face or a node to finish. Sneak and right-click to finish in the air."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "A ghost tube shows the curve; it turns red when it would be refused. The line costs pipes from the off hand, about one per block, and gives them back when broken.$(br2)Esc or the mode key drops a half-drawn line."
+    }
+  ]
+}

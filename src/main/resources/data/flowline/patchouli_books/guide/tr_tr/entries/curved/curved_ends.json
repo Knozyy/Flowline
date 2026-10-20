@@ -1,0 +1,16 @@
+{
+  "name": "Uçlar ve Ağlar",
+  "category": "flowline:curved",
+  "icon": "flowline:wrench",
+  "sortnum": 3,
+  "pages": [
+    {
+      "type": "patchouli:text",
+      "text": "Kıvrımlı boru değdiği ağın parçasıdır. Sandığa, tanka ya da makineye bağlı uç bir boru tarafıdır: aynı ekran, anahtar, Filtre Kartı ve yükseltmeler. Tek bir Extract tarafı, kıvrımlar dahil bütün ağı çalıştırır."
+    },
+    {
+      "type": "patchouli:text",
+      "text": "Blok borusu yüzündeki uç yalnızca taşır. Başka bir bloktaki uç yalnızca hattı tutar. Kıvrımın yoluna konan blok onu kırar ve borularını düşürür; varlıklar kıvrımların üstünde durur."
+    }
+  ]
+}

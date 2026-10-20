@@ -1,7 +1,6 @@
 package com.knozyy.flowline.client;
 
 import com.knozyy.flowline.Flowline;
-import com.knozyy.flowline.compat.CurvyPipesCompat;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
@@ -31,8 +30,8 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onTooltip(ItemTooltipEvent event) {
-        if (CurvyPipesCompat.supported(event.getItemStack())) {
-            event.getToolTip().add(Component.translatable("tooltip.flowline.curvy.hands").withStyle(ChatFormatting.GRAY));
+        if (PipeBlock.isPipe(event.getItemStack())) {
+            event.getToolTip().add(Component.translatable("tooltip.flowline.curvy.hands", Keys.BUILD.getTranslatedKeyMessage()).withStyle(ChatFormatting.GRAY));
         }
     }
 
@@ -62,6 +61,8 @@ public final class ClientEvents {
     public static void onHud(RenderGuiEvent.Post event) {
         BuildHint.render(event.getGuiGraphics());
         OffhandPipe.hud(event.getGuiGraphics());
+        com.knozyy.flowline.client.curve.CurveHudOverlay.render(event.getGuiGraphics());
+        com.knozyy.flowline.client.curve.OptionWheel.render(event.getGuiGraphics());
     }
 
     /**
@@ -90,7 +91,13 @@ public final class ClientEvents {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
         while (Keys.BUILD.consumeClick()) {
-            if (mc.player != null && mc.screen == null) OffhandPipe.toggle(mc);
+            if (mc.player == null || mc.screen != null) continue;
+            // B drops a half-drawn curved chain first; pressed again it switches modes
+            if (com.knozyy.flowline.client.curve.CurvePlacer.drawing()) {
+                com.knozyy.flowline.client.curve.CurvePlacer.cancel();
+            } else {
+                OffhandPipe.toggle(mc);
+            }
         }
         OffhandPipe.tick(mc);
     }

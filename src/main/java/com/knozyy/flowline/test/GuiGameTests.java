@@ -208,46 +208,6 @@ public class GuiGameTests {
         h.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 60)
-    public static void curvyPortBridgesTwoNetworks(GameTestHelper h) {
-        BlockPos chestA = new BlockPos(0, 1, 1), pipeA = new BlockPos(1, 1, 1);
-        BlockPos chestB = new BlockPos(0, 1, 3), pipeB = new BlockPos(1, 1, 3);
-        h.setBlock(chestA, Blocks.CHEST);
-        h.setBlock(chestB, Blocks.CHEST);
-        h.setBlock(pipeA, ModBlocks.ITEM_PIPE.get());
-        h.setBlock(pipeB, ModBlocks.ITEM_PIPE.get());
-        PipeBlockEntity a = (PipeBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(pipeA));
-        PipeBlockEntity b = (PipeBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(pipeB));
-        PipeBlock.updateConnections(h.getLevel(), a.getBlockPos());
-        PipeBlock.updateConnections(h.getLevel(), b.getBlockPos());
-        PipeBlock.setMode(a, Direction.WEST, SideMode.EXTRACT, null);
-        a.side(Direction.WEST).setEntry(0, FilterEntry.ofItem("minecraft:diamond"));
-        a.side(Direction.WEST).limit = 3;
-        ChestBlockEntity from = (ChestBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(chestA));
-        ChestBlockEntity to = (ChestBlockEntity) h.getLevel().getBlockEntity(h.absolutePos(chestB));
-        from.setItem(0, new ItemStack(Items.DIAMOND, 10));
-        from.setItem(1, new ItemStack(Items.DIRT, 5));
-        h.succeedWhen(() -> {
-            var out = (net.minecraftforge.items.IItemHandler) com.knozyy.flowline.compat.CurvyPort.port(h.getLevel(), a,
-                    Direction.UP, net.minecraftforge.common.capabilities.ForgeCapabilities.ITEM_HANDLER);
-            var in = (net.minecraftforge.items.IItemHandler) com.knozyy.flowline.compat.CurvyPort.port(h.getLevel(), b,
-                    Direction.UP, net.minecraftforge.common.capabilities.ForgeCapabilities.ITEM_HANDLER);
-            h.assertTrue(out != null && in != null, "item pipes offer a Curvy port");
-            // what a Curvy line with an Extract end on pipe A does: take from A's port, give to B's port
-            for (int slot = 0; slot < out.getSlots(); slot++) {
-                ItemStack taken = out.extractItem(slot, 64, false);
-                if (taken.isEmpty()) continue;
-                ItemStack left = in.insertItem(0, taken, false);
-                h.assertTrue(left.isEmpty(), "pipe B's network takes everything the bridge carries");
-            }
-            h.assertTrue(to.countItem(Items.DIAMOND) == 7, "diamonds cross the bridge, keeping 3 at the source; got "
-                    + to.countItem(Items.DIAMOND));
-            h.assertTrue(from.countItem(Items.DIAMOND) == 3, "the source keeps its 3 diamonds");
-            h.assertTrue(from.countItem(Items.DIRT) == 5 && to.countItem(Items.DIRT) == 0,
-                    "the Extract side's filter decides what the port offers");
-        });
-    }
-
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void movingSideReportsWorking(GameTestHelper h) {
         h.setBlock(SOURCE, Blocks.CHEST);

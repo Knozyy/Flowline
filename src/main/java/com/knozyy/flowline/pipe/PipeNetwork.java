@@ -1,6 +1,12 @@
 package com.knozyy.flowline.pipe;
 
 import com.knozyy.flowline.FlowlineConfig;
+import com.knozyy.flowline.curve.CurveEdge;
+import com.knozyy.flowline.curve.CurveNode;
+import com.knozyy.flowline.curve.Vec3d;
+import com.knozyy.flowline.curved.Anchor;
+import com.knozyy.flowline.curved.CurveData;
+import com.knozyy.flowline.curved.CurvedEnd;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -12,14 +18,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
+import java.util.PriorityQueue;
 import java.util.Random;
+import java.util.Set;
 import java.util.WeakHashMap;
 
 /**
- * Cached pipe networks. A {@link Graph} is one connected set of pipes of one type, built once by a flood fill and
- * shared by every extracting side in it. Changes (connections, modes, pipes placed, broken, loaded or unloaded) only
+ * Cached pipe networks. A {@link Graph} is one connected set of pipes of one type (block pipes and curved pipes),
+ * built once by a flood fill and shared by every extracting end in it. Changes (connections, modes, pipes placed, broken, loaded or unloaded) only
  * invalidate the graphs at and next to the changed position, so unrelated networks keep their caches. Target lists
  * are computed per extracting side from the graph's adjacency without touching the world again.
  */
@@ -27,51 +37,61 @@ public final class PipeNetwork {
     private static final Random RANDOM = new Random();
     /** Graph of every cached pipe position, per level. */
     private static final Map<Level, Map<BlockPos, Graph>> GRAPHS = new WeakHashMap<>();
+    /** Graph of every cached curved node, per level. */
+    private static final Map<Level, Map<Long, Graph>> NODE_GRAPHS = new WeakHashMap<>();
     /** Bumped on every invalidation; only used by tests and debugging. */
     private static long version = 0;
 
     private PipeNetwork() {}
 
     /**
-     * An INSERT side of some pipe: transfer into the block at {@code pipePos.relative(side)}. Holds a Forge
-     * capability cache for that block, so transfers do not look the block entity up again on every operation.
-     *
-     * @param pipe the pipe owning the side; its {@link SideConfig} carries the insert filter, priority and limit
-     * @param path pipes from the extracting pipe to {@code pipePos}, both included (for the travel animation)
+     * An INSERT end of the network: transfer into {@code port.block()}. Holds a Forge capability cache for that block,
+     * so transfers do not look the block entity up again on every operation.
      */
-    public record Target(BlockPos pipePos, Direction side, int distance, Caps caps, PipeBlockEntity pipe,
-                         List<BlockPos> path) {
+    public record Target(Port port, int distance, Caps caps) {
         public BlockPos endpointPos() {
-            return pipePos.relative(side);
+            return port.block();
         }
 
-        /** Direction from the endpoint towards the pipe, i.e. the face the endpoint is accessed from. */
+        /** The face the endpoint is accessed from. */
         public Direction access() {
-            return side.getOpposite();
+            return port.access();
         }
 
-        /** Configuration of the inserting side. */
+        /** Configuration of the inserting end: its insert filter, priority and limit. */
         public SideConfig insert() {
-            return pipe.side(side);
+            return port.cfg();
         }
     }
 
-    /** An EXTRACT side of some pipe: it pulls from the block at {@code pipePos.relative(side)} through {@code caps}. */
-    public record Source(BlockPos pipePos, Direction side, Caps caps, PipeBlockEntity pipe) {
+    /** An EXTRACT end of the network: it pulls from {@code port.block()} through {@code caps}. */
+    public record Source(Port port, Caps caps) {
         public SideConfig cfg() {
-            return pipe.side(side);
+            return port.cfg();
         }
     }
 
-    /** One connected pipe network. */
+    /** A vertex of a network: a block pipe, or a curved pipe node. */
+    public sealed interface Vertex permits PipeVertex, NodeVertex {}
+
+    public record PipeVertex(BlockPos pos) implements Vertex {}
+
+    public record NodeVertex(long id) implements Vertex {}
+
+    /** A step from one vertex to another; a curved edge weighs its rounded length. */
+    private record Link(Vertex to, int weight) {}
+
+    /** One connected pipe network: block pipes and curved nodes of one type. */
     public static final class Graph {
         final PipeType type;
-        /** Pipe position -> bit mask of directions leading to another pipe of the graph. */
-        final Map<BlockPos, Integer> links = new HashMap<>();
         final Map<BlockPos, PipeBlockEntity> pipes = new HashMap<>();
-        /** Target lists per extracting side, keyed by {@link #key}. */
+        final Set<Long> nodes = new HashSet<>();
+        /** Curved ends of the graph that touch a block holding what the type carries. */
+        final Map<Long, CurvedEnd> ends = new HashMap<>();
+        final Map<Vertex, List<Link>> links = new HashMap<>();
+        /** Target lists per extracting end, keyed by {@link Port#order()}. */
         final Map<Long, List<Target>> targets = new HashMap<>();
-        /** Every extracting side of the graph; built on first use. */
+        /** Every extracting end of the graph; built on first use. */
         List<Source> sources;
         boolean valid = true;
 
@@ -83,12 +103,21 @@ public final class PipeNetwork {
             return valid;
         }
 
+        /** Block pipes and curved nodes in the graph. */
         public int size() {
-            return pipes.size();
+            return pipes.size() + nodes.size();
         }
 
         public boolean contains(BlockPos pos) {
             return pipes.containsKey(pos);
+        }
+
+        public boolean containsNode(long id) {
+            return nodes.contains(id);
+        }
+
+        void link(Vertex from, Vertex to, int weight) {
+            links.computeIfAbsent(from, k -> new ArrayList<>()).add(new Link(to, weight));
         }
     }
 
@@ -100,14 +129,26 @@ public final class PipeNetwork {
         return GRAPHS.computeIfAbsent(level, l -> new HashMap<>());
     }
 
+    private static Map<Long, Graph> nodeGraphs(Level level) {
+        return NODE_GRAPHS.computeIfAbsent(level, l -> new HashMap<>());
+    }
+
     /** Call whenever something at {@code pos} changes that can affect networks there or next to it. */
     public static void invalidate(Level level, BlockPos pos) {
         if (level.isClientSide) return;
         version++;
         Map<BlockPos, Graph> map = GRAPHS.get(level);
         if (map == null || map.isEmpty()) return;
-        drop(map, map.get(pos));
-        for (Direction dir : Direction.values()) drop(map, map.get(pos.relative(dir)));
+        drop(level, map.get(pos));
+        for (Direction dir : Direction.values()) drop(level, map.get(pos.relative(dir)));
+    }
+
+    /** Call whenever curved node {@code id}, its edges or its end change. */
+    public static void invalidateNode(Level level, long id) {
+        if (level.isClientSide) return;
+        version++;
+        Map<Long, Graph> map = NODE_GRAPHS.get(level);
+        if (map != null) drop(level, map.get(id));
     }
 
     /** Forget every cached network, e.g. when the config changes. */
@@ -117,71 +158,137 @@ public final class PipeNetwork {
             map.values().forEach(g -> g.valid = false);
             map.clear();
         }
+        for (Map<Long, Graph> map : NODE_GRAPHS.values()) {
+            map.values().forEach(g -> g.valid = false);
+            map.clear();
+        }
     }
 
-    private static void drop(Map<BlockPos, Graph> map, Graph graph) {
+    private static void drop(Level level, Graph graph) {
         if (graph == null || !graph.valid) return;
         graph.valid = false;
-        for (BlockPos p : graph.pipes.keySet()) map.remove(p, graph);
+        Map<BlockPos, Graph> pipes = graphs(level);
+        for (BlockPos p : graph.pipes.keySet()) pipes.remove(p, graph);
+        Map<Long, Graph> nodes = nodeGraphs(level);
+        for (long n : graph.nodes) nodes.remove(n, graph);
     }
 
     /** The cached graph containing the pipe at {@code pos}, building it if needed. */
     public static Graph graphAt(ServerLevel level, BlockPos pos, PipeType type) {
-        Map<BlockPos, Graph> map = graphs(level);
-        Graph graph = map.get(pos);
+        return graphAt(level, new PipeVertex(pos), type);
+    }
+
+    private static Graph graphAt(ServerLevel level, Vertex origin, PipeType type) {
+        Graph graph = origin instanceof PipeVertex p ? graphs(level).get(p.pos())
+                : nodeGraphs(level).get(((NodeVertex) origin).id());
         if (graph != null && graph.valid && graph.type == type) return graph;
-        graph = build(level, pos, type);
+        graph = build(level, origin, type);
+        Map<BlockPos, Graph> pipes = graphs(level);
+        Map<Long, Graph> nodes = nodeGraphs(level);
+        // a size-capped flood fill can overlap an older graph: that one is out of date now
         for (BlockPos p : graph.pipes.keySet()) {
-            Graph old = map.put(p, graph);
-            // a size-capped flood fill can overlap an older graph: that one is out of date now
-            if (old != null && old != graph) drop(map, old);
+            Graph old = pipes.get(p);
+            if (old != null && old != graph) drop(level, old);
         }
-        for (BlockPos p : graph.pipes.keySet()) map.put(p, graph);
+        for (long n : graph.nodes) {
+            Graph old = nodes.get(n);
+            if (old != null && old != graph) drop(level, old);
+        }
+        for (BlockPos p : graph.pipes.keySet()) pipes.put(p, graph);
+        for (long n : graph.nodes) nodes.put(n, graph);
         return graph;
     }
 
-    private static Graph build(ServerLevel level, BlockPos origin, PipeType type) {
+    private static Vertex vertexOf(Port port) {
+        if (port instanceof PipeSidePort side) return new PipeVertex(side.pipe().getBlockPos());
+        if (port instanceof CurvedEnd end) return new NodeVertex(end.nodeId());
+        throw new IllegalArgumentException("unknown port " + port);
+    }
+
+    private static boolean loaded(ServerLevel level, Vec3d p) {
+        return level.isLoaded(BlockPos.containing(p.x(), p.y(), p.z()));
+    }
+
+    /**
+     * Flood fill from {@code origin}: block pipes through their pipe connections, a block pipe face with a curved node
+     * on it to that node, curved nodes along their edges of the same type, and a curved node on a block pipe face back
+     * to that pipe. Curved nodes in unloaded chunks are left out, like unloaded block pipes.
+     */
+    private static Graph build(ServerLevel level, Vertex origin, PipeType type) {
         Graph graph = new Graph(type);
-        int maxPipes = FlowlineConfig.MAX_NETWORK_SIZE.get();
-        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        CurveData curves = CurveData.get(level);
+        int maxSize = FlowlineConfig.MAX_NETWORK_SIZE.get();
+        Set<Vertex> seen = new HashSet<>();
+        ArrayDeque<Vertex> queue = new ArrayDeque<>();
         queue.add(origin);
         while (!queue.isEmpty()) {
-            BlockPos pos = queue.poll();
-            if (graph.pipes.containsKey(pos)) continue;
-            BlockState state = level.getBlockState(pos);
-            if (!(state.getBlock() instanceof PipeBlock pipe) || pipe.type() != type) continue;
-            if (!(level.getBlockEntity(pos) instanceof PipeBlockEntity be)) continue;
-            if (graph.pipes.size() >= maxPipes) break;
-            graph.pipes.put(pos.immutable(), be);
-            int mask = 0;
-            for (Direction dir : Direction.values()) {
-                if (state.getValue(PipeBlock.prop(dir)) != Conn.PIPE) continue;
-                BlockPos next = pos.relative(dir);
-                if (!level.isLoaded(next)) continue;
-                mask |= 1 << dir.ordinal();
-                if (!graph.pipes.containsKey(next)) queue.add(next);
+            Vertex vertex = queue.poll();
+            if (!seen.add(vertex)) continue;
+            if (graph.size() >= maxSize) break;
+            if (vertex instanceof PipeVertex pv) {
+                BlockPos pos = pv.pos();
+                BlockState state = level.getBlockState(pos);
+                if (!(state.getBlock() instanceof PipeBlock pipe) || pipe.type() != type) continue;
+                if (!(level.getBlockEntity(pos) instanceof PipeBlockEntity be)) continue;
+                graph.pipes.put(pos.immutable(), be);
+                for (Direction dir : Direction.values()) {
+                    if (state.getValue(PipeBlock.prop(dir)) != Conn.PIPE) continue;
+                    OptionalLong node = curves.nodeAtPipeFace(pos, dir);
+                    Vertex next;
+                    if (node.isPresent()) {
+                        next = new NodeVertex(node.getAsLong());
+                    } else {
+                        BlockPos neighbour = pos.relative(dir);
+                        if (!level.isLoaded(neighbour)) continue;
+                        next = new PipeVertex(neighbour.immutable());
+                    }
+                    graph.link(vertex, next, 1);
+                    queue.add(next);
+                }
+            } else {
+                long id = ((NodeVertex) vertex).id();
+                CurveNode node = curves.graph().node(id).orElse(null);
+                if (node == null || curves.nodeType(id) != type || !loaded(level, node.pos())) continue;
+                graph.nodes.add(id);
+                Anchor anchor = curves.anchor(id);
+                if (anchor instanceof Anchor.PipeFace face && level.isLoaded(face.pos())) {
+                    BlockState state = level.getBlockState(face.pos());
+                    if (state.getBlock() instanceof PipeBlock pipe && pipe.type() == type
+                            && state.getValue(PipeBlock.prop(face.face())) == Conn.PIPE) {
+                        Vertex next = new PipeVertex(face.pos());
+                        graph.link(vertex, next, 1);
+                        queue.add(next);
+                    }
+                } else if (anchor instanceof Anchor.BlockFace face) {
+                    CurvedEnd end = curves.end(id).orElse(null);
+                    if (end != null && level.isLoaded(face.pos()) && type.hasEndpoint(level, face.pos(), face.face())) {
+                        graph.ends.put(id, end);
+                    }
+                }
+                for (CurveEdge edge : curves.graph().edgesAt(id)) {
+                    if (curves.info(edge.id()).type() != type) continue;
+                    long other = edge.from() == id ? edge.to() : edge.from();
+                    CurveNode far = curves.graph().node(other).orElse(null);
+                    if (far == null || !loaded(level, far.pos())) continue;
+                    Vertex next = new NodeVertex(other);
+                    graph.link(vertex, next, Math.max(1, edge.shape().cost()));
+                    queue.add(next);
+                }
             }
-            graph.links.put(pos.immutable(), mask);
         }
         return graph;
     }
 
-    private static long key(BlockPos origin, Direction side) {
-        return origin.asLong() * 8 + side.ordinal();
-    }
-
-    /** Targets for an extracting side in distribution order; uses the side's graph while it is valid. */
-    public static List<Target> targets(ServerLevel level, BlockPos origin, Direction extractSide, PipeType type,
-                                       SideConfig cfg) {
+    /** Targets for an extracting end in distribution order; uses the end's graph while it is valid. */
+    public static List<Target> targets(ServerLevel level, Port origin, SideConfig cfg) {
         if (cfg.graph == null || !cfg.graph.valid || cfg.cachedTargets == null) {
-            cfg.graph = graphAt(level, origin, type);
-            cfg.cachedTargets = cfg.graph.targets.computeIfAbsent(key(origin, extractSide),
-                    k -> scan(level, cfg.graph, origin, extractSide, type));
+            cfg.graph = graphAt(level, vertexOf(origin), origin.type());
+            cfg.cachedTargets = cfg.graph.targets.computeIfAbsent(origin.order(), k -> scan(level, cfg.graph, origin));
         }
         return order(new ArrayList<>(cfg.cachedTargets), cfg);
     }
 
-    /** Every extracting side of the network the pipe at {@code pos} belongs to, in a stable order. */
+    /** Every extracting end of the network the pipe at {@code pos} belongs to, in a stable order. */
     public static List<Source> sources(ServerLevel level, BlockPos pos, PipeType type) {
         Graph graph = graphAt(level, pos, type);
         if (graph.sources == null) {
@@ -192,64 +299,69 @@ public final class PipeNetwork {
                 BlockState state = be.getBlockState();
                 for (Direction dir : Direction.values()) {
                     if (state.getValue(PipeBlock.prop(dir)).isEndpoint() && be.side(dir).mode == SideMode.EXTRACT) {
-                        sources.add(new Source(pipePos, dir,
-                                Caps.create(type, level, pipePos.relative(dir), dir.getOpposite()), be));
+                        sources.add(new Source(new PipeSidePort(be, dir),
+                                Caps.create(type, level, pipePos.relative(dir), dir.getOpposite())));
                     }
                 }
             }
-            sources.sort(Comparator.comparingLong((Source s) -> s.pipePos().asLong()).thenComparingInt(s -> s.side().ordinal()));
+            for (CurvedEnd end : graph.ends.values()) {
+                if (end.cfg().mode == SideMode.EXTRACT) {
+                    sources.add(new Source(end, Caps.create(type, level, end.block(), end.access())));
+                }
+            }
+            sources.sort(Comparator.comparingLong((Source s) -> s.port().order()));
             graph.sources = List.copyOf(sources);
         }
         return graph.sources;
     }
 
-    /** Breadth-first search over the graph's links: distances, paths and every inserting side. */
-    private static List<Target> scan(ServerLevel level, Graph graph, BlockPos origin, Direction extractSide,
-                                     PipeType type) {
-        List<Target> targets = new ArrayList<>();
-        Map<BlockPos, BlockPos> parent = new HashMap<>();
-        Map<BlockPos, Integer> depth = new HashMap<>();
-        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
-        BlockPos start = origin.immutable();
-        queue.add(start);
-        depth.put(start, 0);
+    private record Visit(Vertex vertex, int distance, long sequence) {}
 
+    /** Shortest distances over the graph's links (Dijkstra) and every inserting end, nearest first. */
+    private static List<Target> scan(ServerLevel level, Graph graph, Port origin) {
+        PipeType type = graph.type;
+        List<Target> targets = new ArrayList<>();
+        Map<Vertex, Integer> best = new HashMap<>();
+        Set<Vertex> done = new HashSet<>();
+        PriorityQueue<Visit> queue = new PriorityQueue<>(Comparator.comparingInt(Visit::distance)
+                .thenComparingLong(Visit::sequence));
+        long sequence = 0;
+        Vertex start = vertexOf(origin);
+        queue.add(new Visit(start, 0, sequence++));
+        best.put(start, 0);
         while (!queue.isEmpty()) {
-            BlockPos pos = queue.poll();
-            int dist = depth.get(pos);
-            PipeBlockEntity be = graph.pipes.get(pos);
-            if (be == null) continue;
-            int mask = graph.links.getOrDefault(pos, 0);
-            BlockState state = be.getBlockState();
-            for (Direction dir : Direction.values()) {
-                if ((mask & (1 << dir.ordinal())) != 0) {
-                    BlockPos next = pos.relative(dir);
-                    if (graph.pipes.containsKey(next) && !depth.containsKey(next)) {
-                        depth.put(next, dist + 1);
-                        parent.put(next, pos);
-                        queue.add(next);
-                    }
-                } else if (state.getValue(PipeBlock.prop(dir)).isEndpoint()
-                        && be.side(dir).mode == SideMode.INSERT
-                        && !(pos.equals(start) && dir == extractSide)) {
-                    targets.add(new Target(pos, dir, dist, Caps.create(type, level, pos.relative(dir), dir.getOpposite()),
-                            be, path(parent, start, pos)));
+            Visit visit = queue.poll();
+            Vertex vertex = visit.vertex();
+            if (!done.add(vertex)) continue;
+            int dist = visit.distance();
+            if (vertex instanceof PipeVertex pv) {
+                BlockPos pos = pv.pos();
+                PipeBlockEntity be = graph.pipes.get(pos);
+                if (be == null) continue;
+                BlockState state = be.getBlockState();
+                for (Direction dir : Direction.values()) {
+                    if (!state.getValue(PipeBlock.prop(dir)).isEndpoint() || be.side(dir).mode != SideMode.INSERT) continue;
+                    if (origin instanceof PipeSidePort side && side.pipe() == be && side.side() == dir) continue;
+                    targets.add(new Target(new PipeSidePort(be, dir), dist,
+                            Caps.create(type, level, pos.relative(dir), dir.getOpposite())));
+                }
+            } else {
+                CurvedEnd end = graph.ends.get(((NodeVertex) vertex).id());
+                if (end != null && end != origin && end.cfg().mode == SideMode.INSERT) {
+                    targets.add(new Target(end, dist, Caps.create(type, level, end.block(), end.access())));
+                }
+            }
+            for (Link link : graph.links.getOrDefault(vertex, List.of())) {
+                int next = dist + link.weight();
+                if (next < best.getOrDefault(link.to(), Integer.MAX_VALUE)) {
+                    best.put(link.to(), next);
+                    queue.add(new Visit(link.to(), next, sequence++));
                 }
             }
         }
         // Deterministic base order so round-robin is stable between operations.
-        targets.sort(Comparator.comparingInt(Target::distance)
-                .thenComparingLong(t -> t.pipePos().asLong())
-                .thenComparingInt(t -> t.side().ordinal()));
+        targets.sort(Comparator.comparingInt(Target::distance).thenComparingLong(t -> t.port().order()));
         return List.copyOf(targets);
-    }
-
-    private static List<BlockPos> path(Map<BlockPos, BlockPos> parent, BlockPos start, BlockPos end) {
-        List<BlockPos> path = new ArrayList<>();
-        for (BlockPos p = end; p != null && path.size() < 256; p = p.equals(start) ? null : parent.get(p)) path.add(p);
-        if (path.isEmpty() || !path.get(path.size() - 1).equals(start)) return List.of();
-        Collections.reverse(path);
-        return List.copyOf(path);
     }
 
     private static List<Target> order(List<Target> targets, SideConfig cfg) {

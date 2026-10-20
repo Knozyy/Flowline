@@ -75,5 +75,7 @@ public final class ClientSetup {
     @SubscribeEvent
     public static void registerKeys(RegisterKeyMappingsEvent event) {
         event.register(Keys.BUILD);
+        event.register(Keys.OPTIONS);
+        event.register(Keys.NO_SNAP);
     }
 }

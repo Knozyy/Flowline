@@ -1,39 +1,78 @@
-# Flowline ve gerçek Curvy Pipes motoru
+# Flowline kıvrımlı boruları
 
-Flowline 0.3.0, **Minecraft 1.20.1** için geliştirilmiştir. **Curvy Pipes isteğe bağlıdır.** Curvy 1.15.8 varsa aynı Flowline eşya/sıvı/enerji borusu item'ları Curvy yerleşimini de destekler. Curvy yoksa iki elde de normal blok yerleşimi çalışır. Ayrı kıvrımlı item, creative girişi veya dönüşüm tarifi yoktur. Çok oyunculuda Curvy hem istemcide hem sunucuda kurulu olmalıdır. Render, önizleme, seçim, radyal menü, hizalama, fizik, uç ayarları, aktarım ve kayıt gerçek Curvy native motorunda çalışır.
+Flowline 0.3.13'ten itibaren kıvrımlı borular **Flowline'ın kendi özelliğidir**; başka bir mod gerekmez (Curvy Pipes
+kurulu olsa bile iki mod birbirine karışmaz). Ayrı kıvrımlı item, tarif ya da creative girişi yoktur: aynı
+`flowline:*_pipe` item'ları hem blok borusu hem kıvrımlı hat döşer. Eşya, sıvı, enerji, universal ve (Mekanism varsa)
+kimyasal borular kıvrımlı döşenebilir.
 
-## Kullanım
+Kıvrımın biçimi, birleşme (joint) kuralları, çarpışma ve maliyet Curvy Pipes 1.15.8'in statik olarak çözülmüş
+davranışıyla aynıdır (`CurvyAdditionForFlowLine/docs` altındaki RE raporları). Curvy'nin kodu kopyalanmadı; yalnız
+formüller, eşikler ve kurallar alınıp Java'da sıfırdan yazıldı.
 
-- **Sağ el:** boru her zaman normal Flowline blok borusu yerleştirir; Curvy sağ elde açılmaz.
-- **Sol el, iki mod:** mod tuşu (varsayılan **B**, Controls'tan değiştirilebilir) **Build for Me ↔ Curvy** arasında geçer; seçili mod nişangâhın altında yazar. Sağ tık seçili modun işini yapar; sağ el boş ya da tıklamayı kullanmayan bir eşya olmalı.
-  - **Build for Me:** bakılan bloktan sana giden rota hayalet borularla ve gereken boru sayısıyla gösterilir, **sağ tık kurar**. Elinde yetmeyen kısım soluk çizilir. İlk uygun durumda gösterilen ipucu 8 saniye sürer; `config/flowline-client.toml` içindeki `buildForMeHintSeen` ile saklanır.
-  - **Curvy:** Curvy'nin kendi HUD'ı, önizlemesi, yerleşimi ve düzenleyicisi sol eldeki boruyla çalışır.
-  - **Universal boru:** bir Curvy hattı tek bir şey taşıdığı için mod tuşu **Build for Me → Curvy: Eşya → Curvy: Sıvı →
-    Curvy: Enerji** sırasıyla döner; hat seçilen kanalda kurulur ve universal boruyla ödenir.
-- **Curvy yokken:** sağ el blok borusu, sol el yalnız Build for Me.
-- **Curvy hattı Flowline borusuna takılınca** o borunun ağına bağlanır: Curvy oradan çekerse ağın Çek taraflarının bağlı olduğu envanterlerden (filtre ve "bırak ≥" geçerli), verirse ağın Ekle hedeflerine dağıtılır. İki Flowline borusu arasındaki hat iki ağ arasında köprüdür. Hattın kaynak ucu Curvy menüsünden bir kez **Extract** yapılmalıdır; Curvy yalnız etkin uçlardan taşır ([Curvy'ye istek](https://github.com/cyb0124/CurvyPipes-Issues/issues/27)).
-- Orta tık Curvy hizalama desenlerini değiştirir; Shift ters yönde çevirir. Düğüm düzenleme, taşıma, keskin eklem ve silme gerçek radyal menüdedir.
-- Uçtaki aktarım ayarları ve filtreler Curvy'nindir: Passive / Extract / Retrieve, ID regex ve miktar düzenleme. Şeffaf item borusu için Curvy'nin glass ile değiştirme davranışı kullanılır.
-- Normal Flowline boruları sıradan blok yerleşimini, Flowline filtre/upgrade ekranını ve sol eldeki Build for Me modunu kullanır.
+## El düzeni ve tuşlar
 
-Curvy'nin yerel lojistik türleri item, fluid ve FE'dir. Universal boru için her kanala bir gizli native tanım (`flowline_universal_item_pipe`, `_fluid_`, `_energy_`) eklenir; malzemesi universal borunun kendisidir ve elde universal boru varken Curvy'nin `itemId` sorgusu seçilen kanalın tanımını döndürür. Mekanism chemical boruları normal blok borusu olarak kalır. Yeni kıvrımlı ağlar Flowline blok ağından ayrıdır ve Flowline upgrade'lerini kullanmaz. Curvy'nin kurulu AE2/GregTech/ComputerCraft entegrasyonları kendi ayarlarına göre çalışır.
+- **Sağ el:** boru her zaman tek blok borusu yerleştirir.
+- **Sol el:** mod tuşu (varsayılan **B**) **Build for Me ↔ Kıvrımlı** arasında geçer; seçili mod nişangâhın altında
+  yazar. Sağ el boş olmalı (sağ eldeki boru blok koyar, sağ eldeki başka bir blok kendini koyar).
 
-## Entegrasyon
+Kıvrımlı modda (hepsi Controls'tan değiştirilebilir):
 
-Curvy'nin Java config yükleme çağrısına mixin eklenir. Kullanıcının YAML'ı bellekte okunur; mevcut borular, tarifler ve diğer mod entegrasyonu ayarları korunarak altı yerel Curvy boru tanımı eklenir (eşya, sıvı, enerji ve universal'ın üç kanalı). **Kullanıcının `curvy_pipes.yaml` dosyası yazılmaz.** Yalnızca Curvy'nin kendisi kendi default dosyasını normal şekilde üretir.
+| Tuş | İş |
+| --- | --- |
+| Sağ tık | Hattı başlat (blok yüzü, boru yüzü, var olan düğüm, var olan kıvrımlı boru ya da hava), havada nokta ekle, yüzde, düğümde ya da kıvrımlı boruda bitir. Kıvrımlı borunun ortasına bağlanınca boru orada bölünür ve üç kenarlı bir birleşme olur |
+| Shift + sağ tık | Havada bitir |
+| Sol tık (basılı) | Bakılan kıvrımlı kenarı ya da düğümü blok gibi kır (her modda): survival'da borunun kazma süresi kadar basılı tutulur ve borular yere düşer; creative'de anında kırılır, bir şey düşmez |
+| Orta tık / Shift + orta tık | Izgara modu ileri / geri: kapalı, eksenler, dış köşeler, iç köşeler, dış kenarlar, iç kenarlar |
+| Sol Ctrl basılı | Düğüm/kenar/yüze yapışmayı kapat; yalnız havadaki ızgara |
+| Sol Alt basılı + tekerlek | Seçenek çarkı: Sil, Dallandır, Uzat, Taşı, Birleşme yap (force joint), Ayarlar; bırakınca bakılan düğüme/kenara uygulanır |
+| Esc ya da B | Yarım hattı (ya da taşımayı) bırak |
 
-Native tanımların gerçek item kayıtları mevcut `flowline:item_pipe`, `flowline:fluid_pipe`, `flowline:energy_pipe` kimliklerine bağlanır. Curvy kuruluysa bu item'lar gerçek `BuiltInPipeItem` nesneleridir; normal blok yerleşimi de aynı nesneyle çalışır. Curvy'nin stok toplama, tüketim ve iade işlemleri doğrudan oyuncunun aynı boru stack'lerini kullanır. Forge kayıt eşlemesi yenilendiğinde normal blokların item eşlemesi tekrar bağlanır. Claim/koruma olayları normal yerleşim ve Build for Me için çalışmaya devam eder.
+- **Taşı:** çarktan Taşı seçilince sonraki sağ tık düğümü bakılan yere taşır (blok yüzüne ya da havaya); sol tık
+  vazgeçer.
+- **Dallandır:** düğümden yeni hat başlatır; bir kenarda önce oraya düğüm ekler (o düğümden sonra sağ tıkla devam
+  edilir).
+- Ekranda: mod adı, sağ tıkın ne yapacağı, ızgara, hattın maliyeti (eldeki boru yetmiyorsa kırmızı) ve sunucunun son
+  cevabı 3 saniye. Önizleme tüpü istemcinin gördüğü bir sorun varsa kırmızıdır; reddi metinle yalnız sunucu söyler.
 
-Native palette adları önceki Curvy kayıtlarını korumak için `flowline_item_pipe`, `flowline_fluid_pipe`, `flowline_energy_pipe` olarak kalır; bunlar ayrı kayıtlı item'lar değildir. Önceki çift-item sürümünden kalan `curvy_pipes:flowline_*_pipe` envanter kayıtları mevcut Flowline item'larına eşlenir. Çap 0.2 blok; varsayılan item hızı 16/30 item/tick, fluid hızı 1000/30 mB/tick, enerji hızı 8000 FE/tick. Bunlar Curvy throughput değerleridir; Flowline'ın adaptif aralık/upgrade ayarlarıyla eşdeğer davranış iddiası yoktur. Dokular Flowline'ın cam kanal tasarımını (soluk cam, dört renkli ray) kullanır; universal'ın kanallarında kanal rengi bir şerit vardır. Mesh tamamen Curvy'nindir.
+## Ağ
 
-Java köprüsündeki hook sürüme bağlı olduğu için isteğe bağlı Curvy entegrasyonu tam **1.15.8** sürümüne sabitlenmiştir. Kaynak kod veya native binary kopyalanmaz. [Gerekli Curvy sürümü ve resmi Maven koordinatı](https://www.curseforge.com/minecraft/mc-mods/curvy-pipes/files/8822563).
+- Kıvrımlı hat değdiği blok borularıyla **aynı ağın** parçasıdır. Sandıktaki tek bir Extract tarafı, kıvrımlar dahil
+  bütün ağı çalıştırır; ayrı bir Extract/Insert adımı yoktur.
+- Uç nereye bağlıysa ona göre davranır:
+  - **Envanter yüzü** (sandık, tank, makine): uç bir boru tarafıdır. Aynı ekran, wrench (Shift + sağ tık mod
+    değiştirir), Filter Card ve upgrade'ler. Ekranda yan sekmeler yoktur.
+  - **Blok borusu yüzü:** o yüz bağlantı olur, uç yalnız taşır.
+  - **Başka bir blok yüzü:** uç yalnız hattı tutar.
+  - **Hava:** serbest düğüm ya da üç ve daha fazla kenarın birleştiği (ya da keskin dönen) metal gövdeli birleşme; her boru girişinde bir flanş.
+- Kıvrımlı boru yalnız kendi türündeki ve uyumlu renkteki borulara bağlanır. Boya blok borusundaki gibidir: aynı boya
+  ikinci kez silerek kaldırır.
+- Hedef sıralamasında kıvrımlı kenarın mesafesi `max(1, maliyet)` adımdır.
+
+## Dünya
+
+- Kıvrımın geçtiği yere konan ya da itilen blok (komşusuna haber vermeyen değişimler dahil) bir sonraki tick'te o
+  kenarı kırar; borular orada düşer.
+- Ucun bağlı olduğu blok kırılırsa uç bağlı kalır ve ayarlarını korur (kullanıcı kararı, 2026-10-19); taşımada o
+  tarafta envanter bulunmaz.
+- Oyuncular, canlılar, eşyalar ve düşen bloklar kıvrımlı boruların üstünde durur ve onlara çarpar. **Yaklaşık:** eğik
+  bir segmentte çarpışma kutusu camın en çok 2 piksel dışına taşar.
+- Koruma modları (claim) yerleşimde ve kırmada blok borusundaki gibi sorulur.
 
 ## Eski dünyalar
 
-Önceki bağımsız Flowline sisteminin `flowline_curves.dat` kayıtları Curvy'nin native kayıt formatına otomatik çevrilmez. **Eski hatlar bu sürümde görünmez ve aktarım yapmaz.** Dosya silinmez veya üzerine yazılmaz. Eski hatları ve upgrade'leri geri almak için önce eski Flowline sürümüyle dünyayı açıp hatları sökmek gerekir; sonra yeni motorla yeniden kurulur. Curvy'nin zaten var olan `curvy_pipes.dat` kayıtları kendi motoru tarafından normal şekilde yüklenir.
+- Önceki bağımsız Flowline sisteminin `flowline_curves.dat` kayıtları çevrilmez; eski hatlar görünmez ve aktarım
+  yapmaz, dosya silinmez. Oyun bunu bir kez mesajla söyler.
+- Curvy Pipes ile kurulmuş hatlar (Curvy'nin `curvy_pipes.dat`) Flowline'a aktarılmaz.
+- Yeni kayıt dünya başına `flowline_curved_pipes` (SavedData).
 
-## Dağıtım ve doğrulama
+## Doğrulama
 
-`gradlew build` sonucu dağıtım dosyası `build/libs/flowline-<sürüm>+1.20.1.jar`; YAML kütüphanesi içindedir. `-slim.jar` dağıtım için kullanılmaz. Kıvrımlı özellik isteniyorsa Curvy Pipes JAR'ı ayrıca kurulur. Geliştirme ve GameTest çalıştırmaları varsayılan olarak Curvy içermez; `-PwithCurvy` eklenince gerçek motor yüklenir.
-
-Doğrulama testleri aynı item'ın normal blok yerleştirmesini, su içinde yerleşmesini, tüketimini, kırılınca geri gelmesini ve koruma modları tarafından reddedilmesini kontrol eder. Curvy yüklüyken native motorun mevcut Flowline kimliklerini tanıması, gerçek envanter stack'lerini tüketip iade etmesi, sağ/sol el ayrımı ve fazladan item/tarif bulunmaması da sınanır. Universal borunun her kanalda native motor tarafından tanındığı da sınanır. Oyun içi render, shader uyumu ve FPS GameTest'lerle ölçülemez; istemcide gözle kontrol edilir.
+- 194 GameTest (normal ve `-PwithMekanism`): geometri ve çözücü, yerleşim kuralları ve hata kodları, maliyet ve
+  iade, koruma reddi, kayıt/yeniden yükleme, ağ (tek Extract, mesafe, ayrılma, redstone, yüklenmemiş chunk), kıvrımlı uç
+  ekranı/wrench/Filter Card, boyama, dünya değişimleri, varlık çarpışması, istemci karar fonksiyonları.
+- Eşya, sıvı ve enerji aktarımı kıvrımdan iki yönde test edilir (blok boru kıvrım üzerinden çeker; kıvrımlı uç blok
+  borulara çeker); universal kıvrım üçünü birlikte taşır. Kimyasal kıvrımlar aynı ağ kodunu kullanır ama ayrı oyun
+  içi testi yoktur.
+- **Gözle doğrulanmadı:** görünüm (cam kanal, raylar, yaka/halka, metal birleşme ve flanşlar), blok–kıvrım geçişi, önizleme, HUD,
+  tuşlar, seçenek çarkı, havada orta tık, istemcide varlık çarpışması, shader uyumu ve FPS. Bunlar grafik istemcide
+  kontrol edilmeli.

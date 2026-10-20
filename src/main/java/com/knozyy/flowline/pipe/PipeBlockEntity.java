@@ -93,9 +93,7 @@ public class PipeBlockEntity extends BlockEntity {
 
     /** Extracting sides take every upgrade; inserting sides only Filter upgrades (for more insert rules). */
     public boolean accepts(Direction dir, ItemStack stack) {
-        UpgradeType upgrade = UpgradeItem.typeOf(stack);
-        if (upgrade == null) return false;
-        return side(dir).mode == SideMode.EXTRACT || upgrade == UpgradeType.FILTER;
+        return SideUpgrades.accepts(side(dir), stack);
     }
 
     /** Puts one upgrade into the first free slot of a side. @return false if all slots are taken. */
@@ -140,26 +138,7 @@ public class PipeBlockEntity extends BlockEntity {
 
     /** Each side's Speed, Stack and Filter counts mirror the upgrade items in its slots. */
     private void syncUpgrades() {
-        for (Direction dir : Direction.values()) {
-            SideConfig cfg = sides[dir.ordinal()];
-            int speed = 0;
-            int stack = 0;
-            int filter = 0;
-            for (int i = 0; i < SideConfig.UPGRADE_SLOTS; i++) {
-                UpgradeType type = UpgradeItem.typeOf(getUpgrade(dir, i));
-                if (type != null) {
-                    speed += type.speed;
-                    stack += type.stack;
-                    filter += type.filter;
-                }
-            }
-            cfg.filterCount = filter;
-            if (speed != cfg.speedCount || stack != cfg.stackCount) {
-                cfg.speedCount = speed;
-                cfg.stackCount = stack;
-                cfg.wake();
-            }
-        }
+        for (Direction dir : Direction.values()) SideUpgrades.sync(sides[dir.ordinal()], upgrades, upgradeSlot(dir, 0));
     }
 
     // ---- connections, colour ----------------------------------------------------------------------------
@@ -223,8 +202,7 @@ public class PipeBlockEntity extends BlockEntity {
         // The level's state, not the cached one: connection updates must be visible here immediately.
         BlockState state = level.getBlockState(worldPosition);
         if (!(state.getBlock() instanceof PipeBlock)) return;
-        Boolean signal = null;
-
+        boolean[] signal = new boolean[2];   // {looked up, value}: at most once per tick, only if a side needs it
         for (Direction dir : Direction.values()) {
             SideConfig cfg = sides[dir.ordinal()];
             if (cfg.mode != SideMode.EXTRACT || !state.getValue(PipeBlock.prop(dir)).isEndpoint()) {
@@ -232,53 +210,13 @@ public class PipeBlockEntity extends BlockEntity {
                 cfg.signalling = false;
                 continue;
             }
-            if (cfg.redstone == RedstoneMode.PULSE) {
-                if (cfg.pulsePending) {
-                    cfg.pulsePending = false;
-                    long pulsed = operate(level, dir, cfg, 1);
-                    cfg.lastMoved = pulsed;
-                    cfg.lastBlocked = false;
-                    cfg.signalling = signalAfter(level, dir, cfg, pulsed, false);
+            SideTick.tick(level, new PipeSidePort(this, dir), () -> {
+                if (!signal[0]) {
+                    signal[0] = true;
+                    signal[1] = level.hasNeighborSignal(worldPosition);
                 }
-                continue;
-            }
-            if (cfg.sleeping) {
-                if (cfg.graph != null && cfg.graph.valid()) continue;
-                cfg.sleeping = false;
-                cfg.interval = Pacing.start(cfg.speedCount);
-                cfg.cooldown = 1;
-            }
-            if (cfg.interval < 0) {
-                // First run: stagger sides so pipes placed together do not all work on the same tick.
-                cfg.interval = Pacing.start(cfg.speedCount);
-                cfg.cooldown = 1 + level.random.nextInt(cfg.interval);
-            }
-            if (--cfg.cooldown > 0) continue;
-
-            long moved = 0;
-            boolean blocked = false;
-            if (cfg.redstone != RedstoneMode.IGNORED) {
-                if (signal == null) signal = level.hasNeighborSignal(worldPosition);
-                blocked = !cfg.redstone.allows(signal);
-            }
-            if (!blocked) {
-                moved = operate(level, dir, cfg, cfg.interval);
-                if (moved < 0) {   // asleep
-                    cfg.lastMoved = moved;
-                    cfg.lastBlocked = false;
-                    cfg.signalling = signalAfter(level, dir, cfg, moved, false);
-                    continue;
-                }
-            }
-            cfg.lastMoved = moved;
-            cfg.lastBlocked = blocked;
-            cfg.signalling = signalAfter(level, dir, cfg, moved, blocked);
-            cfg.interval = moved <= 0 ? Pacing.afterIdle(cfg.interval, cfg.speedCount)
-                    // energy flows every tick while there is work, like a cable: many sources only give one
-                    // tick's worth per call, so a slower pipe would get less out of them
-                    : type == PipeType.ENERGY ? 1
-                    : Pacing.afterWork(cfg.interval, cfg.speedCount);
-            cfg.cooldown = cfg.interval;
+                return signal[1];
+            });
         }
 
         boolean emit = false;
@@ -301,21 +239,6 @@ public class PipeBlockEntity extends BlockEntity {
         }
     }
 
-    /** Whether a side's redstone output condition holds after an operation that moved {@code moved} (-1: asleep). */
-    private boolean signalAfter(ServerLevel level, Direction dir, SideConfig cfg, long moved, boolean blocked) {
-        return switch (cfg.signal) {
-            case OFF -> false;
-            case MOVING -> moved > 0;
-            case STUCK -> {
-                if (blocked || moved > 0) yield false;
-                if (cfg.sourceCaps == null) {
-                    cfg.sourceCaps = Caps.create(type, level, worldPosition.relative(dir), dir.getOpposite());
-                }
-                yield type.hasWork(cfg.sourceCaps, cfg);
-            }
-        };
-    }
-
     /** Whether the pipe gives a redstone signal (see {@link SideConfig#signal}). */
     public boolean emitsSignal() {
         return emitting;
@@ -329,21 +252,6 @@ public class PipeBlockEntity extends BlockEntity {
         return false;
     }
 
-    /**
-     * One operation of an extracting side.
-     *
-     * @return amount moved, or -1 if there is no target and the side went to sleep
-     */
-    private long operate(ServerLevel level, Direction dir, SideConfig cfg, int elapsed) {
-        List<PipeNetwork.Target> targets = PipeNetwork.targets(level, worldPosition, dir, type, cfg);
-        if (targets.isEmpty()) {
-            cfg.sleeping = true;
-            return -1;
-        }
-        BlockPos source = worldPosition.relative(dir);
-        if (cfg.sourceCaps == null) cfg.sourceCaps = Caps.create(type, level, source, dir.getOpposite());
-        return type.transfer(level, source, cfg.sourceCaps, cfg, targets, elapsed);
-    }
 
     // ---- world hooks --------------------------------------------------------------------------------------
 

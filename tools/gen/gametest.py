@@ -1,4 +1,4 @@
-"""The empty GameTest structure."""
+"""The air-only GameTest structures: empty (6×3×3) and curve (9×6×9, room for curved pipes)."""
 from gen.common import *  # noqa: F401,F403
 from gen.textures import *  # noqa: F401,F403
 from gen.models import *  # noqa: F401,F403
@@ -28,7 +28,8 @@ def nbt_empty_structure(size):
     return gzip.compress(b"\x0a" + name("") + body + b"\x00", mtime=0)
 
 
-full = os.path.join(ROOT, "data", MODID, "structures", "empty.nbt")
-os.makedirs(os.path.dirname(full), exist_ok=True)
-with open(full, "wb") as f:
-    f.write(nbt_empty_structure([6, 3, 3]))
+for structure, size in (("empty", [6, 3, 3]), ("curve", [9, 6, 9])):
+    full = os.path.join(ROOT, "data", MODID, "structures", structure + ".nbt")
+    os.makedirs(os.path.dirname(full), exist_ok=True)
+    with open(full, "wb") as f:
+        f.write(nbt_empty_structure(size))

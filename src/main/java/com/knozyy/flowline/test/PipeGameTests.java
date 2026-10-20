@@ -526,9 +526,8 @@ public class PipeGameTests {
         source.tank.fill(new FluidStack(Fluids.WATER, 1000), IFluidHandler.FluidAction.EXECUTE);
         PipeBlockEntity pipe = be(helper, FIRST_PIPE);
         Caps sourceCaps = Caps.create(PipeType.FLUID, helper.getLevel(), source.getBlockPos(), Direction.EAST);
-        PipeNetwork.Target target = new PipeNetwork.Target(pipe.getBlockPos(), Direction.EAST, 0,
-                Caps.create(PipeType.FLUID, helper.getLevel(), destination.getBlockPos(), Direction.WEST), pipe,
-                List.of(pipe.getBlockPos()));
+        PipeNetwork.Target target = new PipeNetwork.Target(new com.knozyy.flowline.pipe.PipeSidePort(pipe, Direction.EAST), 0,
+                Caps.create(PipeType.FLUID, helper.getLevel(), destination.getBlockPos(), Direction.WEST));
         SideConfig cfg = new SideConfig(PipeType.FLUID);
         int moved = FluidTransfer.run(helper.getLevel(), sourceCaps, cfg, List.of(target), 1000, false, PipeType.FLUID);
         helper.assertTrue(moved == 1000 && source.tank.isEmpty() && destination.tank.getFluidAmount() == 1000,
@@ -858,6 +857,67 @@ public class PipeGameTests {
         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(ModBlocks.ITEM_PIPE.get()));
         helper.assertTrue(state.use(level, player, net.minecraft.world.InteractionHand.MAIN_HAND, hit)
                 == net.minecraft.world.InteractionResult.PASS, "a pipe in hand keeps laying pipes");
+        helper.assertTrue(player.containerMenu == player.inventoryMenu, "a pipe in hand opens no screen");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void pipeSidePortDescribesTheSide(GameTestHelper helper) {
+        PipeBlockEntity first = line(helper, 1);
+        BlockPos pos = first.getBlockPos();
+        com.knozyy.flowline.pipe.PipeSidePort port = new com.knozyy.flowline.pipe.PipeSidePort(first, Direction.WEST);
+        helper.assertTrue(port.block().equals(pos.west()), "the port reaches the block west of the pipe");
+        helper.assertTrue(port.access() == Direction.EAST, "that block is reached through its east face");
+        helper.assertTrue(port.cfg() == first.side(Direction.WEST), "the port carries the side's settings");
+        helper.assertTrue(port.order() == pos.asLong() * 8 + Direction.WEST.ordinal(), "the old ordering key");
+        helper.assertTrue(port.type() == PipeType.ITEM, "the pipe's type");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void sideUpgradesCountLikeTheBlockPipe(GameTestHelper helper) {
+        SideConfig cfg = new SideConfig(PipeType.ITEM);
+        cfg.mode = SideMode.EXTRACT;
+        net.minecraft.world.SimpleContainer slots = new net.minecraft.world.SimpleContainer(SideConfig.UPGRADE_SLOTS);
+        slots.setItem(0, upgrade(UpgradeType.SPEED));
+        slots.setItem(1, upgrade(UpgradeType.SPEED));
+        slots.setItem(3, upgrade(UpgradeType.FILTER));
+        com.knozyy.flowline.pipe.SideUpgrades.sync(cfg, slots, 0);
+        helper.assertTrue(cfg.speedCount == 2 && cfg.filterCount == 1 && cfg.stackCount == 0,
+                "2 speed and 1 filter, got " + cfg.speedCount + "/" + cfg.filterCount + "/" + cfg.stackCount);
+        helper.assertTrue(com.knozyy.flowline.pipe.SideUpgrades.accepts(cfg, upgrade(UpgradeType.SPEED)), "extract takes speed");
+        cfg.mode = SideMode.INSERT;
+        helper.assertTrue(!com.knozyy.flowline.pipe.SideUpgrades.accepts(cfg, upgrade(UpgradeType.SPEED)), "insert refuses speed");
+        helper.assertTrue(com.knozyy.flowline.pipe.SideUpgrades.accepts(cfg, upgrade(UpgradeType.FILTER)), "insert takes filter");
+        helper.assertTrue(!com.knozyy.flowline.pipe.SideUpgrades.accepts(cfg, new ItemStack(Items.STONE)), "stone is no upgrade");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void offhandModeStartsInBuildForMe(GameTestHelper helper) {
+        helper.assertTrue(com.knozyy.flowline.pipe.OffhandMode.of(helper.makeMockPlayer())
+                == com.knozyy.flowline.pipe.OffhandMode.BUILD, "the off hand starts in Build for me");
+        for (var mode : com.knozyy.flowline.pipe.OffhandMode.values()) {
+            var buf = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+            new com.knozyy.flowline.network.OffhandModePayload(mode).encode(buf);
+            helper.assertTrue(buf.readableBytes() == 1, "the payload carries the mode only, no Curvy channel");
+            helper.assertTrue(com.knozyy.flowline.network.OffhandModePayload.decode(buf).mode() == mode,
+                    mode + " survives the trip to the server");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    public static void pipeItemsArePlainBlockItems(GameTestHelper helper) {
+        for (var block : List.of(ModBlocks.ITEM_PIPE, ModBlocks.FLUID_PIPE, ModBlocks.ENERGY_PIPE,
+                ModBlocks.UNIVERSAL_PIPE)) {
+            Item item = block.get().asItem();
+            helper.assertTrue(item instanceof net.minecraft.world.item.BlockItem bi && bi.getBlock() == block.get(),
+                    block.getId() + " must be a plain block item of its pipe");
+            helper.assertTrue(PipeBlock.isPipe(new ItemStack(item)), block.getId() + " is a pipe");
+        }
+        helper.assertTrue(!PipeBlock.isPipe(new ItemStack(Items.STONE)), "stone is not a pipe");
+        helper.assertTrue(!PipeBlock.isPipe(ItemStack.EMPTY), "an empty hand holds no pipe");
         helper.succeed();
     }
 

@@ -74,7 +74,15 @@ public class FilterCardItem extends Item implements PipeInteractable {
             player.displayClientMessage(Component.translatable("message.flowline.no_endpoint"), true);
             return;
         }
-        SideConfig cfg = pipe.side(side);
+        useOnConfig(pipe.side(side), pipe.type(), where, player, stack, pipe::setChanged);
+    }
+
+    /**
+     * The card on one end's settings (a block pipe side or a curved pipe end): sneaking copies the rules, otherwise it
+     * pastes them.
+     */
+    public static void useOnConfig(SideConfig cfg, com.knozyy.flowline.pipe.PipeType type, Component where, Player player,
+                                   ItemStack stack, Runnable changed) {
         if (player.isShiftKeyDown()) {
             stack.getOrCreateTag().put(KEY, copy(cfg));
             player.displayClientMessage(Component.translatable("message.flowline.card_copied", where), true);
@@ -85,7 +93,8 @@ public class FilterCardItem extends Item implements PipeInteractable {
             player.displayClientMessage(Component.translatable("message.flowline.card_empty"), true);
             return;
         }
-        int skipped = paste(pipe, side, data);
+        int skipped = paste(cfg, type, data);
+        changed.run();
         player.displayClientMessage(skipped == 0
                 ? Component.translatable("message.flowline.card_pasted", where)
                 : Component.translatable("message.flowline.card_pasted_skipped", where, skipped), true);
@@ -99,10 +108,9 @@ public class FilterCardItem extends Item implements PipeInteractable {
     }
 
     /** @return number of rules that do not fit this pipe type and were left out */
-    private static int paste(PipeBlockEntity pipe, Direction side, CompoundTag data) {
-        SideConfig cfg = pipe.side(side);
+    private static int paste(SideConfig cfg, com.knozyy.flowline.pipe.PipeType type, CompoundTag data) {
         int skipped = 0;
-        if (pipe.type().hasFilter()) {
+        if (type.hasFilter()) {
             cfg.clearFilter();
             for (Tag t : data.getList("filter", Tag.TAG_COMPOUND)) {
                 CompoundTag entry = (CompoundTag) t;
@@ -112,7 +120,7 @@ public class FilterCardItem extends Item implements PipeInteractable {
                     continue;
                 }
                 FilterEntry rule = FilterEntry.CODEC.parse(NbtOps.INSTANCE, entry.get("rule")).result().orElse(null);
-                if (rule == null || rule.problem(pipe.type()) != null) {
+                if (rule == null || rule.problem(type) != null) {
                     skipped++;
                     continue;
                 }
@@ -120,7 +128,6 @@ public class FilterCardItem extends Item implements PipeInteractable {
             }
         }
         cfg.wake();
-        pipe.setChanged();
         return skipped;
     }
 

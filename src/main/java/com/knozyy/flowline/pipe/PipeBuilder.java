@@ -6,7 +6,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
-import com.knozyy.flowline.compat.CurvyPipesCompat;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
@@ -45,7 +44,7 @@ public final class PipeBuilder {
     public static void build(ServerPlayer player) {
         if (!player.isAlive() || player.isSpectator() || !player.mayBuild()) return;
         ItemStack stack = player.getOffhandItem();
-        if (!CurvyPipesCompat.pipe(stack)) {
+        if (!PipeBlock.isPipe(stack)) {
             player.displayClientMessage(Component.translatable("message.flowline.build.no_pipe"), true);
             return;
         }
@@ -129,8 +128,10 @@ public final class PipeBuilder {
         return null;
     }
 
+    /** A cell a pipe may go in: loaded, replaceable, and clear of curved pipes (a block there would break them). */
     private static boolean free(Level level, BlockPos pos) {
-        return level.isLoaded(pos) && !level.isOutsideBuildHeight(pos) && level.getBlockState(pos).canBeReplaced();
+        return level.isLoaded(pos) && !level.isOutsideBuildHeight(pos) && level.getBlockState(pos).canBeReplaced()
+                && !com.knozyy.flowline.curved.CurveCollisions.occupies(level, pos);
     }
 
     /** Steps to the player's feet, minus the one or two the goal ring saves; never more than the real cost. */

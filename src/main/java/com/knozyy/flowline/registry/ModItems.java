@@ -1,12 +1,12 @@
 package com.knozyy.flowline.registry;
 
 import com.knozyy.flowline.Flowline;
-import com.knozyy.flowline.compat.CurvyPipesCompat;
 import com.knozyy.flowline.item.FilterCardItem;
 import com.knozyy.flowline.item.UpgradeItem;
 import com.knozyy.flowline.item.UpgradeType;
 import com.knozyy.flowline.item.WrenchItem;
 import com.knozyy.flowline.pipe.PipeBlock;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -41,7 +41,7 @@ public final class ModItems {
             () -> new FilterCardItem(new Item.Properties().stacksTo(1)));
 
     private static RegistryObject<Item> blockItem(RegistryObject<PipeBlock> block) {
-        return ITEMS.register(block.getId().getPath(), () -> CurvyPipesCompat.pipeItem(block.get(), block.getId().getPath()));
+        return ITEMS.register(block.getId().getPath(), () -> new BlockItem(block.get(), new Item.Properties()));
     }
 
     private static RegistryObject<UpgradeItem> upgrade(String name, UpgradeType type) {
