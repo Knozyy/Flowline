@@ -16,7 +16,7 @@
 - The Curvy Pipes integration that came first is gone: Flowline no longer talks to Curvy Pipes, does not need it, and
   no longer bundles snakeyaml. Curvy lines from older worlds are not carried over.
 - The guide book has three new pages on curved pipes.
-- Network protocol 13: server and clients need the same Flowline version.
+- Network protocol 14: server and clients need the same Flowline version.
 
 ## 0.3.6
 

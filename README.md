@@ -162,7 +162,7 @@ above (`idleBackoffFactor` = 2), the max network size (`[network]`) and the Buil
 `config/flowline-client.toml` only holds the internal `buildForMeHintSeen` flag, which saves whether the one-time
 Build for me introduction was shown.
 
-The network protocol is version 13: clients and servers need the same Flowline version.
+The network protocol is version 14: clients and servers need the same Flowline version.
 
 Pipes are see-through by default. Players who prefer solid pipes can enable the built-in **Flowline: Solid Pipes**
 resource pack (Options > Resource Packs): it swaps the glass for frosted, opaque panels.
