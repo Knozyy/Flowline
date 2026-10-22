@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.20
 
 - **Curved pipes are part of Flowline itself.** The off hand's mode key switches between Build for me and Curved;
   the same pipe items lay curved lines of every pipe type. Lines follow Curvy Pipes 1.15.8's rules (bends, joints,
@@ -17,9 +17,6 @@
   no longer bundles snakeyaml. Curvy lines from older worlds are not carried over.
 - The guide book has three new pages on curved pipes.
 - Network protocol 14: server and clients need the same Flowline version.
-
-## 0.3.6
-
 - Worlds from before 0.3 open without Forge's missing-entries warning: Configuration Cards become Filter Cards
   (their filter rules stay) and facade items are dropped.
 
