@@ -6,9 +6,8 @@ plus a universal pipe, with per-side modes, filters, distribution modes and spee
 **Curved pipes** are part of Flowline itself, no other mod needed: the same pipe items lay block pipes or curved
 lines, for every pipe type (item, fluid, energy, universal and chemical). A pipe in the **main hand always places a
 block pipe**; a pipe in the **off hand** has two modes, **Build for me** and **Curved**, switched with the mode key
-(**B** by default) and shown under the crosshair. A curved line is solved into a smooth curve with the rules of Curvy
-Pipes 1.15.8 (bends, joints, collisions, cost; rewritten from its studied behaviour, no code taken), drawn with the
-block pipe's square glass duct, and paid for with pipes from the off hand (given back when it breaks).
+(**B** by default) and shown under the crosshair. A curved line is solved into a smooth curve (bends, joints, collisions,
+cost), drawn with the block pipe's square glass duct, and paid for with pipes from the off hand (given back when it breaks).
 
 A curved line belongs to the **same network** as the block pipes it touches: one Extract side on the source chest
 moves things through the whole network, curves included. A curved end on a chest, tank or machine face **is a pipe
