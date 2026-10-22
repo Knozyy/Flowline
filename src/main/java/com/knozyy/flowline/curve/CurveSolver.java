@@ -5,15 +5,15 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Shapes a curved chain through its nodes, with Curvy Pipes' loop (curvy-behaviour-addendum-re.md, B2): damped Newton
+ * Shapes a curved chain through its nodes: damped Newton
  * steps on the {@link ChainProblem} until the squared residual drops below {@link CurveRules#CONVERGED}. The first
  * {@link CurveRules#FREE_ITERATIONS} steps are always taken; after that every step must improve. The tolerance is
- * loose on purpose: the result satisfies the segment lengths only to about 0.1, like Curvy's.
+ * loose on purpose: the result satisfies the segment lengths only to about 0.1.
  */
 public final class CurveSolver {
     private CurveSolver() {}
 
-    /** The chain's shape, or empty when it has none (Curvy's {@code invalid_shape}). */
+    /** The chain's shape, or empty when it has none ({@code invalid_shape}). */
     public static Optional<SolvedChain> solve(List<Vec3d> nodes, double spacing, EndCondition start, EndCondition end) {
         if (nodes.size() < 2) return Optional.empty();
         for (Vec3d node : nodes) if (!node.isFinite()) return Optional.empty();
@@ -63,7 +63,7 @@ public final class CurveSolver {
     }
 
     /**
-     * Curvy's output check: every span has a positive step and no two consecutive segments, span boundaries included,
+     * The output check: every span has a positive step and no two consecutive segments, span boundaries included,
      * turn by a right angle or more.
      */
     public static boolean acceptable(List<List<Vec3d>> spans, double[] steps) {

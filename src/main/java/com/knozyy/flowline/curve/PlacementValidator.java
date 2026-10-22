@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Curvy Pipes' geometric placement checks (codes 5–8) on a proposed change: block faces, blocks, other pipes, joints
+ * The geometric placement checks (codes 5–8) on a proposed change: block faces, blocks, other pipes, joints
  * and angles. The caller checks the object (2), dimension and reach (4), shape (1) before and the cost (3) after.
  */
 public final class PlacementValidator {

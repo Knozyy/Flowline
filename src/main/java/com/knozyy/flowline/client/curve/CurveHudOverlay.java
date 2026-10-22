@@ -41,7 +41,7 @@ public final class CurveHudOverlay {
             if (refusal != null) centred(g, mc, refusal, cx, y, BAD);
             return;
         }
-        Component name = Component.translatable("hud.flowline.mode.curvy");
+        Component name = Component.translatable("hud.flowline.mode.curved");
         Component hint = Component.translatable(hintKey(), Keys.OPTIONS.getTranslatedKeyMessage());
         Component grid = Component.translatable("hud.flowline.grid", Component.translatable(CurvePlacer.grid().key()));
         ChainPreview preview = CurvePreview.current();

@@ -84,7 +84,7 @@ public final class OffhandPipe {
     }
 
     private static Component modeName() {
-        return Component.translatable(mode() == OffhandMode.CURVY ? "hud.flowline.mode.curvy" : "hud.flowline.mode.build");
+        return Component.translatable(mode() == OffhandMode.CURVED ? "hud.flowline.mode.curved" : "hud.flowline.mode.build");
     }
 
     /** Whether the route preview applies right now: off-hand pipe, Build for me mode, no pipe in the main hand. */
@@ -195,10 +195,10 @@ public final class OffhandPipe {
         if (mc.player == null || mc.screen != null || mc.options.hideGui || !holding(mc.player)
                 || PipeBlock.isPipe(mc.player.getMainHandItem()) || !FlowlineConfig.isLoaded()) return;
         // curved mode has its own lines (CurveHudOverlay)
-        if (mode() == OffhandMode.CURVY) return;
+        if (mode() == OffhandMode.CURVED) return;
         Component main;
-        if (mode() == OffhandMode.CURVY) {
-            main = Component.translatable("hud.flowline.curvy.ready");
+        if (mode() == OffhandMode.CURVED) {
+            main = Component.translatable("hud.flowline.curved.ready");
         } else {
             int have = mc.player.getAbilities().instabuild ? Integer.MAX_VALUE : mc.player.getOffhandItem().getCount();
             main = switch (plan) {

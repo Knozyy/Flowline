@@ -31,7 +31,7 @@ public final class ClientEvents {
     @SubscribeEvent
     public static void onTooltip(ItemTooltipEvent event) {
         if (PipeBlock.isPipe(event.getItemStack())) {
-            event.getToolTip().add(Component.translatable("tooltip.flowline.curvy.hands", Keys.BUILD.getTranslatedKeyMessage()).withStyle(ChatFormatting.GRAY));
+            event.getToolTip().add(Component.translatable("tooltip.flowline.curved.hands", Keys.BUILD.getTranslatedKeyMessage()).withStyle(ChatFormatting.GRAY));
         }
     }
 

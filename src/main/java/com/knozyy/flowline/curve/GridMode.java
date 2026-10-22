@@ -2,7 +2,7 @@ package com.knozyy.flowline.curve;
 
 import java.util.Locale;
 
-/** Curvy Pipes' grid modes: where in a block cell a free point may sit (curvy-protocol-editor-re.md, "Grid"). */
+/** The grid modes: where in a block cell a free point may sit. */
 public enum GridMode {
     OFF, AXIAL, CORNER_P, CORNER_N, EDGE_P, EDGE_N;
 

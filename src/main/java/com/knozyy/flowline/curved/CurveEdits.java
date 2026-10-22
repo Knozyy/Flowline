@@ -43,8 +43,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The server side of curved pipe editing. Every operation checks in Curvy Pipes' order (curvy-behaviour-addendum-re.md,
- * B6): the objects (2), reach (4), the shape (1), the geometry (5–8), then Flowline's protection check, then the cost
+ * The server side of curved pipe editing. Every operation checks in this order: the objects (2), reach (4), the shape (1), the geometry (5–8), then Flowline's protection check, then the cost
  * (3). A refused edit changes nothing.
  */
 public final class CurveEdits {
@@ -61,7 +60,7 @@ public final class CurveEdits {
     /** What the edit would put into the data, kept apart until every check passed. */
     private record Plan(List<CurveNode> nodes, Map<Long, Anchor> anchors, List<CurveEdge> edges, List<EdgeInfo> infos) {}
 
-    /** A curved edge cut in two at a new node, which a chain end then uses (Curvy's split). */
+    /** A curved edge cut in two at a new node, which a chain end then uses. */
     private record SplitPlan(long oldEdge, CurveNode middle, CurveEdge first, CurveEdge second, EdgeInfo firstInfo,
                              EdgeInfo secondInfo) {}
 
@@ -268,7 +267,7 @@ public final class CurveEdits {
 
     /**
      * Moves a node to {@code pos}, fixed to {@code face} if given. Every edge touching it is re-solved on its own;
-     * leaving a block face drops the end's settings and upgrades (curvy-behaviour-addendum-re.md, B5).
+     * leaving a block face drops the end's settings and upgrades.
      */
     public static EditResult translate(ServerPlayer player, long nodeId, Vec3 pos, java.util.Optional<PlaceRequest.Face> face) {
         ServerLevel level = player.serverLevel();
@@ -315,7 +314,7 @@ public final class CurveEdits {
         return EditResult.OK;
     }
 
-    /** Turns a node's forced joint on or off, if the bigger (or smaller) joint still fits (Curvy's 7 and 8). */
+    /** Turns a node's forced joint on or off, if the bigger (or smaller) joint still fits (checks 7 and 8). */
     public static EditResult forceJoint(ServerPlayer player, long nodeId, boolean desired) {
         ServerLevel level = player.serverLevel();
         CurveData data = CurveData.get(level);
@@ -487,7 +486,7 @@ public final class CurveEdits {
     }
 
     /**
-     * A request end as a node, or null when it names something that cannot be joined (Curvy's invalid_object): a
+     * A request end as a node, or null when it names something that cannot be joined (invalid_object): a
      * missing node, a node or block pipe of another type, a block pipe face that already has a curved pipe.
      */
     @Nullable

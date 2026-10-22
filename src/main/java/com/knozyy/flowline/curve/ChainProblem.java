@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The equations of one curved chain, after Curvy Pipes' solver (curvy-behaviour-addendum-re.md, B2). Every span is cut
+ * The equations of one curved chain. Every span is cut
  * into equal segments of length {@code h_i}; the chain bends as little as possible:
  * <pre>
  *   E = Σ over consecutive segments a, b (span boundaries too)  0.5·(h_a + h_b)·|e_b/h_b − e_a/h_a|²

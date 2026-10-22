@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax.
 
-**Goal:** Curvy'nin JVMTI ile kanca attığı yerlerin Flowline'da işi görenleri (ek B4 "Java kuralı"): dünya değişiminin
+**Goal:** Kıvrımlı borular için gereken oyun kancaları (ek B4 "Java kuralı"): dünya değişiminin
 kıvrımı kırması her blok değişiminde (komşusuna haber vermeyenler dahil), varlıkların kıvrımlı borulara çarpması ve
 üstünde durması (düşen bloklar dahil), istemcide havaya orta tık. Seçme ve sol tık Plan 4'te Forge olaylarıyla
 çözüldü; Mixin gerekmez.
@@ -11,7 +11,7 @@ kıvrımı kırması her blok değişiminde (komşusuna haber vermeyenler dahil)
 (`curve.CurveVoxels`: yönlü kutuyu eksen hizalı dilimlere bölmek) GameTest'le sınanır.
 
 **Spec:** `docs/superpowers/specs/2026-10-18-kivrimli-boru-kendi-motor-design.md` ("Referans davranış" son satır,
-"Kare kesit ve çarpışma"). **Davranış:** `curvy-behaviour-addendum-re.md` B4.
+"Kare kesit ve çarpışma"). **Davranış:** ek B4.
 
 ## Global Constraints
 
@@ -57,7 +57,7 @@ kıvrımı kırması her blok değişiminde (komşusuna haber vermeyenler dahil)
   kutunun 2 px şişirilmişinde), `itemsLandOnCurvedPipes` (havadaki yatay kenarın üstüne bırakılan eşya kenarın üst
   yüzünde durur). Step: `All 189 required tests passed`. Commit `Let entities stand on curved pipes`.
 - **Yaklaşık:** VoxelShape eksen hizalıdır; eğik segment ince dilimlerin AABB'leriyle kaplanır (en çok 2 px taşma).
-  Curvy'de hariç tutulan varlık türü okunmadı (ek B4); hepsi çarpar.
+  Hariç tutulan varlık türü yok (ek B4); hepsi çarpar.
 
 ### Görev 4: Havada orta tık
 

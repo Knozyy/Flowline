@@ -12,16 +12,16 @@ import java.util.WeakHashMap;
  */
 public enum OffhandMode {
     BUILD,
-    CURVY;
+    CURVED;
 
     private static final Map<Player, OffhandMode> SERVER = new WeakHashMap<>();
 
     public OffhandMode next() {
-        return this == BUILD ? CURVY : BUILD;
+        return this == BUILD ? CURVED : BUILD;
     }
 
     public static OffhandMode byOrdinal(int ordinal) {
-        return ordinal == CURVY.ordinal() ? CURVY : BUILD;
+        return ordinal == CURVED.ordinal() ? CURVED : BUILD;
     }
 
     /** Server: the mode {@code player} last chose; Build for me until the client says otherwise. */

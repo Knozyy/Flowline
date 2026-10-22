@@ -7,8 +7,8 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * The points a grid mode offers in a block cell, the ones blocks leave free, and the one the player aims at
- * (curvy-behaviour-addendum-re.md, B6): candidates inside a block's outline grown by 0.126 are dropped, and the pick is
+ * The points a grid mode offers in a block cell, the ones blocks leave free, and the one the player aims at:
+ * candidates inside a block's outline grown by 0.126 are dropped, and the pick is
  * the candidate nearest to the crosshair on screen, not in the world.
  */
 public final class GridCandidates {

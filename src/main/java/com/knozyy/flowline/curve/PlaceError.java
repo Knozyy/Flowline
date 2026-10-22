@@ -3,7 +3,7 @@ package com.knozyy.flowline.curve;
 import java.util.Locale;
 import java.util.Optional;
 
-/** Why a curved placement or edit was refused; codes are Curvy Pipes' PlaceResponse results. */
+/** Why a curved placement or edit was refused, by code. */
 public enum PlaceError {
     INVALID_SHAPE(1),
     INVALID_OBJECT(2),

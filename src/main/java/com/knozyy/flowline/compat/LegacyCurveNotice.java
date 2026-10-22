@@ -25,7 +25,7 @@ public final class LegacyCurveNotice {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         Archive archive = player.serverLevel().getDataStorage().get(Archive::new, "flowline_curves");
         if (archive != null && !archive.tag.getList("nodes", Tag.TAG_COMPOUND).isEmpty())
-            player.sendSystemMessage(Component.translatable("message.flowline.curvy.legacy"));
+            player.sendSystemMessage(Component.translatable("message.flowline.curved.legacy"));
     }
 
     private static final class Archive extends SavedData {

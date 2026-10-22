@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * Moving entities collide with curved pipes: the pipes join the entity collision shapes that {@code collide} gathers
- * once and uses for the move and the step up (curvy-behaviour-addendum-re.md, B4: Curvy hooks the same query).
+ * once and uses for the move and the step up.
  */
 @Mixin(Entity.class)
 public abstract class EntityMixin {

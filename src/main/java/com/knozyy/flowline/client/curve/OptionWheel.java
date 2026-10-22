@@ -23,7 +23,7 @@ import net.minecraftforge.fml.common.Mod;
 import java.util.Locale;
 
 /**
- * Curvy's option wheel: hold the options key (left Alt) with curved placement in hand, scroll to pick, let go to apply
+ * The option wheel: hold the options key (left Alt) with curved placement in hand, scroll to pick, let go to apply
  * it to the node or edge under the crosshair.
  */
 @Mod.EventBusSubscriber(modid = Flowline.MODID, value = Dist.CLIENT)

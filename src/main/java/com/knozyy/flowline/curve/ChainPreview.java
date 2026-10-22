@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * The client's guess at what the server will say about a chain: solved the same way (Curvy's checks 1 and 5-8), with
+ * The client's guess at what the server will say about a chain: solved the same way (checks 1 and 5-8), with
  * stand-in ids for the new nodes and edges. Reach and the cost are the client's to show; the server has the last word.
  */
 public record ChainPreview(List<SolvedSpan> spans, Optional<PlaceError> error, int cost) {

@@ -75,12 +75,12 @@ public class CurveSolverGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void placeErrorCodesMatchCurvy(GameTestHelper h) {
+    public static void placeErrorCodesAreInOrder(GameTestHelper h) {
         PlaceError[] order = {PlaceError.INVALID_SHAPE, PlaceError.INVALID_OBJECT, PlaceError.TOO_COSTLY,
                 PlaceError.TOO_FAR, PlaceError.INTERSECT_BLOCK, PlaceError.INTERSECT_PIPE, PlaceError.ANGLE_TOO_SMALL,
                 PlaceError.NODE_IN_JOINT};
         for (int i = 0; i < order.length; i++) {
-            h.assertTrue(order[i].code() == i + 1, order[i] + " has Curvy's code " + (i + 1));
+            h.assertTrue(order[i].code() == i + 1, order[i] + " has code " + (i + 1));
             h.assertTrue(PlaceError.byCode(i + 1).equals(Optional.of(order[i])), "code " + (i + 1) + " reads back");
         }
         h.assertTrue(PlaceError.byCode(9).isEmpty() && PlaceError.byCode(0).isEmpty(), "unknown codes are empty");
@@ -313,7 +313,7 @@ public class CurveSolverGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void solverStopRuleMatchesCurvy(GameTestHelper h) {
+    public static void solverStopRuleHolds(GameTestHelper h) {
         for (int i = 0; i < 4; i++) h.assertTrue(CurveSolver.keepGoing(i, 1, 2), "the first four steps are always taken");
         h.assertTrue(!CurveSolver.keepGoing(4, 1, 2), "then a step that does not improve stops");
         h.assertTrue(CurveSolver.keepGoing(4, 2, 1), "an improving step goes on");

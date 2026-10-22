@@ -17,7 +17,7 @@ adımı 1, kıvrımlı kenar `max(1, cost)` sayılır. İstemci tarafında yaln�
 
 **Spec:** `docs/superpowers/specs/2026-10-18-kivrimli-boru-kendi-motor-design.md` ("Ağ bütünleşmesi", "Dünya değişimleri ve
 bağlantı noktaları", "Kısıtlar").
-**Davranış kaynağı:** `C:\Users\kanad\Desktop\Projeler\mod editörü\CurvyAdditionForFlowLine\docs\curvy-behaviour-addendum-re.md`
+**Davranış kaynağı:** tasarım belgesi (spec) ve ek B.
 ("ek"; B1 hata sırası, B4 dünya değişimi, B5 uçlar, B6 işlemler).
 **Çekirdek arayüzleri:** `docs/superpowers/plans/2026-10-18-kivrimli-boru-2-geometri-cekirdegi.md` (Interfaces blokları).
 
@@ -25,7 +25,6 @@ bağlantı noktaları", "Kısıtlar").
 
 - Hedef: Minecraft 1.20.1, Forge 47.3.0, Java 17; dal `feature/own-curved-pipes`.
 - `com.knozyy.flowline.curve` değişmez (saflık testi sürer); Minecraft kodu `com.knozyy.flowline.curved` paketine girer.
-- Curvy kodu kopyalanmaz; yalnız ekteki davranış kullanılır.
 - Testler GameTest'tir (JUnit bu yolda çalışmıyor). Başlangıç sayısı **123**. Doğrulama:
   `.\gradlew.bat runGameTestServer --console=plain` → `run\gametest-normal\logs\latest.log` içinde
   `All <N> required tests passed`; Türkçe yerelde "BUİLD" yazılır. PowerShell'de dosya yolları mutlak verilir (.NET
@@ -45,13 +44,13 @@ bağlantı noktaları", "Kısıtlar").
 | --- | --- | --- |
 | Kayıt | `SavedData` `"flowline_curved_pipes"`, NBT; noktalar `long[]` (`Double.doubleToRawLongBits`), yüklemede yeniden çözülmez | Eski `flowline_curves.dat` ve `LegacyCurveNotice` olduğu gibi kalır; birebir aynı şekil |
 | Mesafe | Blok adımı 1; kıvrımlı kenar `max(1, cost)` (yuvarlanmış uzunluk) | Uzun kıvrım uzak sayılır; "nearest/farthest" doğal kalır |
-| Bağlı blok kırılınca | Uç **bağlı kalır**, `SideConfig` ve yükseltmeler korunur; blok geri gelince yeniden çalışır | Ek B5 (Curvy, yaklaşık) ve Flowline blok borularının davranışı. **Spec'in "serbest kalır, ayarlar silinir" önerisinden sapma; kullanıcıya bildirilir.** |
+| Bağlı blok kırılınca | Uç **bağlı kalır**, `SideConfig` ve yükseltmeler korunur; blok geri gelince yeniden çalışır | Ek B5 ve Flowline blok borularının davranışı. **Spec'in "serbest kalır, ayarlar silinir" önerisinden sapma; kullanıcıya bildirilir.** |
 | Uç taşınıp bloktan ayrılınca | Uç serbest olur, `SideConfig` silinir, yükseltmeler uç konumunda eşya olarak düşer | Spec ve ek B5 (`detach` uyarısı) |
 | Blok borusu yüzündeki düğüm | Düğüm yüz merkezine oturtulur (`pos + 0.5 + 0.5·n`), yön yüz normali; o yüz `Conn.PIPE` olur | Blok kanalıyla kıvrımlı kanal aynı noktada birleşir |
 | Kıvrımlı uçta kızıltaş | Denetim: uç düğümünün hücresinde `hasNeighborSignal`. Çıkış (`SignalMode`) kıvrımlı uçta yok sayılır | O hücrede duran bir blok borusu gibi davranır; ucun sinyal verecek bloğu yok |
 | Renk | Kenar başına renk; kenar–kenar ve kenar–blok borusu bağı `colorsMatch` ile. Boyama işlemi Plan 4 | Blok borusu kuralı |
 | Koruma | Yeni kutuların kapladığı her hücrede `ForgeEventFactory.onBlockPlace` (hava snapshot'ı); kırma/silmede `BlockEvent.BreakEvent` | Claim modları bu olayları dinler (Build for Me ile aynı yol) |
-| Maliyet | Oyuncunun envanterindeki o borunun bütün yığınları (önce sol el); iade envantere, sığmayan oyuncunun ayağına düşer; yaratıcı modda ne alınır ne verilir | Ek B6; Curvy `gatherStacks/giveStack` |
+| Maliyet | Oyuncunun envanterindeki o borunun bütün yığınları (önce sol el); iade envantere, sığmayan oyuncunun ayağına düşer; yaratıcı modda ne alınır ne verilir | Ek B6 |
 | Dünya değişimi | `BlockEvent.NeighborNotifyEvent` → kirli blok kümesi → seviye tick'i sonunda collision örtüşen kenarlar kırılır, malzeme kenarın blokla çakışan noktasına düşer | Ek B4. Piston gibi bildirim atmayan yollar Plan 5'in `LevelChunk.setBlockState` Mixin'iyle kapanır |
 
 ## Review Focus

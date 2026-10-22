@@ -1,8 +1,7 @@
 package com.knozyy.flowline.curve;
 
 /**
- * Numbers of the curved pipe engine. Curvy Pipes 1.15.8's values come from the static behaviour reports
- * (CurvyAdditionForFlowLine/docs/curvy-behaviour-addendum-re.md); Flowline's own choices say so.
+ * Numbers of the curved pipe engine.
  */
 public final class CurveRules {
     /** Flowline: the curved duct is as wide as the block pipes' 6/16 channel. Also the solver's sampling spacing. */
@@ -17,7 +16,7 @@ public final class CurveRules {
     public static final double CONVERGED = 0.01;
     public static final double STEP = 0.5;
     public static final int FREE_ITERATIONS = 4;
-    /** Flowline's safety stop; Curvy has none. */
+    /** A safety stop for chains that never settle. */
     public static final int MAX_ITERATIONS = 200;
     public static final double REGULARISATION = 1e-8;
 

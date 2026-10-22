@@ -1,6 +1,6 @@
 package com.knozyy.flowline.curve;
 
-/** Curvy Pipes' {@code too_far}: farther than the player's block reach plus one block from the eyes. */
+/** {@code too_far}: farther than the player's block reach plus one block from the eyes. */
 public final class Reach {
     private Reach() {}
 

@@ -12,7 +12,7 @@ public record SolvedSpan(List<Vec3d> points, double step) {
         return points.size() - 1;
     }
 
-    /** Pipe items the span uses: its length rounded up, {@code ceil(n·h)} as in Curvy Pipes. */
+    /** Pipe items the span uses: its length rounded up, {@code ceil(n·h)}. */
     public int cost() {
         return (int) Math.ceil(segments() * step);
     }

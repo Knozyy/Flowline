@@ -163,7 +163,7 @@ public class CurveMeshGameTests {
         List<Vec3d> a = spans.get(0).points(), b = spans.get(1).points();
         Vec3d node = a.get(a.size() - 1);
         Vec3d inA = node.sub(a.get(a.size() - 2)).normalize(), outB = b.get(1).sub(b.get(0)).normalize();
-        // Curvy's solver keeps the direction through a node only to a few degrees, so the pieces share the middle one
+        // The solver keeps the direction through a node only to a few degrees, so the pieces share the middle one
         h.assertTrue(inA.dot(outB) < 0.9999, "this chain does bend at its node, else the test proves nothing");
         Vec3d middle = inA.add(outB).normalize();
         List<MeshQuad> qa = TubeMesh.edge(a, TubeMesh.EndStyle.NONE, TubeMesh.EndStyle.NONE, null, middle);

@@ -93,7 +93,7 @@ public final class MeshCache {
     /**
      * Where edge {@code id} meets one other edge through node {@code nodeId} smoothly, the direction both ends take
      * there (the middle of the two, pointing the way this edge runs) so their sections meet without a gap; else null.
-     * The solver keeps the direction through a node only to a few degrees (Curvy's loose tolerance).
+     * The solver keeps the direction through a node only to a few degrees (a loose tolerance).
      */
     private Vec3d shared(long id, long nodeId, boolean leaving) {
         List<CurveEdge> at = curves.graph().edgesAt(nodeId);

@@ -43,7 +43,7 @@ public final class CurveInput {
 
     /** Whether curved placement is in hand: a pipe in the off hand in curved mode, none in the main hand. */
     public static boolean active(Minecraft mc) {
-        return mc.player != null && OffhandPipe.holding(mc.player) && OffhandPipe.mode() == OffhandMode.CURVY
+        return mc.player != null && OffhandPipe.holding(mc.player) && OffhandPipe.mode() == OffhandMode.CURVED
                 && !PipeBlock.isPipe(mc.player.getMainHandItem());
     }
 

@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * The middle button turns the curved pipe grid even when the crosshair is on nothing: vanilla only asks Forge's click
- * event when something is hit (Curvy hooks the same method, curvy-behaviour-addendum-re.md B4).
+ * event when something is hit.
  */
 @Mixin(Minecraft.class)
 public abstract class MinecraftMixin {

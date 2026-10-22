@@ -6,27 +6,25 @@
 geometrisi, joint/açı kuralları, maliyet, yerleşim doğrulayıcısı ve ışın/hacim sorguları. Hepsi testle doğrulanır.
 
 **Architecture:** Çekirdek yalnız `java.*` kullanır; Plan 3 (dünya/ağ), Plan 4 (istemci) ve Plan 5 (Mixin'ler) bunun
-üstüne kurulur. Çözücü Curvy'nin davranışını sıfırdan yazar: eşit segment kısıtı altında ağırlıklı yön farkı enerjisinin
+üstüne kurulur. Çözücü sıfırdan yazılır: eşit segment kısıtı altında ağırlıklı yön farkı enerjisinin
 KKT koşullarını sönümlü Newton ile çözer. Doğrusal sistem kenarlıklı bant matristir (bant: noktalar + çarpanlar,
 kenarlık: açıklık başına `h`). Çarpışma her segment için yönlü kare kutu (OBB) kullanır.
 
 **Tech Stack:** Java 17, Forge 47.3.0 (MC 1.20.1), ForgeGradle 6, Forge GameTest (testler için).
 
 **Spec:** `docs/superpowers/specs/2026-10-18-kivrimli-boru-kendi-motor-design.md`
-**Davranış kaynağı:** `C:\Users\kanad\Desktop\Projeler\mod editörü\CurvyAdditionForFlowLine\docs\curvy-behaviour-addendum-re.md`
-(bundan sonra "ek") ve `curvy-geometry-native-re.md`. Formül ve eşikler oradan alınmıştır; ek bölüm adları görevlerde
-belirtilir.
+**Davranış kaynağı:** spec'in "Referans davranış" bölümü ve onu ayrıntılandıran ek (bundan sonra "ek"); ek bölüm
+adları görevlerde belirtilir.
 
 ## Global Constraints
 
 - Hedef: Minecraft 1.20.1, Forge 47.3.0, Java 17; dal `feature/own-curved-pipes`.
 - `com.knozyy.flowline.curve` paketi `net.minecraft`, `com.mojang`, `net.minecraftforge` türlerine dokunmaz
   (Görev 1'deki denetim testi bunu zorlar).
-- Curvy kodu kopyalanmaz, decompile çıktısı çevrilmez; yalnız ekteki davranış kullanılır. Flexi Pipes deposundaki
-  kullanıcının kendi MIT kodu (`com.flexipipes.core.Vec3d`, `Aabb`) iskelet olarak alınabilir.
+- Flexi Pipes deposundaki kullanıcının kendi MIT kodu (`com.flexipipes.core.Vec3d`, `Aabb`) iskelet olarak alınabilir.
 - Kıvrımlı borunun çapı `6/16 = 0.375`, yarıçapı `0.1875`; çözücünün örnek aralığı `s` = çap (spec "Boyut").
-- Çarpışma (5, 6), varlık çarpışması ve ışınla seçme gerçek kare kesiti kullanır; açı/joint kuralları (7, 8) Curvy
-  formülünü `r = 0.1875`, çap `0.375` ile korur (spec "Kare kesit ve çarpışma").
+- Çarpışma (5, 6), varlık çarpışması ve ışınla seçme gerçek kare kesiti kullanır; açı/joint kuralları (7, 8) yuvarlak
+  boru formülünü `r = 0.1875`, çap `0.375` ile korur (spec "Kare kesit ve çarpışma").
 - **Testler JUnit değil GameTest'tir.** Bu proje yolu (`Yeni klasör`) Gradle'ın JUnit işçisinin classpath'ini bozuyor
   (Kovan: `10-Sorun-Bankasi/2026-10-gradle-junit-turkce-yol-classnotfound.md`). GameTest bu yolda ve CI'da çalışıyor.
   Test sınıfları `src/main/java/com/knozyy/flowline/test/` altında, `AuditGameTests` gibi
@@ -61,8 +59,7 @@ belirtilir.
 **Files:**
 - Create: `src/main/java/com/knozyy/flowline/curve/Vec3d.java`, `Aabb.java`, `Obb.java`, `CurveRules.java`
 - Create (test): `src/main/java/com/knozyy/flowline/test/CurveGeometryGameTests.java`
-- Modify: `.github/workflows/*.yml` (Plan 1 kalıntısı: "In-world tests with Curvy" adımı silinir; `-PwithCurvy` artık
-  hiçbir şey yapmıyor)
+- Modify: `.github/workflows/*.yml` (Plan 1 kalıntısı: eski entegrasyonun dünya içi test adımı ve bayrağı silinir)
 
 **Interfaces:**
 - Produces:
@@ -80,7 +77,7 @@ belirtilir.
 
 `overlaps` ayırıcı eksen testidir (OBB–AABB ve OBB–OBB için 15 eksen: iki kutunun 3+3 ekseni ve 9 çapraz çarpım;
 uzunluğu `< 1e-12` olan çapraz eksen atlanır). Kesişme yalnız **her** eksende izdüşüm örtüşmesi `> OVERLAP_EPS` ise
-vardır: değen yüzler kesişmez (ek B3: Curvy'de pay yok; Flowline değmeyi sayısal olarak güvenli tarafa koyar).
+vardır: değen yüzler kesişmez (ek B3: Flowline değmeyi sayısal olarak güvenli tarafa koyar).
 
 - [ ] **Step 1: Failing GameTest'leri yaz** (`CurveGeometryGameTests`)
 
@@ -109,7 +106,7 @@ vardır: değen yüzler kesişmez (ek B3: Curvy'de pay yok; Flowline değmeyi sa
 - [ ] **Step 2: Derleme hatası beklenir** (`com.knozyy.flowline.curve` yok). Komut: `.\gradlew.bat compileJava --console=plain`
   → `cannot find symbol`/`package ... does not exist`.
 - [ ] **Step 3: `Vec3d`, `Aabb`, `Obb`'yi yaz.** `Vec3d`/`Aabb` Flexi Pipes'tan alınabilir (paket adı değişir).
-  `rayHit`: kökeni ve yönü kutunun yerel eksenlerine (`u,v,w`) izdüşürüp slab testi. CI dosyasındaki Curvy adımını sil.
+  `rayHit`: kökeni ve yönü kutunun yerel eksenlerine (`u,v,w`) izdüşürüp slab testi. CI dosyasındaki eski entegrasyon adımını sil.
 - [ ] **Step 4: Doğrulama** (izin al): `runGameTestServer` → `All 80 required tests passed` (75 + 5).
 - [ ] **Step 5: Commit** — `Add the curve geometry primitives`
 
@@ -154,14 +151,14 @@ extra = (start.fixed ? 1 : 0) + (end.fixed ? 1 : 0)
 //   -> base 9, extra 2, segments 11, initialStep ≈ 2√2/11 (1e-12)
 // spanLayoutClamps: (0,0,0)->(100,0,0), s=0.375 -> base 64;
 //   p0=(0,0,0) dir (1,0,0), p1=(0.3,0,0) dir (1,0,0), s=0.375 -> A=0.3 -> base 1, extra 2
-// placeErrorCodesMatchCurvy: INVALID_SHAPE..NODE_IN_JOINT kodları 1..8; byCode(9) empty;
+// placeErrorCodesAreInOrder: INVALID_SHAPE..NODE_IN_JOINT kodları 1..8; byCode(9) empty;
 //   TOO_FAR.key() == "message.flowline.curve.too_far"
 ```
 
 - [ ] **Step 2: Derleme hatası beklenir.**
 - [ ] **Step 3: Sınıfları yaz.**
 - [ ] **Step 4: Doğrulama** (izin al): `All 85 required tests passed`.
-- [ ] **Step 5: Commit** — `Lay out curve spans like Curvy`
+- [ ] **Step 5: Commit** — `Lay out curve spans`
 
 ### Görev 3: Zincir problemi — değişkenler, artık ve Jacobian
 
@@ -294,9 +291,9 @@ bitir: acceptable(points(z), steps) değilse empty
 acceptable: her h > 0 ve zincir sırasındaki ardışık her segment çifti için dot(e_b, e_a) > 0 (açıklık sınırında da)
 ```
 
-`MAX_ITERATIONS = 200` Flowline'ın güvenlik sınırıdır (Curvy'de yok; ek B2); "4 adım + azalma" kuralıyla sonsuz yavaş
-iniş kesilir. Kabul eşiği Curvy'deki gibi gevşektir: `0.5` sönümlü adım her iterasyonda hatayı kabaca yarıya indirir,
-döngü `r` 0.01'in altına inince durur. Çözüm bu yüzden kısıtları tam sağlamaz (`|c| < 0.1`); bu Curvy'nin davranışıdır,
+`MAX_ITERATIONS = 200` Flowline'ın güvenlik sınırıdır (ek B2); "4 adım + azalma" kuralıyla sonsuz yavaş
+iniş kesilir. Kabul eşiği bilerek gevşektir: `0.5` sönümlü adım her iterasyonda hatayı kabaca yarıya indirir,
+döngü `r` 0.01'in altına inince durur. Çözüm bu yüzden kısıtları tam sağlamaz (`|c| < 0.1`); bu beklenen davranıştır,
 "düzeltilmez". Bağımlı uç noktaları (`P0 + h·t0`) ise tanımı gereği tamdır.
 
 - [ ] **Step 1: Failing GameTest'leri yaz**
@@ -313,7 +310,7 @@ döngü `r` 0.01'in altına inince durur. Çözüm bu yüzden kısıtları tam s
 //   düğümdeki iki segmentin yön dot > 0.9; ayna simetrisi: her nokta (x,y) için (4−x,y) karşılığına en yakın nokta 1e-3 içinde
 // solveRejectsNonFinite: (0,0,0),(NaN,0,0) -> empty; t0 = (Infinity,0,0) -> empty
 // solveLongChainIsFast: 9 düğüm, x=0,10,20…80, y = 0,2,0,2…, FREE/FREE -> present ve System.nanoTime farkı < 1000 ms
-// solverStopRuleMatchesCurvy: keepGoing(0..3, 1, 2) true; keepGoing(4, 1, 2) false; keepGoing(4, 2, 1) true
+// solverStopRuleHolds: keepGoing(0..3, 1, 2) true; keepGoing(4, 1, 2) false; keepGoing(4, 2, 1) true
 // solverRejectsFolds: acceptable([[(0,0,0),(1,0,0),(0.5,0,0)]],[0.5]) false (geri dönüş);
 //   [[(0,0,0),(1,0,0),(1,1,0)]] false (dot = 0); [[(0,0,0),(1,0,0),(1.01,1,0)]] true; step 0 olan açıklık false
 ```
@@ -321,7 +318,7 @@ döngü `r` 0.01'in altına inince durur. Çözüm bu yüzden kısıtları tam s
 - [ ] **Step 2: Derleme hatası beklenir.**
 - [ ] **Step 3: Sınıfları yaz.**
 - [ ] **Step 4: Doğrulama** (izin al): `All 99 required tests passed`.
-- [ ] **Step 5: Commit** — `Solve curved pipes with Curvy's rules`
+- [ ] **Step 5: Commit** — `Solve curved pipes`
 
 ### Görev 6: Joint ve açı kuralları
 
@@ -330,7 +327,7 @@ döngü `r` 0.01'in altına inince durur. Çözüm bu yüzden kısıtları tam s
 - Create (test): `test/CurveRulesGameTests.java`
 
 **Interfaces:**
-- Produces (`final class JointRules`, ek ve `curvy-geometry-native-re.md` "Config → fiziksel parametre zinciri"):
+- Produces (`final class JointRules`, ek):
   - `static double pipeRadius(double diameter)` = `0.5·diameter`
   - `static double jointRadius(double[] diameters, boolean forceJoint)` = `0.5·max(diameters)`; `diameters.length ≥ 3`
     ya da `forceJoint` ise `·√2`
@@ -344,12 +341,12 @@ döngü `r` 0.01'in altına inince durur. Çözüm bu yüzden kısıtları tam s
 - [ ] **Step 1: Failing GameTest'leri yaz** (`r = 0.1875`, `R2 = 0.1875·√2`)
 
 ```java
-// jointRadiusFollowsCurvy: ([0.375],false)=0.1875; ([0.375,0.375],false)=0.1875;
+// jointRadiusFollowsTheRules: ([0.375],false)=0.1875; ([0.375,0.375],false)=0.1875;
 //   ([0.375,0.375,0.375],false)=R2; ([0.375,0.375],true)=R2   (1e-12)
 // endOrTransitionFlag: ([0.375],false) true; ([0.375],true) false; ([0.375,0.375],false) false;
 //   ([0.375,0.5],false) true; 3 kenar false
 // nodeInJointUsesSquaredRadius: node (0,0,0), R=0.2: far (0.19,0,0) true; (0.2,0,0) false
-// angleRulesFollowCurvy (R=R2, ra=rb=0.1875): a=(1,0,0)
+// angleRulesHold (R=R2, ra=rb=0.1875): a=(1,0,0)
 //   b dot 0.05 -> false; b dot 0.9995 -> true; b=(cos60°,sin60°,0) -> false (t²+rb²≈0.1406 < 0.28125);
 //   b dot 0.9 -> true (≈0.7031 > 0.28125)
 ```
@@ -357,7 +354,7 @@ döngü `r` 0.01'in altına inince durur. Çözüm bu yüzden kısıtları tam s
 - [ ] **Step 2: Derleme hatası beklenir.**
 - [ ] **Step 3: `JointRules`'ı yaz.**
 - [ ] **Step 4: Doğrulama** (izin al): `All 103 required tests passed`.
-- [ ] **Step 5: Commit** — `Add Curvy's joint and angle rules`
+- [ ] **Step 5: Commit** — `Add the joint and angle rules`
 
 ### Görev 7: Kesit çerçeveleri ve kenar kutuları
 
@@ -486,13 +483,12 @@ ile bir kez hesaplanır.
 
 `onFace`: `face` düzlemine indirgenmiş kutu (0 DOWN `y=minY`, 1 UP `y=maxY`, 2 NORTH `z=minZ`, 3 SOUTH `z=maxZ`,
 4 WEST `x=minX`, 5 EAST `x=maxX`) her eksende `FACE_TOLERANCE` genişletilip `p`'yi kapsıyorsa true.
-**Yaklaşık (ekten):** Curvy'nin uç bloğunu dar fazdan hariç tutup tutmadığı bilinmiyor; Flowline'da bu istisnaya gerek
-yok çünkü değme kesişme sayılmaz (Görev 1).
+**Yaklaşık (ekten):** Uç bloğunu dar fazdan hariç tutmaya gerek yok çünkü değme kesişme sayılmaz (Görev 1).
 
 - [ ] **Step 1: Failing GameTest'leri yaz** (test içinde `BlockShapes` lambda'larla: belirli hücrelerde tam küp)
 
 ```java
-// onFaceFollowsCurvy: birim küp outline; UP için (0.5,1.0099,0.5) true, (0.5,1.0101,0.5) false, (1.02,1,0.5) false;
+// onFaceRulesHold: birim küp outline; UP için (0.5,1.0099,0.5) true, (0.5,1.0101,0.5) false, (1.02,1,0.5) false;
 //   altı yüzün her biri kendi düzlemindeki merkez noktasıyla true, karşı yüzle false
 // reachAddsOneBlock: eye (0,0,0), reach 4.5: p (5.5,0,0) false (eşitlik geçer), (5.5001,0,0) true
 // costPlanRefundsAndCharges: added cost 4 + 3, removed 5 -> 2; affordable(2,1,false) false; (2,1,true) true; (-3,0,false) true

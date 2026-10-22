@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Every block change in a loaded chunk, also the ones that tell no neighbour (pistons, some commands), is noted for
- * curved pipes, like Curvy Pipes' hook on the same method (curvy-behaviour-addendum-re.md, B4).
+ * curved pipes.
  */
 @Mixin(LevelChunk.class)
 public abstract class LevelChunkMixin {

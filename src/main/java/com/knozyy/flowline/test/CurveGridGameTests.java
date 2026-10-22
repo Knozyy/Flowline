@@ -23,7 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
-/** Curvy Pipes' grid modes and the client's pure decisions: what to target, what a click does, what the HUD says. */
+/** The grid modes and the client's pure decisions: what to target, what a click does, what the HUD says. */
 @GameTestHolder(Flowline.MODID)
 @PrefixGameTestTemplate(false)
 public class CurveGridGameTests {
@@ -32,7 +32,7 @@ public class CurveGridGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void gridCountsFollowCurvy(GameTestHelper h) {
+    public static void gridCountsMatchTheTables(GameTestHelper h) {
         int[] expected = {0, 13, 24, 8, 24, 12};
         for (GridMode mode : GridMode.values()) {
             List<Vec3d> candidates = GridCandidates.of(mode, 3, 4, 5);
@@ -45,7 +45,7 @@ public class CurveGridGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void gridModesCycleLikeCurvy(GameTestHelper h) {
+    public static void gridModesCycleInOrder(GameTestHelper h) {
         GridMode mode = GridMode.OFF;
         StringBuilder forward = new StringBuilder();
         for (int i = 0; i < 6; i++) forward.append((mode = mode.next()).ordinal());

@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/** Curvy Pipes' joint, angle, reach and cost rules, and the placement validator built on them. */
+/** The joint, angle, reach and cost rules, and the placement validator built on them. */
 @GameTestHolder(Flowline.MODID)
 @PrefixGameTestTemplate(false)
 public class CurveRulesGameTests {
@@ -47,7 +47,7 @@ public class CurveRulesGameTests {
     // ---- joints and angles -------------------------------------------------------------------------------
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void jointRadiusFollowsCurvy(GameTestHelper h) {
+    public static void jointRadiusFollowsTheRules(GameTestHelper h) {
         h.assertTrue(near(JointRules.pipeRadius(D), R, 1e-12), "pipe radius is half the diameter");
         h.assertTrue(near(JointRules.jointRadius(new double[]{D}, false), R, 1e-12), "one edge");
         h.assertTrue(near(JointRules.jointRadius(new double[]{D, D}, false), R, 1e-12), "two edges");
@@ -75,7 +75,7 @@ public class CurveRulesGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void angleRulesFollowCurvy(GameTestHelper h) {
+    public static void angleRulesHold(GameTestHelper h) {
         Vec3d a = v(1, 0, 0);
         h.assertTrue(!JointRules.angleTooSmall(a, atDot(0.05), R, R, R2), "wide angles pass at once");
         h.assertTrue(JointRules.angleTooSmall(a, atDot(0.9995), R, R, R2), "nearly the same direction fails at once");
@@ -117,7 +117,7 @@ public class CurveRulesGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void onFaceFollowsCurvy(GameTestHelper h) {
+    public static void onFaceRulesHold(GameTestHelper h) {
         List<Aabb> cube = List.of(CUBE);
         h.assertTrue(PlacementValidator.onFace(v(0.5, 1.0099, 0.5), 1, cube), "within 0.01 of the top");
         h.assertTrue(!PlacementValidator.onFace(v(0.5, 1.0101, 0.5), 1, cube), "beyond 0.01 of the top");

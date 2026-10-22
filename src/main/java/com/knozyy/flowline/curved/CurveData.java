@@ -275,7 +275,7 @@ public final class CurveData extends SavedData {
     }
 
     /**
-     * Curvy Pipes' answer to changed blocks (curvy-behaviour-addendum-re.md, B4): an edge whose boxes now overlap a
+     * What changed blocks do to curved pipes: an edge whose boxes now overlap a
      * changed block's collision shape breaks, its pipes drop where it met the block, and nodes left without edges go.
      * Nodes fixed to a changed block keep their anchor and settings; their networks are rebuilt.
      */

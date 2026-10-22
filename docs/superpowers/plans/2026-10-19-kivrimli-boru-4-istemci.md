@@ -17,7 +17,7 @@ orta tıkı Mixin'siz yakalar; istekleri Plan 3'ün paketleriyle gönderir. Öni
 
 **Spec:** `docs/superpowers/specs/2026-10-18-kivrimli-boru-kendi-motor-design.md` ("Görünüm", "El düzeni", tuş tablosu,
 "Aynı item").
-**Davranış kaynağı:** `curvy-behaviour-addendum-re.md` B6 (grid, düzenleme), `curvy-protocol-editor-re.md` (grid tabloları).
+**Davranış kaynağı:** ek B6 (grid, düzenleme) ve grid tabloları.
 **Arayüzler:** Plan 2 ve Plan 3 planlarının Interfaces blokları.
 
 ## Global Constraints
@@ -66,11 +66,11 @@ orta tıkı Mixin'siz yakalar; istekleri Plan 3'ün paketleriyle gönderir. Öni
   (`(p−eye)·look > 0`) adaylar arasında `x²+y²`'si en küçük olan; `x,y` bakış eksenine dik iki birim eksene
   `(p−eye)/((p−eye)·look)` izdüşümü (ekran projeksiyonu).
 
-- [ ] Step 1: Failing testler — `gridCountsFollowCurvy` (13/24/8/24/12, OFF 0, tekrarsız), `gridModesCycleLikeCurvy`
+- [ ] Step 1: Failing testler — `gridCountsMatchTheTables` (13/24/8/24/12, OFF 0, tekrarsız), `gridModesCycleInOrder`
   (next/previous dizileri), `gridDropsCandidatesInsideBlocks` (hücrenin altındaki tam blok: y−0.5 adayı atılır, y+0.5
   kalır), `gridPicksNearestToTheCrosshair` (iki aday: biri bakışın 0.1 yanında, biri tam önünde ama arkada → öndeki
   yakın olan seçilir; hepsi arkadaysa boş).
-- [ ] Step 2: Derleme hatası. Step 3: yaz. Step 4: `All 172 required tests passed`. Step 5: Commit `Add Curvy's grid modes`.
+- [ ] Step 2: Derleme hatası. Step 3: yaz. Step 4: `All 172 required tests passed`. Step 5: Commit `Add the grid modes`.
 
 ### Görev 2: Tüp mesh'i (saf)
 
@@ -149,23 +149,23 @@ blok borusu yüzleri yeniden hesaplanır (renk uyuşmazsa bağ kopar).
 
 **Files:** Create `client/curve/CurvePlacer.java` (durum makinesi), `client/curve/CurveInput.java` (Forge olayları);
 Modify `client/Keys.java` (`OPTIONS` sol Alt, `NO_SNAP` sol Ctrl; Controls'tan değiştirilebilir), `client/OffhandPipe.java`
-(`curvedAvailable()` true; CURVY'de HUD/önizleme `CurvePlacer`'a), `client/ClientSetup.java` (tuş kaydı); Test
+(`curvedAvailable()` true; CURVED'de HUD/önizleme `CurvePlacer`'a), `client/ClientSetup.java` (tuş kaydı); Test
 `test/CurveGridGameTests.java` (saf karar)
 
 **Davranış (spec tuş tablosu):**
-- Sol elde boru + mod CURVY: **sağ tık** hedefe göre: boşta → hattı başlat (ilk uç); çiziliyor ve hedef AIR → iç nokta
+- Sol elde boru + mod CURVED: **sağ tık** hedefe göre: boşta → hattı başlat (ilk uç); çiziliyor ve hedef AIR → iç nokta
   ekle; hedef NODE/PIPE_FACE/BLOCK_FACE → bitir (`CurvePlacePayload`); **Shift+sağ tık** havada bitir.
   **Sol tık** bakılan kenarı kır (`CurveBreakPayload`). **Orta tık / Shift+orta** grid ileri/geri. **Ctrl basılı**
   yapışma kapalı. **Esc ya da B** yarım hattı iptal. Bu tuşlar `InteractionKeyMappingTriggered`'ı iptal ederek
   vanilya eylemini (blok koyma/kırma/seçme) durdurur.
-- Mod CURVY değilken de: bakılan kenara/düğüme **sol tık** kırar (sol elde boru şartı yok); **boya ile sağ tık** kenarı
+- Mod CURVED değilken de: bakılan kenara/düğüme **sol tık** kırar (sol elde boru şartı yok); **boya ile sağ tık** kenarı
   boyar; **kıvrımlı uca sağ tık** ekranını açar (`CurveEndPayload.OPEN`), **anahtarla Shift+sağ tık** modunu değiştirir
   (`CYCLE`), **Filter Card ile** kartı uygular (`CurveEndPayload` yerine sunucu `useCardOnEnd`: yeni eylem `CARD`).
 - Saf karar fonksiyonu: `static Action CurvePlacer.decide(boolean curvedMode, boolean drawing, CurveTarget.Kind target,
   boolean shift, Click click, HeldKind held)` → `START, ADD, FINISH, BREAK, PAINT, OPEN_END, CYCLE_END, CARD_END, GRID_NEXT,
   GRID_PREVIOUS, PASS`.
 
-- [ ] Step 1: Failing testler `curvedModeClaimsTheUseKey` (CURVY + blok hedef + sağ tık → START; Build for Me → PASS),
+- [ ] Step 1: Failing testler `curvedModeClaimsTheUseKey` (CURVED + blok hedef + sağ tık → START; Build for Me → PASS),
   `drawingAddsThenFinishes` (AIR → ADD, BLOCK_FACE → FINISH, Shift+AIR → FINISH), `leftClickBreaksPointedEdges`
   (EDGE + sol tık her modda BREAK; blok hedef → PASS), `endsOpenLikeSides` (BLOCK_FACE düğümü + sağ tık boş el → OPEN_END,
   anahtar+Shift → CYCLE_END, kart → CARD_END).
@@ -193,7 +193,7 @@ Modify `tools/gen/lang.py` (+ üretilen lang), `client/PipeScreen.java` (kıvrı
 - [ ] Step 1: Failing test `resultTextFollowsTheServer` (code 0 → null; 4 → `message.flowline.curve.too_far`; denied →
   `message.flowline.curve.denied`; 3 → `too_costly`).
 - [ ] Step 2: lang: HUD, grid adları, çark seçenekleri, `gui.flowline.curved_end`, `key.flowline.options`,
-  `key.flowline.no_snap`; `tooltip.flowline.curvy.hands` → "Main hand: block pipe | Off hand: Build for me or curved
+  `key.flowline.no_snap`; `tooltip.flowline.curved.hands` → "Main hand: block pipe | Off hand: Build for me or curved
   ([%s] switches)" / TR karşılığı; `hud.flowline.build.ready` eski "[%s] switches to Curved" kısmı geri gelir.
 - [ ] Step 3–4: `All 185 required tests passed`; `.\gradlew.bat build` → exit 0 (sürüm `0.3.12+1.20.1`);
   `-PwithMekanism` aynı sayı.

@@ -1,13 +1,10 @@
 # Flowline kıvrımlı boruları
 
-Flowline 0.3.13'ten itibaren kıvrımlı borular **Flowline'ın kendi özelliğidir**; başka bir mod gerekmez (Curvy Pipes
-kurulu olsa bile iki mod birbirine karışmaz). Ayrı kıvrımlı item, tarif ya da creative girişi yoktur: aynı
+Flowline 0.3.13'ten itibaren kıvrımlı borular **Flowline'ın kendi özelliğidir**; başka bir mod gerekmez. Ayrı kıvrımlı item, tarif ya da creative girişi yoktur: aynı
 `flowline:*_pipe` item'ları hem blok borusu hem kıvrımlı hat döşer. Eşya, sıvı, enerji, universal ve (Mekanism varsa)
 kimyasal borular kıvrımlı döşenebilir.
 
-Kıvrımın biçimi, birleşme (joint) kuralları, çarpışma ve maliyet Curvy Pipes 1.15.8'in statik olarak çözülmüş
-davranışıyla aynıdır (`CurvyAdditionForFlowLine/docs` altındaki RE raporları). Curvy'nin kodu kopyalanmadı; yalnız
-formüller, eşikler ve kurallar alınıp Java'da sıfırdan yazıldı.
+Kıvrımın biçimi, birleşme (joint) kuralları, çarpışma ve maliyet Flowline'ın kendi Java kodundadır.
 
 ## El düzeni ve tuşlar
 
@@ -62,7 +59,7 @@ Kıvrımlı modda (hepsi Controls'tan değiştirilebilir):
 
 - Önceki bağımsız Flowline sisteminin `flowline_curves.dat` kayıtları çevrilmez; eski hatlar görünmez ve aktarım
   yapmaz, dosya silinmez. Oyun bunu bir kez mesajla söyler.
-- Curvy Pipes ile kurulmuş hatlar (Curvy'nin `curvy_pipes.dat`) Flowline'a aktarılmaz.
+- Başka modlarla kurulmuş kıvrımlı hatlar Flowline'a aktarılmaz.
 - Yeni kayıt dünya başına `flowline_curved_pipes` (SavedData).
 
 ## Doğrulama

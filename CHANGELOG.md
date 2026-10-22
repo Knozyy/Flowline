@@ -25,8 +25,8 @@
 - New look: every pipe is a glass duct with coloured rails on its corners and a small cage only where it bends or
   branches. Each kind has its own pastel colour; the Solid Pipes resource pack swaps the glass for frosted panels.
 - Dyes now colour the whole pipe (rails and cages); the glass and end collars keep the pipe's own colour.
-- The universal pipe works with Curvy Pipes: in the off hand the mode key cycles Build for me, Curvy: Items,
-  Curvy: Fluids and Curvy: Energy.
+- The universal pipe lays curved lines too: in the off hand the mode key cycles Build for me, Curved: Items,
+  Curved: Fluids and Curved: Energy.
 - New wrench, held like a tool. Upgrades are drawn as cards in their own colours and the Filter Card as a light card
   with gold contacts, so the two no longer look alike. The pipe screens use the pipe colours.
 - Right-clicking a pipe side opens its screen whatever you hold, like a chest; sneak + right-click places a block
@@ -49,8 +49,8 @@
 ## 0.1.9
 
 - Redesigned pipe screens: side tabs, a status header (Working / Asleep / Waiting / Stuck / Idle) and a new rule editor with tag and data previews.
-- Off-hand pipe modes: the mode key (B by default) switches between Build for Me and Curvy; right-click does the chosen mode's work.
+- Off-hand pipe modes: the mode key (B by default) switches between Build for Me and Curved; right-click does the chosen mode's work.
 - Build for Me now previews the route as ghost pipes with the number of pipes needed.
-- Optional Curvy Pipes 1.15.8 integration: the same Flowline pipes can be laid as curved lines, and a curved line ending on a Flowline pipe connects to that pipe's network.
+- Curved lines: the same Flowline pipes can be laid as curved lines, and a curved line ending on a Flowline pipe connects to that pipe's network.
 - New curved pipe textures matching the block pipes.
 - Fixed a crash when adding a rule, and Configuration Card pastes now show up in an open screen.

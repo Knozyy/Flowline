@@ -1,8 +1,7 @@
 package com.knozyy.flowline.curve;
 
 /**
- * Curvy Pipes' rules for where curved edges meet (curvy-geometry-native-re.md, "Config → fiziksel parametre zinciri").
- * They keep Curvy's round-pipe formulas; Flowline feeds them its own diameter.
+ * The rules for where curved edges meet. They use round-pipe formulas fed with Flowline's own diameter.
  */
 public final class JointRules {
     private JointRules() {}
@@ -25,13 +24,13 @@ public final class JointRules {
         return diameters.length == 1 || diameters.length == 2 && diameters[0] != diameters[1];
     }
 
-    /** Curvy's {@code node_in_joint}: the far end of an edge lies inside the joint. */
+    /** {@code node_in_joint}: the far end of an edge lies inside the joint. */
     public static boolean nodeInJoint(Vec3d node, Vec3d farEnd, double jointRadius) {
         return farEnd.distanceSq(node) < jointRadius * jointRadius;
     }
 
     /**
-     * Curvy's {@code angle_too_small} for two unit exit directions {@code a} and {@code b} at one node, with pipe radii
+     * {@code angle_too_small} for two unit exit directions {@code a} and {@code b} at one node, with pipe radii
      * {@code ra}, {@code rb} and the node's joint radius.
      */
     public static boolean angleTooSmall(Vec3d a, Vec3d b, double ra, double rb, double jointRadius) {

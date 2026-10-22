@@ -19,15 +19,14 @@ Choices: Shift with a wrench; normal fluid pipes only for B. Client rendering an
   and direct machine endpoints using the existing filters, upgrades and item/fluid/energy/universal transfer code.
   Server validation covers reach, aim, ownership, loaded chunks, world boundaries, collisions, Forge placement
   events, graph limits and survival materials. Creative placement records no refundable material cost.
-- Curves use Flowline's own Hermite geometry. There is no dependency on Curvy Pipes and no native code copied from it.
+- Curves use Flowline's own Hermite geometry and need no other mod.
   Normal block networks and curved networks do not merge; AE2 ME cable placement is outside this implementation.
 - Looking at a block at least five blocks away while holding a pipe shows Build for Me's actual assigned key and
   instructions, within the configured building range. The hint explains moving the pipe to the off hand when needed.
 - Both block textures and curved meshes have matte bodies and thin transparent windows, with item yellow, fluid
   blue, energy orange and universal purple. Curved geometry and collar meshes are cached between graph updates.
-- Usage and remaining checks: [curved-pipe guide](docs/CURVED_PIPES_TR.md). The installed Curvy/AE2 investigation
-  is in [the research notes](docs/CURVY_PIPES_AE2_RESEARCH_TR.md); [regex findings](docs/CURVY_REGEX_TR.md) explain
-  Curvy's registry-ID matching and how it differs from Flowline's existing display-name regex. ID regex was not added.
+- Usage and remaining checks: [curved-pipe guide](docs/CURVED_PIPES_TR.md). Registry-ID regex was not added; the
+  filters keep matching display names.
 
 ## A. Network view
 

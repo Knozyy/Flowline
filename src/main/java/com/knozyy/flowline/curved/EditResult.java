@@ -4,7 +4,7 @@ import com.knozyy.flowline.curve.PlaceError;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * How a curved pipe edit ended: done, refused for one of Curvy's reasons ({@code missing} pipes when too costly), or
+ * How a curved pipe edit ended: done, refused for one of the placement reasons ({@code missing} pipes when too costly), or
  * refused by protection.
  */
 public record EditResult(@Nullable PlaceError error, boolean denied, int missing) {

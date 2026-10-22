@@ -4,23 +4,20 @@ Tarih: 2026-10-18 · Dal: `feature/own-curved-pipes` (taban `1.20.1`) · Hedef: 
 
 ## Niyet
 
-Flowline şu an kıvrımlı borular için gerçek **Curvy Pipes 1.15.8**'i isteğe bağlı bağımlılık olarak kullanıyor: native
-motor, mixin'ler ve `CurvyPort` köprüsü. Bu düzenin temel sorunu, Curvy hattının Flowline ağından **ayrı bir taşıma
-sistemi** olması. Sandığa bağlı Flowline borusuna bir Curvy hattı takıldığında iki ayrı sistem oluşuyor ve ikisinin de
-ayrı ayrı Extract'a alınması gerekiyor. Curvy hattının ayar ekranı da ancak hat bir yere bağlıyken açılabiliyor.
+Flowline'ın önceki kıvrımlı hatları dışarıdan bir köprüyle çalışıyordu ve Flowline ağından **ayrı bir taşıma
+sistemi** idi. Sandığa bağlı Flowline borusuna kıvrımlı bir hat takıldığında iki ayrı sistem oluşuyor ve ikisinin de
+ayrı ayrı Extract'a alınması gerekiyordu. Hattın ayar ekranı da ancak hat bir yere bağlıyken açılabiliyordu.
 Kullanıcı bu "ayrı extract/insert sistemi"nden kurtulmak istiyor.
 
 Amaç: Kıvrımlı yerleşimi **Flowline borusunun kendi özelliği** yapmak. Kıvrımlı bir boru, aynı ağın parçası olan ve
 yalnız yerleşimi ile görünümü farklı bir Flowline borusu olur. Sandığa bağlı boruyu bir kez Extract yapmak, bağlı
-kıvrımlı hat dahil bütün ağı çalıştırır. Curvy Pipes'a hiçbir bağımlılık kalmaz.
+kıvrımlı hat dahil bütün ağı çalıştırır. Başka bir moda bağımlılık kalmaz.
 
-Curvy'nin fizik ve geometri davranışı statik olarak çözüldü. Bu motor tahminle yazılmış bir taklit olmayacak; o
-çözülmüş davranışın Java'da yeniden yazımı olacak. Kullanıcı daha önce tahmine dayalı bağımsız motoru reddetmişti;
-bu yön, o kararın yerini alır.
+Fizik ve geometri kuralları önceden belirlenmiş sayılar ve formüllerdir; motor bunları Java'da sıfırdan yazar.
 
 ## Hedefler
 
-1. **Kendi motor:** Kıvrımlı borular Curvy kurulu olmadan çalışır. Kıvrım, yerleşim, çarpışma, seçme/kırma,
+1. **Kendi motor:** Kıvrımlı borular başka bir mod olmadan çalışır. Kıvrım, yerleşim, çarpışma, seçme/kırma,
    varlık çarpışması, maliyet ve render Flowline kodudur.
 2. **Tek ağ:** Kıvrımlı boru, aynı türdeki blok borularıyla ve diğer kıvrımlı borularla aynı `PipeNetwork` grafının
    parçasıdır. Rota, mesafe, dağıtım, öncelik, hız, upgrade'ler ve "keep"/limit davranışı Flowline'ındır.
@@ -28,8 +25,8 @@ bu yön, o kararın yerini alır.
    - Kıvrımlı borunun ucu doğrudan bir envantere (sandık, tank, makine yüzü) bağlanabilir. O uç, blok borusunun bir
      yüzüyle **aynı** `SideConfig`, ekran, wrench davranışı, Filter Card ve upgrade'leri kullanır.
    - Ucu bir boruya bağlıysa ayarı yoktur, yalnız taşır.
-4. **Curvy davranışında fizik:** Yerleşim kuralları, kıvrım biçimi, joint, çarpışma ve maliyet Curvy 1.15.8 ile aynı
-   davranır. Kaynak: aşağıdaki "Referans davranış" bölümü.
+4. **Tutarlı fizik:** Yerleşim kuralları, kıvrım biçimi, joint, çarpışma ve maliyet aşağıdaki "Referans davranış"
+   bölümündeki kurallara uyar.
 5. **Görünüm:** Kıvrımlı boru, blok borusunun **kare "cam kanal + köşe rayları"** tasarımını eğri boyunca taşır.
    - Kare kesit, yarı saydam cam gövde.
    - Dört köşede tür renginde ray.
@@ -44,43 +41,40 @@ bu yön, o kararın yerini alır.
    - **Envantere bağlı uç:** Blok borusundaki uç halkası/kapak gibi görünür. Extract uçlarında blok borusundaki
      yeşil halka (`Conn.EXTRACT`) aynen kullanılır. *(Tasarımcının kararı.)*
 6. **Bütün boru türleri:** Eşya, sıvı, enerji, universal ve Mekanism chemical boruları kıvrımlı döşenebilir.
-   Universal borunun Curvy döneminden kalan "kanal" hilesine (`UniversalChannel`, kanal döngüsü) gerek kalmaz.
-7. **Curvy'nin döşeme/düzenleme araçlarının tamamı:** Altı grid/hedefleme modu, önizleme, hata mesajları, düğüm taşıma,
+   Universal borunun eski "kanal" hilesine (`UniversalChannel`, kanal döngüsü) gerek kalmaz.
+7. **Tam döşeme/düzenleme araçları:** Altı grid/hedefleme modu, önizleme, hata mesajları, düğüm taşıma,
    hattı ayırma/birleştirme, `force_joint`, silme ve maliyet gösterimi.
 
 ## Hedef olmayanlar (non-goals)
 
-Bunlar Curvy'de var ama alınmayacak, çünkü yerlerini Flowline'ın kendi sistemleri tutuyor:
+Bunlar yapılmayacak, çünkü yerlerini Flowline'ın kendi sistemleri tutuyor:
 
-- Curvy'nin taşıma motoru: widest-path rota, kenar hız borcu, kendi tick zamanlayıcısı.
-- Curvy'nin filtre ekranı, regex filtresi ve regulator'ü. Flowline'da miktar sınırı zaten var.
-- Kızıltaş kablosu boru türü ve Curvy'nin kızıltaş yamaları.
+- Ayrı bir taşıma motoru: widest-path rota, kenar hız borcu, ayrı tick zamanlayıcısı.
+- Kıvrımlı hatlara ayrı filtre ekranı, regex filtresi ve regulator. Flowline'da miktar sınırı zaten var.
+- Kızıltaş kablosu boru türü ve kızıltaş yamaları.
 - AE2, GregTech, ComputerCraft ve Storage Drawers kablo entegrasyonları.
-- Curvy'nin YAML config'i, 15 boru tipi/5 boyut ve dönüşüm zinciri tarifleri.
-- Curvy dünyalarından veri aktarımı. Kullanıcı modu henüz bir pakete koymadı; mevcut Curvy hatlarının kaybolması
-  sorun değil.
+- YAML config, 15 boru tipi/5 boyut ve dönüşüm zinciri tarifleri.
+- Başka modların kıvrımlı hatlarından veri aktarımı. Kullanıcı modu henüz bir pakete koymadı; eski hatların
+  kaybolması sorun değil.
 - 1.21.1 (NeoForge) dalına taşıma. Sonraki iş.
 
 ## Anti-hedefler (çalışsa bile başarısızlık sayılır)
 
 - Kıvrımlı hat için ayrı bir Extract/Insert adımı ya da ayrı bir ayar ekranı gerekmesi.
-- Curvy Pipes'a derleme, çalışma ya da test bağımlılığı kalması.
-- Curvy'nin kodunun kopyalanması ya da decompile çıktısının çevrilmesi (aşağıda "Kısıtlar").
+- Başka bir moda derleme, çalışma ya da test bağımlılığı kalması.
 - Yuvarlak/sekizgen kesit. Kullanıcı blok borularında açıkça kare istedi ve kıvrımlıda da kareyi seçti.
 - Blok borusundan kıvrımlıya geçişte biçim veya renk kırılması.
 - Mevcut blok borusu davranışının (yerleşim, Build for Me, GUI, filtreler, upgrade'ler, GameTest'ler) bozulması.
 
 ## Kısıtlar
 
-- **Lisans:** Curvy Pipes "All Rights Reserved", Flowline MIT. Kod kopyalanmaz ve decompile çıktısı (Ghidra C,
-  assembly) satır satır çevrilmez. Yalnız RE raporlarındaki **davranış** kullanılır: formüller, eşikler, kurallar,
-  veri biçimleri. Uygulama sıfırdan yazılır.
+- **Lisans:** Flowline MIT. Uygulama sıfırdan yazılır.
 - **El düzeni (Kovan'daki kalıcı karar):**
   - Sağ (ana) el her zaman tek blok borusu yerleştirir.
   - Sol elde mod tuşu (varsayılan B, Controls'tan değiştirilebilir) **Build for Me ↔ Kıvrımlı** arasında geçer.
     Seçili mod ekranda yazar.
   - Sağ tık seçili modun işini yapar.
-  - `OffhandMode.CURVY` artık kendi motoru açar. Universal için kanal adımı kalkar; mod döngüsü yine iki adımlıdır.
+  - `OffhandMode.CURVED` artık kendi motoru açar. Universal için kanal adımı kalkar; mod döngüsü yine iki adımlıdır.
   - **Kıvrımlı moddaki tuşlar** *(tasarımcının önerisi, kullanıcı onayladı; hepsi Controls'tan değiştirilebilir)*:
 
     | Tuş | İş |
@@ -103,29 +97,28 @@ Bunlar Curvy'de var ama alınmayacak, çünkü yerlerini Flowline'ın kendi sist
 
 ## Referans davranış
 
-Curvy 1.15.8'in statik olarak çözülmüş davranışı `C:\Users\kanad\Desktop\Projeler\mod editörü\CurvyAdditionForFlowLine\docs`
-altındadır. Builder formül ve eşikleri **oradan** almalı; bu belge yalnız özetler.
+Motorun uyduğu kurallar:
 
-| Konu | Rapor | Bu motor için özet |
-| --- | --- | --- |
-| Kıvrım çözücü | `curvy-geometry-native-re.md` → "Eğrinin gerçek hesabı" | Her açıklıkta örnek aralığı `s` = boru çapı. `n = ceil(clamp(A/s, 1, 64))`. `d < 0.5·s` ise ret. Eşit uzunlukta segmentler ve yön değişimini cezalandıran amaç, seyrek doğrusal olmayan çözümle. Çözücü `0x10133390`'ın literal'leri (`−0.5`, `1e-8`, `0.01`) `curvy-arm64-re.md` ve `evidence/native/arm64-constant-agreement.json`'da; anlamları araştırma adımında kesinleşir. Uç yönü sabitse uç komşuları `P0 + h·t0` / `P1 − h·t1`. |
-| Yerleşim hataları | aynı rapor → hata tablosu | `invalid_shape` (1), `invalid_object` (2), `too_costly` (3), `too_far` (4), `intersect_block` (5), `intersect_pipe` (6), `angle_too_small` (7), `node_in_joint` (8). Kullanıcıya yerelleştirilmiş mesaj gösterilir. |
-| Çarpışma | aynı rapor → çarpışma maddeleri ve "Config → fiziksel parametre zinciri" | Blok: bölgedeki blokların collision kutularıyla dar faz (5). Boru: önce AABB, ortak düğümlü komşu kenarlar hariç, sonra dar faz (6). `‖uç − düğüm‖² < R²` → 8. Aynı düğümdeki çıkış yönleri: `dot ≥ 0.999` → 7. `0.1 < dot < 0.999` aralığında rapordaki kalınlık boşluğu formülü → 7. |
-| Yarıçaplar | aynı rapor | Boru yarıçapı `r = 0.5·çap`. Joint yarıçapı `R = 0.5·max(bağlı kenar çapları)`. ≥3 kenar ya da `force_joint` ise `R ·= √2`. Uç/geçiş bayrağı: tek kenarlı düğüm ya da farklı çaplı iki kenar. |
-| Maliyet | aynı rapor → "Kenar maliyeti" | Kenar başına `cost = ceil(n·h)` boru item'ı (yukarı yuvarlanmış uzunluk). Düzenlemede yeni − eski fark ödenir/iade edilir. |
-| Fizik sorguları | aynı rapor → "Fizik kapsamı" | Işın sorgusu (bakılan boruyu seçme, kırma, orta tık) ve hacim/çakışma sorgusu (varlık çarpışması). Zaman adımlı simülasyon yok; statik geometri. |
-| Render | aynı rapor → render bölümü | Kesit tabloları, frame taşıma, normal/UV, uç kapakları, kamera göreli konum, kenar başına mesh önbelleği. **Kesit burada kare cam kanaldır.** |
-| Grid/editör | `curvy-protocol-editor-re.md` | Altı mod, aday kümeleri, 27 hücrelik outline ile eleme, ekran projeksiyonunda seçim, graph düzenleme işlemleri (yerleştir, düğüm taşı, ayır, birleştir, `force_joint`, sil). |
-| Minecraft'a dokunulan yerler | `curvy-patches-mapping-re.md` → "Kayıtlı yamalar" | Curvy varlık çarpışması, seçme ve kırma için JVMTI ile şu sınıflara kanca atar: `Entity`, `EntityGetter`, `CollisionGetter`/`Level`, `FallingBlockEntity`, `LevelChunk.setBlockState`, `Minecraft` (`continueAttack`, `pickBlock`). Flowline aynı noktalara **Mixin** ile bağlanır; JVMTI kullanılmaz. Kızıltaş, dil/kaynak ve AE/GT yamaları kapsam dışı. |
+| Konu | Bu motor için özet |
+| --- | --- |
+| Kıvrım çözücü | Her açıklıkta örnek aralığı `s` = boru çapı. `n = ceil(clamp(A/s, 1, 64))`. `d < 0.5·s` ise ret. Eşit uzunlukta segmentler ve yön değişimini cezalandıran amaç, seyrek doğrusal olmayan çözümle. Çözücü sabitleri: sönüm `0.5`, düzenlileştirme `1e-8`, durma eşiği `0.01`. Uç yönü sabitse uç komşuları `P0 + h·t0` / `P1 − h·t1`. |
+| Yerleşim hataları | `invalid_shape` (1), `invalid_object` (2), `too_costly` (3), `too_far` (4), `intersect_block` (5), `intersect_pipe` (6), `angle_too_small` (7), `node_in_joint` (8). Kullanıcıya yerelleştirilmiş mesaj gösterilir. |
+| Çarpışma | Blok: bölgedeki blokların collision kutularıyla dar faz (5). Boru: önce AABB, ortak düğümlü komşu kenarlar hariç, sonra dar faz (6). `‖uç − düğüm‖² < R²` → 8. Aynı düğümdeki çıkış yönleri: `dot ≥ 0.999` → 7. `0.1 < dot < 0.999` aralığında kalınlık boşluğu formülü → 7. |
+| Yarıçaplar | Boru yarıçapı `r = 0.5·çap`. Joint yarıçapı `R = 0.5·max(bağlı kenar çapları)`. ≥3 kenar ya da `force_joint` ise `R ·= √2`. Uç/geçiş bayrağı: tek kenarlı düğüm ya da farklı çaplı iki kenar. |
+| Maliyet | Kenar başına `cost = ceil(n·h)` boru item'ı (yukarı yuvarlanmış uzunluk). Düzenlemede yeni − eski fark ödenir/iade edilir. |
+| Fizik sorguları | Işın sorgusu (bakılan boruyu seçme, kırma, orta tık) ve hacim/çakışma sorgusu (varlık çarpışması). Zaman adımlı simülasyon yok; statik geometri. |
+| Render | Kesit tabloları, frame taşıma, normal/UV, uç kapakları, kamera göreli konum, kenar başına mesh önbelleği. **Kesit burada kare cam kanaldır.** |
+| Grid/editör | Altı mod, aday kümeleri, 27 hücrelik outline ile eleme, ekran projeksiyonunda seçim, graph düzenleme işlemleri (yerleştir, düğüm taşı, ayır, birleştir, `force_joint`, sil). |
+| Minecraft'a dokunulan yerler | Varlık çarpışması, seçme ve kırma için **Mixin** ile şu sınıflara bağlanılır: `Entity`, `EntityGetter`, `CollisionGetter`/`Level`, `FallingBlockEntity`, `LevelChunk.setBlockState`, `Minecraft` (`continueAttack`, `pickBlock`). Kızıltaş, dil/kaynak ve AE/GT yamaları kapsam dışı. |
 
 **Boyut:** Kıvrımlı kesit, blok borusunun 6/16 bloklu kanalıyla aynıdır. Çözücüye giden "çap" `6/16 = 0.375` olur.
-*(Tasarımcının kararı.)* Curvy'nin varsayılan 0.2 çapı Flowline'ın görünümüne uymuyor.
+*(Tasarımcının kararı.)* Daha ince bir çap (0.2) Flowline'ın görünümüne uymuyor.
 
 **Kare kesit ve çarpışma** *(tasarımcının kararı)*:
-- Curvy'nin formülleri yuvarlak boru varsayar. Görünen kare köşelerin hiçbir şeye girmemesi için **blok/boru kesişme
+- Joint/açı formülleri yuvarlak boru varsayar. Görünen kare köşelerin hiçbir şeye girmemesi için **blok/boru kesişme
   testi (5, 6), varlık çarpışması ve ışınla seçme gerçek kare kesiti** (segment başına yönlü kutu) kullanır.
-- Açı ve joint kuralları (7, 8) ve joint yarıçapı Curvy formülünü korur. Formüldeki `r` ve çap değerleri
-  `0.5·0.375` ve `0.375`'tir. Böylece açı/joint davranışı Curvy ile oransal olarak aynı kalır.
+- Açı ve joint kuralları (7, 8) ve joint yarıçapı yuvarlak boru formülünü korur. Formüldeki `r` ve çap değerleri
+  `0.5·0.375` ve `0.375`'tir.
 
 ### Araştırma adımı (uygulamadan önce)
 
@@ -135,20 +128,20 @@ raporlara eklenir:
 
 1. `too_far` (4), `invalid_shape` (1) ve `invalid_object` (2) hatalarını tetikleyen koşullar.
 2. Hangi düğüm yönlerinin sabit olduğu: uzatılan serbest uç, açıklıklar arasında süreklilik, joint'ler.
-3. Dar faz testlerinin (`0x100f1c10`, `0x10011e70`) biçimi.
+3. Dar faz testlerinin biçimi.
 4. Dünya değişiminde davranış: `LevelChunk.setBlockState`, `FallingBlockEntity`, patlama ve piston yamalarının yaptığı iş.
-5. Curvy'nin bağlı olduğu blok kırılınca ne olduğu ("Detaching from block – configurations will be lost").
+5. Ucun bağlı olduğu blok kırılınca ne olduğu.
 
 Bir kural yine de çözülemezse plan bunu açıkça "yaklaşık" diye işaretler ve kullanıcıya bildirir.
 
-**Dünya değişimleri ve bağlantı noktaları** *(tasarımcının kararı; ayrıntı araştırma adımında Curvy'ye göre kesinleşir)*:
-- Kıvrımlı uç, envanter olmayan herhangi bir katı blok yüzüne de **sabitlenebilir** (Curvy gibi). Böyle bir uç ağ ucu
+**Dünya değişimleri ve bağlantı noktaları** *(tasarımcının kararı; ayrıntı araştırma adımında kesinleşir)*:
+- Kıvrımlı uç, envanter olmayan herhangi bir katı blok yüzüne de **sabitlenebilir**. Böyle bir uç ağ ucu
   değildir ve `SideConfig` taşımaz.
 - Bir ucun bağlı olduğu blok kırılır ya da uç oradan taşınırsa uç serbest düğüme döner.
   - O uçtaki `SideConfig` silinir.
   - Takılı upgrade'ler ve Filter Card uç konumunda eşya olarak düşer; kaybolmaz.
 - Oyuncular ve canlılar kıvrımlı boruların üstünde durabilir ve onlara çarpar. Bir kıvrımın geçtiği yere blok koyma
-  ve diğer dünya etkileşimleri Curvy'nin araştırma adımında bulunan davranışını izler.
+  ve diğer dünya etkileşimleri araştırma adımında belirlenen davranışı izler.
 
 ## Ağ bütünleşmesi (gereksinimler)
 
@@ -179,20 +172,20 @@ Kıvrımlı borular için gerekenler:
 
 ## Kaldırılacaklar
 
-- Curvy bağımlılığı: `mods.toml` optional dependency, `build.gradle` Curvy maven ve `-PwithCurvy`, Curvy için ayrı
-  GameTest dünyası.
-- Curvy köprüsü:
-  - `compat/CurvyPipesCompat`, `compat/CurvyPort`, `compat/UniversalChannel`.
-  - `mixin/Curvy*` ve `flowline.mixins.json` içindeki girişleri.
-  - YAML/SnakeYAML jarJar'ı, eğer yalnız Curvy config'i için kullanılıyorsa.
+- Eski isteğe bağlı bağımlılık: `mods.toml` girdisi, `build.gradle` maven girdisi ve test bayrağı, ayrı GameTest
+  dünyası.
+- Eski köprü:
+  - `compat` altındaki köprü sınıfları ve `compat/UniversalChannel`.
+  - Köprü mixin'leri ve `flowline.mixins.json` içindeki girişleri.
+  - YAML/SnakeYAML jarJar'ı, eğer yalnız köprünün config'i için kullanılıyorsa.
   - `OffhandMode` kanal alanları, `OffhandModePayload`'daki kanal ve protokol sürümü.
-- `compat/PipePlacement` yalnız Curvy item'ı için normal yerleşimi sağlıyorsa kalkar ya da sadeleşir.
-- `test/CurvyIntegrationGameTests` kaldırılır, yerine kendi motorun testleri gelir.
+- `compat/PipePlacement` yalnız köprünün item'ı için normal yerleşimi sağlıyorsa kalkar ya da sadeleşir.
+- Köprünün entegrasyon GameTest'leri kaldırılır, yerine kendi motorun testleri gelir.
 - `docs/CURVED_PIPES_TR.md` ve README yeni duruma göre yeniden yazılır.
 
 ## Doğrulama
 
-- **Saf Java birim testleri:** Çözücü, yerleşim kuralları ve maliyet. Raporlardaki sayısal örnekler kullanılır:
+- **Saf Java birim testleri:** Çözücü, yerleşim kuralları ve maliyet. Sayısal örnekler kullanılır:
   eşikler 0.1/0.999, `R` ve `√2` kuralı, `n` sınırları, `ceil(n·h)`.
 - **GameTest:**
   - Kıvrımlı hattın aynı ağa katılması: tek Extract ile sandıktan sandığa taşıma.
@@ -212,8 +205,7 @@ Kıvrımlı borular için gerekenler:
 - Modül/sınıf yapısı ve çözücünün sayısal yöntemi; aynı sonuçları veren herhangi bir Newton/Gauss-Newton varyantı.
 - Kıvrımlı kayıt biçimi ve ağ paket biçimi.
 - Kıvrımlı kenarın mesafeye katkısı (yukarıda).
-- Mixin hedef metodları. SRG adları `curvy-patches-mapping-re.md`'de; Mojmap karşılıkları orada `?` işaretli ve
-  doğrulanmamıştır, builder mapping'den doğrulamalı.
+- Mixin hedef metodları; builder adları mapping'den doğrulamalı.
 - Mesh oluşturma ve render tipi (blok borusu `translucent` kullanıyor).
-- `CurvyAdditionForFlowLine` (Flexi Pipes) deposundaki kendi MIT kodu (ör. `CurveSolver`, `PlacementCheck`,
-  `TubeMesh`, `Frames`) iskelet olarak kullanılabilir. Davranışı ise raporlara göre düzeltilmelidir.
+- Kullanıcının Flexi Pipes deposundaki kendi MIT kodu (ör. `CurveSolver`, `PlacementCheck`, `TubeMesh`, `Frames`)
+  iskelet olarak kullanılabilir. Davranışı ise yukarıdaki kurallara göre düzeltilmelidir.
