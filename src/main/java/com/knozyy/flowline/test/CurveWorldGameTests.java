@@ -1,8 +1,10 @@
 package com.knozyy.flowline.test;
 
 import com.knozyy.flowline.Flowline;
+import com.knozyy.flowline.curve.CurveRules;
 import com.knozyy.flowline.curve.EndCondition;
 import com.knozyy.flowline.curved.Anchor;
+import com.knozyy.flowline.curved.CurveCollisions;
 import com.knozyy.flowline.curved.CurveData;
 import com.knozyy.flowline.pipe.Conn;
 import com.knozyy.flowline.pipe.PipeBlock;
@@ -14,11 +16,16 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -153,5 +160,54 @@ public class CurveWorldGameTests {
         h.assertTrue(CurveData.get(h.getLevel()).graph().edge(edge).isPresent(), "the curve is untouched");
         CurveTestSupport.clear(h);
         h.succeed();
+    }
+
+    /** Places stone with a stone item on top of {@code below}; whether the item placed it. */
+    private static boolean placeStoneOn(GameTestHelper h, BlockPos below) {
+        BlockPos at = h.absolutePos(below);
+        BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(at).add(0, 0.5, 0), Direction.UP, at, false);
+        BlockPlaceContext context = new BlockPlaceContext(h.getLevel(), null, InteractionHand.MAIN_HAND, new ItemStack(Items.STONE), hit);
+        return ((BlockItem) Items.STONE).place(context).consumesAction();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 60)
+    public static void blocksAreNotPlacedIntoCurves(GameTestHelper h) {
+        long edge = airLine(h);
+        h.setBlock(new BlockPos(4, 1, 4), Blocks.STONE);
+        h.setBlock(new BlockPos(4, 1, 6), Blocks.STONE);
+        h.assertTrue(!placeStoneOn(h, new BlockPos(4, 1, 4)), "a block item is not placed across a curve");
+        h.assertBlockNotPresent(Blocks.STONE, new BlockPos(4, 2, 4));
+        h.assertTrue(placeStoneOn(h, new BlockPos(4, 1, 6)), "beside it, it is");
+        h.assertTrue(CurveData.get(h.getLevel()).graph().edge(edge).isPresent(), "and the curve stays");
+        CurveTestSupport.clear(h);
+        h.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 60)
+    public static void curvesTakeUpRoom(GameTestHelper h) {
+        airLine(h);
+        Vec3 at = h.absoluteVec(new Vec3(4.5, 2.5, 4.5));
+        double top = at.y + CurveRules.RADIUS;
+        h.assertTrue(CurveCollisions.overlaps(h.getLevel(), new AABB(at, at).inflate(0.1)), "a box in the curve overlaps it");
+        h.assertTrue(!CurveCollisions.overlaps(h.getLevel(), new AABB(at.x - 0.3, top, at.z - 0.3, at.x + 0.3, top + 1.8, at.z + 0.3)),
+                "a box resting on top of it does not");
+        CurveTestSupport.clear(h);
+        h.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 100)
+    public static void sandLandingOnACurveDropsAsAnItem(GameTestHelper h) {
+        long edge = airLine(h);
+        h.setBlock(new BlockPos(4, 1, 4), Blocks.STONE);
+        h.setBlock(new BlockPos(4, 5, 4), Blocks.SAND);
+        FallingBlockEntity.fall(h.getLevel(), h.absolutePos(new BlockPos(4, 5, 4)), Blocks.SAND.defaultBlockState());
+        CurveData data = CurveData.get(h.getLevel());
+        h.succeedWhen(() -> {
+            h.assertTrue(h.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(h.absolutePos(new BlockPos(4, 2, 4))).inflate(2))
+                    .stream().anyMatch(e -> e.getItem().is(Items.SAND)), "the sand drops as an item");
+            h.assertBlockNotPresent(Blocks.SAND, new BlockPos(4, 2, 4));
+            h.assertTrue(data.graph().edge(edge).isPresent(), "and the curve it landed on stays");
+            CurveTestSupport.clear(h);
+        });
     }
 }

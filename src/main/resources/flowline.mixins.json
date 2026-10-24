@@ -4,7 +4,7 @@
   "package": "com.knozyy.flowline.mixin",
   "refmap": "flowline.refmap.json",
   "compatibilityLevel": "JAVA_17",
-  "mixins": ["EntityMixin", "LevelChunkMixin"],
+  "mixins": ["BlockItemMixin", "EntityMixin", "FallingBlockEntityMixin", "LevelChunkMixin", "PlayerMixin"],
   "client": ["client.MinecraftMixin"],
   "injectors": {"defaultRequire": 1}
 }

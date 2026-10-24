@@ -47,12 +47,16 @@ Kıvrımlı modda (hepsi Controls'tan değiştirilebilir):
 
 ## Dünya
 
-- Kıvrımın geçtiği yere konan ya da itilen blok (komşusuna haber vermeyen değişimler dahil) bir sonraki tick'te o
-  kenarı kırar; borular orada düşer.
+- Blok eşyası, çarpışma şekli bir kıvrımla örtüşecekse yerleşmez (önünde bir varlık duruyormuş gibi). Kum/çakıl gibi
+  düşen blok, konduğu hücrede kıvrımla örtüşecekse eşya olarak düşer; kıvrım sağlam kalır.
+- Bu iki yol dışından kıvrımın geçtiği yere gelen blok (piston, komut, komşusuna haber vermeyen değişimler) bir
+  sonraki tick'te o kenarı kırar; borular orada düşer.
 - Ucun bağlı olduğu blok kırılırsa uç bağlı kalır ve ayarlarını korur (kullanıcı kararı, 2026-10-19); taşımada o
   tarafta envanter bulunmaz.
 - Oyuncular, canlılar, eşyalar ve düşen bloklar kıvrımlı boruların üstünde durur ve onlara çarpar. **Yaklaşık:** eğik
   bir segmentte çarpışma kutusu camın en çok 2 piksel dışına taşar.
+- Eğilen oyuncu kıvrımın kenarında durur (kıvrım zemin sayılır); kıvrımın altında çömelen oyuncu ayağa kalkıp
+  ona giremez. Yaratık doğma kontrolleri kıvrımları hesaba katmaz (doğrulanmadı, kapsam dışı).
 - Koruma modları (claim) yerleşimde ve kırmada blok borusundaki gibi sorulur.
 
 ## Eski dünyalar

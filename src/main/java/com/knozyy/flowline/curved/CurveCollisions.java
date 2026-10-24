@@ -46,6 +46,27 @@ public final class CurveCollisions {
         return false;
     }
 
+    /**
+     * Whether a curved pipe overlaps {@code area} (touching is not overlapping). Block items are not placed
+     * (BlockItemMixin) and falling blocks do not land there (FallingBlockEntityMixin), sneaking players treat it as
+     * ground (PlayerMixin) and no entity takes a pose into it (EntityMixin).
+     */
+    public static boolean overlaps(Level level, AABB area) {
+        CurveGraph graph = graph(level);
+        if (graph == null || graph.edges().isEmpty()) return false;
+        Aabb query = new Aabb(area.minX, area.minY, area.minZ, area.maxX, area.maxY, area.maxZ);
+        for (SegmentBox segment : graph.boxesNear(query)) {
+            if (segment.box().overlaps(query)) return true;
+        }
+        return false;
+    }
+
+    /** Whether a curved pipe overlaps one of the boxes of {@code shape}, which is in world coordinates. */
+    public static boolean overlaps(Level level, VoxelShape shape) {
+        for (AABB box : shape.toAabbs()) if (overlaps(level, box)) return true;
+        return false;
+    }
+
     /** {@code shapes} (the entity's other collisions) with the curved pipe boxes inside {@code area} added. */
     public static List<VoxelShape> with(Level level, AABB area, List<VoxelShape> shapes) {
         CurveGraph graph = graph(level);

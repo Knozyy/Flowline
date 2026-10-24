@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Curved pipes take up room like blocks: a block cannot be placed across a curve, sand or gravel landing on one
+  drops as an item instead of breaking it, sneaking stops at its edge and a crouching player under one stays crouched.
+
 ## 0.3.20
 
 - **Curved pipes are part of Flowline itself.** The off hand's mode key switches between Build for me and Curved;
