@@ -14,6 +14,8 @@ ACCENTS = {"item": (0xFF, 0xF1, 0xC9), "fluid": (0xCF, 0xE8, 0xFF), "energy": (0
            "universal": (0xE4, 0xD6, 0xFF), "chemical": (0xD2, 0xF5, 0xDD)}
 # pipes that only exist with another mod installed
 OPTIONAL = {"chemical": "mekanism"}
+# the item tags mods use for wrenches; WrenchItem.WRENCHES reads the same list
+WRENCH_TAGS = ["forge:tools/wrench", "forge:wrenches", "forge:tools/wrenches", "c:wrenches", "c:tools/wrench"]
 
 
 def write(path, text):

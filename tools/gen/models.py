@@ -192,9 +192,47 @@ for name in TYPES:
     else:
         write_json(f"data/{MODID}/loot_tables/blocks/{name}_pipe.json", table)
 
+# the wrench: a 3D hook wrench (user's choice B), built upright and turned 45 degrees like a tool sprite's diagonal,
+# so the tool display below holds it like any tool; placed so the turned model stays inside its 16 px slot. Hook head at the top with a glass duct held in it, a steel shaft, a dark
+# collar and a banded pastel grip with an end cap. Swatches: textures.wrench_texture.
+WRENCH_SWATCH = {"steel": [0, 0, 4, 4], "dark": [4, 0, 8, 4], "grip": [8, 0, 12, 4], "band": [12, 0, 16, 4],
+                 "glass": [0, 4, 4, 8]}
+WRENCH_CUBES = [
+    ([5.25, -1.5, 6.5], [8.25, 0, 9.5], "dark"),       # end cap
+    ([5.75, 0, 7], [7.75, 6.5, 9], "grip"),
+    ([5.5, 1.5, 6.75], [8, 2.25, 9.25], "band"),
+    ([5.5, 3.5, 6.75], [8, 4.25, 9.25], "band"),
+    ([5.5, 5.5, 6.75], [8, 6.25, 9.25], "band"),
+    ([6, 6.5, 7.25], [7.5, 10.5, 8.75], "steel"),      # shaft
+    ([5.5, 9.5, 6.75], [8, 10.5, 9.25], "dark"),       # collar
+    ([4.25, 10.5, 6.5], [8.75, 12, 9.5], "steel"),     # head: base,
+    ([4.25, 12, 6.5], [5.75, 16, 9.5], "steel"),       # back of the hook,
+    ([5.75, 14.5, 6.5], [11.25, 16, 9.5], "steel"),    # top,
+    ([9.75, 12.5, 6.5], [11.25, 14.5, 9.5], "steel"),  # tip
+    ([9.25, 12.5, 6.75], [9.75, 13.5, 9.25], "dark"),  # and its tooth
+    ([6.25, 12, 5.5], [9, 14.25, 10.5], "glass"),      # the duct in the hook
+]
+# no parent: item/handheld ends in builtin/generated, which builds the model from layer0 alone and drops these cubes
+# (the wrench drew nothing). The display is item/handheld's and item/generated's, copied.
+WRENCH_DISPLAY = {
+    "thirdperson_righthand": {"rotation": [0, -90, 55], "translation": [0, 4, 0.5], "scale": [0.85, 0.85, 0.85]},
+    "thirdperson_lefthand": {"rotation": [0, 90, -55], "translation": [0, 4, 0.5], "scale": [0.85, 0.85, 0.85]},
+    "firstperson_righthand": {"rotation": [0, -90, 25], "translation": [1.13, 3.2, 1.13], "scale": [0.68, 0.68, 0.68]},
+    "firstperson_lefthand": {"rotation": [0, 90, -25], "translation": [1.13, 3.2, 1.13], "scale": [0.68, 0.68, 0.68]},
+    "ground": {"rotation": [0, 0, 0], "translation": [0, 2, 0], "scale": [0.5, 0.5, 0.5]},
+    "head": {"rotation": [0, 180, 0], "translation": [0, 13, 7], "scale": [1, 1, 1]},
+    "fixed": {"rotation": [0, 180, 0], "scale": [1, 1, 1]},
+}
 write_json(f"assets/{MODID}/models/item/wrench.json", {
-    "parent": "minecraft:item/handheld",
-    "textures": {"layer0": f"{MODID}:item/wrench"},
+    "gui_light": "front",
+    "display": WRENCH_DISPLAY,
+    "textures": {"parts": f"{MODID}:item/wrench", "particle": f"{MODID}:item/wrench"},
+    "elements": [{
+        "from": frm, "to": to,
+        "rotation": {"angle": -45, "axis": "z", "origin": [8, 8, 8]},
+        "faces": {face: {"uv": WRENCH_SWATCH[part], "texture": "#parts"}
+                  for face in ("north", "east", "south", "west", "up", "down")},
+    } for frm, to, part in WRENCH_CUBES],
 })
 for name in ("speed_upgrade", "stack_upgrade", "filter_upgrade", "knozy_upgrade",
              "filter_card"):
@@ -203,8 +241,10 @@ for name in ("speed_upgrade", "stack_upgrade", "filter_upgrade", "knozy_upgrade"
         "textures": {"layer0": f"{MODID}:item/{name}"},
     })
 
-# the common wrench tag: other mods treat the Flowline Wrench as a wrench, and their wrenches work on pipes
-write_json("data/forge/tags/items/tools/wrench.json", {"replace": False, "values": [f"{MODID}:wrench"]})
+# the wrench tags mods use: other mods treat the Flowline Wrench as a wrench, and their wrenches work on pipes
+for tag in WRENCH_TAGS:
+    namespace, path = tag.split(":")
+    write_json(f"data/{namespace}/tags/items/{path}.json", {"replace": False, "values": [f"{MODID}:wrench"]})
 
 write_json("data/minecraft/tags/blocks/mineable/pickaxe.json", {
     "replace": False,

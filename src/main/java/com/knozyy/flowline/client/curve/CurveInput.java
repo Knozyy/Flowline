@@ -105,6 +105,7 @@ public final class CurveInput {
         boolean shift = mc.player.isShiftKeyDown();
         CurvePlacer.Action action = CurvePlacer.decide(curved, CurvePlacer.drawing(), target.kind, shift, click,
                 CurvePlacer.held(mc.player.getMainHandItem()));
+        if (action == CurvePlacer.Action.CYCLE_END && !blockEnd(target)) action = CurvePlacer.Action.WRENCH_BREAK;
         if (action == CurvePlacer.Action.PASS) return;
         event.setCanceled(true);
         event.setSwingHand(false);
@@ -130,6 +131,16 @@ public final class CurveInput {
                         ? new CurveRemovePayload(CurvePlacer.nextRequest(), target.nodeId)
                         : new CurveBreakPayload(CurvePlacer.nextRequest(), target.edgeId));
             }
+            case WRENCH_BREAK -> {
+                // the wrench takes pipes apart at once, in survival too; they drop like broken blocks
+                long now = mc.level.getGameTime();
+                if (!CurvePlacer.breakReady(now, lastBreak)) return;
+                lastBreak = now;
+                event.setSwingHand(true);
+                ModNetwork.sendToServer(target.kind == CurveTarget.Kind.NODE
+                        ? new CurveRemovePayload(CurvePlacer.nextRequest(), target.nodeId)
+                        : new CurveBreakPayload(CurvePlacer.nextRequest(), target.edgeId));
+            }
             case PAINT -> {
                 event.setSwingHand(true);
                 ModNetwork.sendToServer(new CurvePaintPayload(CurvePlacer.nextRequest(), target.edgeId, InteractionHand.MAIN_HAND));
@@ -139,6 +150,12 @@ public final class CurveInput {
             case CARD_END -> end(target, CurveEndPayload.Action.CARD);
             default -> {}
         }
+    }
+
+    /** Whether the target node is a curved end on a block face, the only node with a mode to cycle. */
+    private static boolean blockEnd(CurveTarget target) {
+        var node = ClientCurves.INSTANCE.node(target.nodeId);
+        return node != null && node.anchorKind() == 2;
     }
 
     private static void end(CurveTarget target, CurveEndPayload.Action action) {

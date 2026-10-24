@@ -109,7 +109,7 @@ public final class CurveRenderer {
         return switch (part) {
             case RAIL -> RAIL;
             case GLASS, GLASS_INNER -> new ResourceLocation(Flowline.MODID, "block/" + name + "_glass");
-            case JOINT, FLANGE -> RAIL;
+            case JOINT -> RAIL;
             case COLLAR -> new ResourceLocation(Flowline.MODID, "block/" + name + "_collar");
             case RING -> new ResourceLocation(Flowline.MODID, "block/" + name + "_extract");
         };
@@ -131,8 +131,8 @@ public final class CurveRenderer {
             if (sprites[part.ordinal()] == null) sprites[part.ordinal()] = sprite(texture(type, part));
             TextureAtlasSprite s = sprites[part.ordinal()];
             boolean isGlass = part == MeshPart.GLASS || part == MeshPart.GLASS_INNER;
-            // the rails, the joint's metal body and its flanges take the pipe's (dye) colour
-            int rgb = part == MeshPart.RAIL || part == MeshPart.JOINT || part == MeshPart.FLANGE ? tint : 0xFFFFFF;
+            // the rails and the joint's metal frame take the pipe's (dye) colour
+            int rgb = part == MeshPart.RAIL || part == MeshPart.JOINT ? tint : 0xFFFFFF;
             Vec3d c = q.a().add(q.b()).add(q.c()).add(q.d()).scale(0.25);
             int light = LevelRenderer.getLightColor(level, BlockPos.containing(c.x(), c.y(), c.z()));
             quad(isGlass ? glassOut : solidOut, matrix, normals, origin, q, s, rgb, 255, light);

@@ -98,65 +98,21 @@ GREY = (0xB4, 0xB4, 0xBC)
 
 
 def wrench_texture():
-    """Flowline wrench: an open hex jaw at the upper right with the pipes' glass in its throat, a dark collar, a steel
-    shaft with a glass inlay and a banded pastel grip with an end cap. Handle at the lower left, so `item/handheld`
-    holds it like a tool. Drawn as material masks, then outlined and lit from the upper left."""
-    import math
-    g = [[None] * 16 for _ in range(16)]
-
-    def put(test, mat):
-        for y in range(16):
-            for x in range(16):
-                if test(x + 0.5, y + 0.5):
-                    g[y][x] = mat
-
-    def segment(ax, ay, bx, by, w, mat, near=None, split=None):
-        """A straight bar from a to b (square ends); `near` replaces `mat` on the part before `split`."""
-        for y in range(16):
-            for x in range(16):
-                X, Y = x + 0.5, y + 0.5
-                t = ((X - ax) * (bx - ax) + (Y - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2)
-                if 0 <= t <= 1 and math.hypot(X - (ax + t * (bx - ax)), Y - (ay + t * (by - ay))) <= w / 2:
-                    g[y][x] = near if split is not None and t < split else mat
-
-    cx, cy = 11.2, 4.8
-    segment(2.2, 13.8, 9.2, 6.8, 2.6, "m", near="r", split=0.5)       # shaft, grip on the lower half
-    segment(1.4, 14.6, 2.6, 13.4, 2.8, "k")                            # end cap
-    put(lambda X, Y: max(abs(X - cx) * 0.866 + abs(Y - cy) * 0.5, abs(Y - cy)) <= 3.9, "m")   # hex head
-    s2 = math.sqrt(0.5)
-    put(lambda X, Y: -0.2 <= ((X - cx) - (Y - cy)) * s2 <= 6 and abs((X - cx) + (Y - cy)) * s2 <= 1.2, None)  # jaw
-    put(lambda X, Y: math.hypot(X - 10.3, Y - 5.7) <= 0.9, "c")        # glass in the throat
-    segment(8.6, 7.4, 9.6, 6.4, 3.2, "h")                              # collar
-    segment(5.6, 10.4, 7.9, 8.1, 0.9, "c")                             # glass inlay
-    for y in range(16):                                                 # bands on the grip
-        for x in range(16):
-            if g[y][x] == "r" and (x - y) % 3 == 0:
-                g[y][x] = "R"
-    palette = {
-        "m": ((0xE4, 0xE9, 0xF0), (0xA7, 0xB0, 0xBC), (0x5E, 0x67, 0x73)),
-        "h": ((0xA0, 0xA8, 0xB4), (0x6E, 0x76, 0x82), (0x40, 0x46, 0x50)),
-        "k": ((0x6E, 0x76, 0x82), (0x50, 0x56, 0x60), (0x34, 0x38, 0x40)),
-        "c": ((0xF2, 0xFF, 0xFF), (0x8F, 0xE6, 0xF0), (0x3E, 0xA8, 0xBC)),
-        "r": ((0xFF, 0xD3, 0xBC), (0xF2, 0xA0, 0x7B), (0xB0, 0x60, 0x40)),
-        "R": ((0xB0, 0x60, 0x40), (0x8C, 0x48, 0x30), (0x60, 0x30, 0x20)),
+    """The Flowline wrench's 3D model (models.py) paints its cubes from 4x4 swatches here: steel, dark steel, the
+    pastel grip, the grip's bands (top row) and the pipes' glass (second row). Each swatch is lit from the upper left."""
+    swatches = {
+        (0, 0): ((0xE4, 0xE9, 0xF0), (0xA7, 0xB0, 0xBC), (0x5E, 0x67, 0x73)),   # steel
+        (4, 0): ((0x6E, 0x76, 0x82), (0x50, 0x56, 0x60), (0x34, 0x38, 0x40)),   # dark steel
+        (8, 0): ((0xFF, 0xD3, 0xBC), (0xF2, 0xA0, 0x7B), (0xB0, 0x60, 0x40)),   # grip
+        (12, 0): ((0xB0, 0x60, 0x40), (0x8C, 0x48, 0x30), (0x60, 0x30, 0x20)),  # grip band
+        (0, 4): ((0xF2, 0xFF, 0xFF), (0x8F, 0xE6, 0xF0), (0x3E, 0xA8, 0xBC)),   # glass
     }
-    outline = (0x1E, 0x20, 0x26, 255)
     out = [[(0, 0, 0, 0)] * 16 for _ in range(16)]
-    for y in range(16):
-        for x in range(16):
-            m = g[y][x]
-            if m is None:
-                if any(0 <= x + ex < 16 and 0 <= y + ey < 16 and g[y + ey][x + ex]
-                       for ex, ey in ((1, 0), (-1, 0), (0, 1), (0, -1))):
-                    out[y][x] = outline
-                continue
-            light, mid, dark = palette[m]
-            up = g[y - 1][x] if y > 0 else None
-            left = g[y][x - 1] if x > 0 else None
-            down = g[y + 1][x] if y < 15 else None
-            right = g[y][x + 1] if x < 15 else None
-            c = light if (up is None or left is None) else dark if (down is None or right is None) else mid
-            out[y][x] = c + (255,)
+    for (u, v), (light, mid, dark) in swatches.items():
+        for y in range(4):
+            for x in range(4):
+                c = light if x == 0 or y == 0 else dark if x == 3 or y == 3 else mid
+                out[v + y][u + x] = c + (255,)
     return out
 
 

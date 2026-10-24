@@ -12,8 +12,6 @@ public enum MeshPart {
     COLLAR,
     /** Metal bands: an extracting end's ring and the bands along a duct. */
     RING,
-    /** A joint's round metal body, like a valve where the pipes meet. */
-    JOINT,
-    /** The metal flange where a pipe goes into a joint. */
-    FLANGE
+    /** The metal frame on a joint's square glass box. */
+    JOINT
 }

@@ -1,9 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.3.25
 
 - Curved pipes take up room like blocks: a block cannot be placed across a curve, sand or gravel landing on one
   drops as an item instead of breaking it, sneaking stops at its edge and a crouching player under one stays crouched.
+- Pipe recipes make 8 pipes instead of 4 (universal pipes still 3).
+- Sneak + right-click a curved pipe with a wrench to take it apart at once; its pipes drop in survival. On a curved
+  end on a block the same click still cycles Insert and Extract.
+- The Flowline Wrench is a 3D hook wrench, held like a tool. It is in the common wrench tags (`forge:tools/wrench`,
+  `forge:wrenches`, `forge:tools/wrenches`, `c:wrenches`, `c:tools/wrench`), and wrenches from any of them work on
+  pipes.
+- Where curved pipes meet sits a square glass box with a metal frame on its edges instead of the round metal joint
+  and its flanges.
 
 ## 0.3.20
 

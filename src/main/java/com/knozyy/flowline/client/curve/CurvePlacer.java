@@ -28,7 +28,7 @@ public final class CurvePlacer {
 
     /** {@code IGNORE} takes the click from vanilla and does nothing; {@code PASS} leaves it to vanilla. */
     public enum Action {
-        START, ADD, FINISH, BREAK, PAINT, OPEN_END, CYCLE_END, CARD_END, GRID_NEXT, GRID_PREVIOUS, IGNORE, PASS
+        START, ADD, FINISH, BREAK, WRENCH_BREAK, PAINT, OPEN_END, CYCLE_END, CARD_END, GRID_NEXT, GRID_PREVIOUS, IGNORE, PASS
     }
 
     private static GridMode grid = GridMode.AXIAL;
@@ -67,6 +67,9 @@ public final class CurvePlacer {
             };
         }
         if (held == HeldKind.DYE && target == CurveTarget.Kind.EDGE) return Action.PAINT;
+        // sneak + right-click with the wrench takes an edge apart at once; on a node it cycles the end's mode, and
+        // CurveInput turns that into a break where the node is no end on a block
+        if (held == HeldKind.WRENCH && shift && target == CurveTarget.Kind.EDGE) return Action.WRENCH_BREAK;
         if (target == CurveTarget.Kind.NODE) {
             if (held == HeldKind.WRENCH && shift) return Action.CYCLE_END;
             if (held == HeldKind.CARD) return Action.CARD_END;

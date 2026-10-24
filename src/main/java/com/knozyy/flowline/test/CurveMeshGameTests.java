@@ -95,17 +95,22 @@ public class CurveMeshGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void jointIsAClosedSphere(GameTestHelper h) {
+    public static void jointIsAFramedGlassBox(GameTestHelper h) {
         Vec3d centre = v(1, 2, 3);
-        double r = 0.1875 * Math.sqrt(2);
-        List<MeshQuad> quads = TubeMesh.joint(centre, r, List.of(v(1, 0, 0), v(0, 1, 0), v(0, 0, -1)));
-        h.assertTrue(count(quads, MeshPart.JOINT) == 8 * 6, "8 × 6 quads of round metal body");
-        h.assertTrue(count(quads, MeshPart.FLANGE) == 3 * 5, "a flange (4 sides and its face) at each of the 3 exits");
+        double half = 0.1875 * Math.sqrt(2) + 1 / 16.0;
+        List<MeshQuad> quads = TubeMesh.joint(centre, half);
+        h.assertTrue(count(quads, MeshPart.JOINT) == 12 * 6, "12 metal bars of 6 faces, got " + count(quads, MeshPart.JOINT));
+        h.assertTrue(count(quads, MeshPart.GLASS) == 6 && count(quads, MeshPart.GLASS_INNER) == 6,
+                "six glass faces, seen from outside and inside");
         for (MeshQuad q : quads) {
-            if (q.part() != MeshPart.JOINT) continue;
+            Vec3d mid = q.a().add(q.b()).add(q.c()).add(q.d()).scale(0.25).sub(centre);
             for (Vec3d p : List.of(q.a(), q.b(), q.c(), q.d())) {
-                h.assertTrue(Math.abs(Math.sqrt(p.distanceSq(centre)) - r) < 1e-9, "sphere point off the radius: " + p);
+                Vec3d d = p.sub(centre);
+                h.assertTrue(Math.max(Math.abs(d.x()), Math.max(Math.abs(d.y()), Math.abs(d.z()))) <= half + 1e-9,
+                        "a corner outside the box: " + p);
             }
+            if (q.part() == MeshPart.GLASS) h.assertTrue(q.normal().dot(mid) > 0, "outer glass faces out");
+            if (q.part() == MeshPart.GLASS_INNER) h.assertTrue(q.normal().dot(mid) < 0, "inner glass faces in");
         }
         h.succeed();
     }

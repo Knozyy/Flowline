@@ -148,6 +148,10 @@ public class CurveGridGameTests {
                 "an empty hand opens the end's screen");
         h.assertTrue(use(false, false, CurveTarget.Kind.NODE, true, CurvePlacer.HeldKind.WRENCH) == CurvePlacer.Action.CYCLE_END,
                 "shift and the wrench cycle its mode");
+        h.assertTrue(use(false, false, CurveTarget.Kind.EDGE, true, CurvePlacer.HeldKind.WRENCH) == CurvePlacer.Action.WRENCH_BREAK,
+                "on an edge they take it apart");
+        h.assertTrue(use(true, false, CurveTarget.Kind.EDGE, false, CurvePlacer.HeldKind.WRENCH) == CurvePlacer.Action.PASS,
+                "the wrench alone leaves the edge be");
         h.assertTrue(use(true, false, CurveTarget.Kind.NODE, false, CurvePlacer.HeldKind.CARD) == CurvePlacer.Action.CARD_END,
                 "a Filter Card applies, even in curved mode");
         h.assertTrue(use(false, false, CurveTarget.Kind.EDGE, false, CurvePlacer.HeldKind.DYE) == CurvePlacer.Action.PAINT,

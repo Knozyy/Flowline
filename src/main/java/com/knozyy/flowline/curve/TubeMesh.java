@@ -7,13 +7,13 @@ import java.util.List;
  * The look of a curved pipe as quads: the block pipe's 6x6 px glass duct (tools/gen/models.py) carried along the
  * solved points. Four 1 px corner rails 2-3 px from the middle, glass panels 2.5 px out (seen from both sides), a 1 px
  * band every fourth point, and at the ends a collar (inserting end on a block), an extract ring, or a glass cap (free
- * end). A joint is a round metal body, like a valve, with a flange where each pipe goes in.
+ * end). A joint is a square glass box on the world axes with a 1 px metal frame on its twelve edges; the ducts run
+ * into it.
  */
 public final class TubeMesh {
     private static final double PX = 1 / 16.0;
-    private static final double RAIL_OUT = 3 * PX, RAIL_IN = 2 * PX, GLASS = 2.5 * PX, BAND = 3.5 * PX, FLANGE = 4.5 * PX;
+    private static final double RAIL_OUT = 3 * PX, RAIL_IN = 2 * PX, GLASS = 2.5 * PX, BAND = 3.5 * PX;
     private static final int BAND_EVERY = 4;
-    private static final int SLICES = 8, STACKS = 6;
 
     public enum EndStyle { NONE, COLLAR, RING, CAP }
 
@@ -147,30 +147,57 @@ public final class TubeMesh {
     }
 
     /**
-     * A round metal body of {@code radius} at {@code centre}, like a valve, with a square flange (the duct's collar,
-     * a little wider) where each pipe goes in along {@code exits}.
+     * A square glass box of half width {@code half} at {@code centre}, on the world axes like a block pipe's middle,
+     * framed by twelve 1 px metal bars along its edges. The ducts need nothing more: they end at the centre, inside
+     * the box.
      */
-    public static List<MeshQuad> joint(Vec3d centre, double radius, List<Vec3d> exits) {
+    public static List<MeshQuad> joint(Vec3d centre, double half) {
         List<MeshQuad> q = new ArrayList<>();
-        for (int s = 0; s < STACKS; s++) {
-            double t0 = Math.PI * s / STACKS, t1 = Math.PI * (s + 1) / STACKS;
-            for (int k = 0; k < SLICES; k++) {
-                double p0 = 2 * Math.PI * k / SLICES, p1 = 2 * Math.PI * (k + 1) / SLICES;
-                q.add(MeshQuad.of(MeshPart.JOINT, sphere(centre, radius, t0, p0), sphere(centre, radius, t0, p1),
-                        sphere(centre, radius, t1, p1), sphere(centre, radius, t1, p0),
-                        0, 16f * s / STACKS, 1, 16f * (s + 1) / STACKS));
+        double g = half - PX / 2;
+        box(q, MeshPart.GLASS, centre, new double[]{-g, -g, -g}, new double[]{g, g, g}, false, 2, 14);
+        box(q, MeshPart.GLASS_INNER, centre, new double[]{-g, -g, -g}, new double[]{g, g, g}, true, 2, 14);
+        for (int axis = 0; axis < 3; axis++) {
+            for (int s1 = -1; s1 <= 1; s1 += 2) {
+                for (int s2 = -1; s2 <= 1; s2 += 2) {
+                    double[] lo = new double[3], hi = new double[3];
+                    lo[axis] = -half;
+                    hi[axis] = half;
+                    int a1 = (axis + 1) % 3, a2 = (axis + 2) % 3;
+                    lo[a1] = s1 < 0 ? -half : half - PX;
+                    hi[a1] = s1 < 0 ? -half + PX : half;
+                    lo[a2] = s2 < 0 ? -half : half - PX;
+                    hi[a2] = s2 < 0 ? -half + PX : half;
+                    box(q, MeshPart.JOINT, centre, lo, hi, false, 0, 1);
+                }
             }
-        }
-        for (Vec3d exit : exits) {
-            Vec3d t = exit.normalize();
-            Vec3d n = Frames.blockNormal(t);
-            collar(q, new Frame(centre.addScaled(t, radius - PX), t, n, t.cross(n)), 1, MeshPart.FLANGE, FLANGE, 2 * PX);
         }
         return q;
     }
 
-    private static Vec3d sphere(Vec3d c, double r, double theta, double phi) {
-        return new Vec3d(c.x() + r * Math.sin(theta) * Math.cos(phi), c.y() + r * Math.cos(theta),
-                c.z() + r * Math.sin(theta) * Math.sin(phi));
+    /** The six faces of the world-aligned box {@code centre + lo..hi}, facing out, or in when {@code inward}. */
+    private static void box(List<MeshQuad> q, MeshPart part, Vec3d centre, double[] lo, double[] hi, boolean inward,
+                            float t0, float t1) {
+        for (int axis = 0; axis < 3; axis++) {
+            int a1 = (axis + 1) % 3, a2 = (axis + 2) % 3;
+            for (int side = -1; side <= 1; side += 2) {
+                double[][] corners = new double[4][3];
+                double[][] uv = {{lo[a1], lo[a2]}, {hi[a1], lo[a2]}, {hi[a1], hi[a2]}, {lo[a1], hi[a2]}};
+                for (int k = 0; k < 4; k++) {
+                    corners[k][axis] = side < 0 ? lo[axis] : hi[axis];
+                    corners[k][a1] = uv[k][0];
+                    corners[k][a2] = uv[k][1];
+                }
+                MeshQuad face = MeshQuad.of(part, at(centre, corners[0]), at(centre, corners[1]), at(centre, corners[2]),
+                        at(centre, corners[3]), t0, t0, t1, t1);
+                double[] out = new double[3];
+                out[axis] = side * (inward ? -1 : 1);
+                if (face.normal().dot(new Vec3d(out[0], out[1], out[2])) < 0) face = face.flipped();
+                q.add(face);
+            }
+        }
+    }
+
+    private static Vec3d at(Vec3d c, double[] d) {
+        return new Vec3d(c.x() + d[0], c.y() + d[1], c.z() + d[2]);
     }
 }

@@ -124,17 +124,15 @@ public final class MeshCache {
             return entry.quads();
         }
         builds++;
-        List<Vec3d> exits = new ArrayList<>();
         double[] diameters = new double[ids.size()];
         int i = 0;
         for (CurveEdge e : graph.edgesAt(nodeId)) {
-            exits.add(CurveGraph.exitDirection(e, nodeId));
             diameters[i++] = e.diameter();
         }
-        // a two-edge bend gets the size of a forced joint: the plain radius would leave the duct's corners outside
-        // one pixel over the joint radius, so the low-poly body hides the ducts' corners
+        // a two-edge bend gets the size of a forced joint: the plain radius would leave the duct's corners outside;
+        // the box's half width is one pixel over the joint radius, so it holds the ducts' corners
         List<MeshQuad> quads = TubeMesh.joint(node.pos(),
-                JointRules.jointRadius(diameters, node.force() || ids.size() == 2) + 1 / 16.0, exits);
+                JointRules.jointRadius(diameters, node.force() || ids.size() == 2) + 1 / 16.0);
         joints.put(nodeId, new JointEntry(node, ids, quads));
         return quads;
     }
@@ -157,7 +155,7 @@ public final class MeshCache {
 
     /**
      * The piece at an edge's end: block face anchors get a collar (an extract ring when the end extracts), pipe faces
-     * nothing, a free end with no other edge a glass cap, and a joint nothing (its sphere covers it).
+     * nothing, a free end with no other edge a glass cap, and a joint nothing (its box holds it).
      */
     private TubeMesh.EndStyle style(long nodeId) {
         CurveEdgesPayload.NodeSync node = curves.node(nodeId);

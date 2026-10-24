@@ -16,7 +16,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.BlockItem;
@@ -209,5 +211,23 @@ public class CurveWorldGameTests {
             h.assertTrue(data.graph().edge(edge).isPresent(), "and the curve it landed on stays");
             CurveTestSupport.clear(h);
         });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 60)
+    public static void sneakingWalksAlongACurve(GameTestHelper h) {
+        airLine(h);
+        ServerPlayer player = CurveEditGameTests.player(h, 0);
+        Vec3 on = h.absoluteVec(new Vec3(3.5, 2.5 + CurveRules.RADIUS, 4.5));
+        player.moveTo(on.x, on.y, on.z);
+        player.setDeltaMovement(Vec3.ZERO);
+        player.setOnGround(true);
+        player.setShiftKeyDown(true);
+        player.move(MoverType.SELF, new Vec3(0.3, 0, 0));
+        h.assertTrue(player.getX() - on.x > 0.29, "sneaking moves along the curve, moved " + (player.getX() - on.x));
+        double z = player.getZ();
+        player.move(MoverType.SELF, new Vec3(0, 0, 0.6));
+        h.assertTrue(player.getZ() - z < 0.5, "and stops at its edge, moved " + (player.getZ() - z));
+        CurveTestSupport.clear(h);
+        h.succeed();
     }
 }

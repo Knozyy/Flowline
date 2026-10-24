@@ -367,6 +367,41 @@ public class AuditGameTests {
         h.succeed();
     }
 
+    /**
+     * The 3D wrench draws its cubes only without a generated parent (item/generated, item/handheld): those build the
+     * model from layer0 and drop the elements, and the wrench was invisible.
+     */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void wrenchModelKeepsItsCubes(GameTestHelper h) throws java.io.IOException {
+        try (var in = AuditGameTests.class.getResourceAsStream("/assets/flowline/models/item/wrench.json")) {
+            h.assertTrue(in != null, "the wrench model is packed");
+            var model = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(in,
+                    java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            h.assertTrue(!model.has("parent"), "no parent, so nothing generates it from layer0");
+            var textures = model.getAsJsonObject("textures");
+            var elements = model.getAsJsonArray("elements");
+            h.assertTrue(elements != null && !elements.isEmpty(), "the model has cubes");
+            for (var element : elements) {
+                for (var face : element.getAsJsonObject().getAsJsonObject("faces").entrySet()) {
+                    String ref = face.getValue().getAsJsonObject().get("texture").getAsString();
+                    h.assertTrue(textures.has(ref.substring(1)), "face texture " + ref + " is defined");
+                }
+            }
+            for (String hand : new String[]{"firstperson_righthand", "thirdperson_righthand"}) {
+                h.assertTrue(model.getAsJsonObject("display").has(hand), "it is held like a tool: " + hand);
+            }
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void wrenchIsInEveryWrenchTag(GameTestHelper h) {
+        ItemStack wrench = new ItemStack(ModItems.WRENCH.get());
+        for (var tag : WrenchItem.WRENCHES) h.assertTrue(wrench.is(tag), "the Flowline Wrench is in " + tag.location());
+        h.assertTrue(!WrenchItem.isWrench(new ItemStack(net.minecraft.world.item.Items.STICK)), "a stick is no wrench");
+        h.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void wrenchScrollRequiresBuildPermissionAndSneaking(GameTestHelper h) {
         h.setBlock(DESTINATION, Blocks.CHEST);PipeBlockEntity pipe = pipe(h);

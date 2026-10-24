@@ -10,7 +10,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
+import java.util.List;
 import java.util.Locale;
+import java.util.stream.Stream;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -26,8 +28,13 @@ import net.minecraft.world.item.context.UseOnContext;
  * sides change their priority.
  */
 public class WrenchItem extends Item implements PipeInteractable {
-    /** Wrenches of any mod (Create, Mekanism, Thermal...): they configure pipes too, see {@code CommonEvents}. */
-    public static final TagKey<Item> WRENCHES = ItemTags.create(new ResourceLocation("forge", "tools/wrench"));
+    /**
+     * The tags mods put their wrenches in (Create, Mekanism, Thermal...): those configure pipes too, see
+     * {@code CommonEvents}. The Flowline Wrench is in all of them (tools/gen/common.py WRENCH_TAGS).
+     */
+    public static final List<TagKey<Item>> WRENCHES = Stream.of("forge:tools/wrench", "forge:wrenches",
+                    "forge:tools/wrenches", "c:wrenches", "c:tools/wrench")
+            .map(id -> ItemTags.create(new ResourceLocation(id))).toList();
 
     /** What a wrench does to a pipe side; shared with other mods' wrenches. */
     public static final PipeInteractable ACTIONS = (pipe, side, conn, player, hand, stack) -> {
@@ -43,7 +50,7 @@ public class WrenchItem extends Item implements PipeInteractable {
     }
 
     public static boolean isWrench(ItemStack stack) {
-        return stack.getItem() instanceof WrenchItem || stack.is(WRENCHES);
+        return stack.getItem() instanceof WrenchItem || WRENCHES.stream().anyMatch(stack::is);
     }
 
     @Override
